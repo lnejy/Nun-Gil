@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>눈길 — EyeDID 읽기 시선 추적</title>
+
+<!-- EyeDID (SeeSo) SDK -->
+<script src="https://cdn.seeso.io/seeso.js" crossorigin="anonymous"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:         #0c0c0c;
+  --surface:    #181818;
+  --surface2:   #202020;
+  --border:     rgba(255,255,255,0.08);
+  --border2:    rgba(255,255,255,0.15);
+  --text:       #ece8e0;
+  --text2:      #78736e;
+  --text3:      #38352f;
+  --accent:     #c8f53a;
+  --accent-d:   rgba(200,245,58,0.12);
+  --warn:       #f5c43a;
+  --warn-d:     rgba(245,196,58,0.12);
+  --danger:     #f5443a;
+  --danger-d:   rgba(245,68,58,0.12);
+  --info:       #3ab4f5;
+  --info-d:     rgba(58,180,245,0.12);
+}
+
+html, body { width:100%; height:100%; overflow:hidden; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Georgia', serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Topbar ── */
+#topbar {
+  width:100%; height:46px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 28px;
+  border-bottom:1px solid var(--border);
+  background:var(--bg);
+  z-index:300;
+}
+.brand { font-family:Arial,sans-serif; font-size:15px; font-weight:700; letter-spacing:-.02em; }
+.brand em { color:var(--accent); font-style:normal; }
+.brand sub { font-size:9px; color:var(--text3); font-weight:400; vertical-align:baseline; margin-left:6px; letter-spacing:.04em; }
+
+#step-indicator { display:flex; align-items:center; gap:5px; }
+.s-pip { width:6px; height:6px; border-radius:50%; background:var(--text3); transition:background .3s; }
+.s-pip.active { background:var(--accent); }
+.s-pip.done   { background:var(--text2); }
+
+#sys-status { display:flex; align-items:center; gap:7px; font-family:Arial,sans-serif; font-size:12px; color:var(--text2); }
+.sdot { width:7px; height:7px; border-radius:50%; background:var(--text3); transition:background .3s,box-shadow .3s; }
+.sdot.on   { background:var(--accent); box-shadow:0 0 6px var(--accent); }
+.sdot.warn { background:var(--warn); }
+.sdot.err  { background:var(--danger); }
+
+/* ── Screens ── */
+.screen { display:none; flex-direction:column; align-items:center; width:100%; flex:1; min-height:0; }
+.screen.active { display:flex; }
+
+/* ══ Screen 1: Setup ══ */
+#screen-setup {
+  justify-content:center; gap:22px;
+  padding:40px 24px; max-width:460px; margin:0 auto; text-align:center;
+}
+.setup-title { font-size:26px; font-weight:400; letter-spacing:-.02em; line-height:1.35; }
+.setup-desc  { font-size:13px; color:var(--text2); line-height:1.85; font-family:Arial,sans-serif; }
+
+.checklist { display:flex; flex-direction:column; gap:7px; width:100%; }
+.check-item {
+  display:flex; align-items:center; gap:12px;
+  padding:11px 15px; border-radius:8px;
+  background:var(--surface); border:1px solid var(--border);
+  font-size:13px; font-family:Arial,sans-serif; color:var(--text2);
+  transition:border-color .3s, color .3s;
+}
+.check-item.ok  { border-color:rgba(200,245,58,.3); color:var(--text); }
+.check-item.err { border-color:rgba(245,68,58,.4);  color:var(--danger); }
+.check-icon { font-size:13px; width:18px; text-align:center; color:var(--text3); transition:color .3s; }
+.check-item.ok  .check-icon { color:var(--accent); }
+.check-item.err .check-icon { color:var(--danger); }
+
+.btn-main {
+  padding:13px 38px; border-radius:8px;
+  background:var(--accent); color:#0a0a0a;
+  border:none; font-family:Arial,sans-serif; font-size:14px; font-weight:700;
+  cursor:pointer; letter-spacing:.02em; transition:opacity .15s;
+}
+.btn-main:hover { opacity:.88; }
+.btn-main:disabled { opacity:.2; cursor:not-allowed; }
+
+.privacy-note { font-size:11px; color:var(--text3); font-family:Arial,sans-serif; line-height:1.7; }
+
+/* ══ Screen 2: Calibration ══ */
+#screen-calib {
+  position:relative; width:100%; flex:1; overflow:hidden;
+  background:var(--bg);
+}
+
+#calib-hud {
+  position:absolute; top:0; left:0; right:0;
+  display:flex; flex-direction:column; align-items:center;
+  padding:22px 20px 0; z-index:30; pointer-events:none;
+}
+#calib-phase-lbl {
+  font-family:Arial,sans-serif; font-size:10px; letter-spacing:.12em;
+  color:var(--text3); text-transform:uppercase; margin-bottom:7px;
+}
+#calib-title { font-size:20px; font-weight:400; color:var(--text); margin-bottom:5px; text-align:center; }
+#calib-sub   { font-size:13px; color:var(--text2); font-family:Arial,sans-serif; text-align:center; line-height:1.6; max-width:420px; }
+
+#calib-bottom {
+  position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+  display:flex; flex-direction:column; align-items:center; gap:8px;
+  z-index:30; pointer-events:none;
+}
+#calib-pips { display:flex; gap:5px; flex-wrap:wrap; justify-content:center; max-width:220px; }
+.c-pip { width:7px; height:7px; border-radius:50%; background:var(--text3); transition:background .2s; }
+.c-pip.active { background:var(--warn); }
+.c-pip.done   { background:var(--accent); }
+#calib-prog-txt { font-family:Arial,sans-serif; font-size:12px; color:var(--text2); letter-spacing:.06em; }
+
+/* Calib dot */
+.calib-dot {
+  position:absolute;
+  width:28px; height:28px; border-radius:50%;
+  border:2px solid var(--accent);
+  transform:translate(-50%,-50%);
+  display:flex; align-items:center; justify-content:center;
+  z-index:20; pointer-events:none;
+  opacity:0; transition:opacity .3s;
+}
+.calib-dot.visible { opacity:1; }
+.calib-dot.done    { border-color:var(--text3); opacity:.2; pointer-events:none; }
+.calib-dot-inner {
+  width:8px; height:8px; border-radius:50%;
+  background:var(--accent); transition:transform .15s;
+  position:relative; z-index:2;
+}
+.calib-ring-svg { position:absolute; inset:-6px; pointer-events:none; }
+
+@keyframes cpulse {
+  0%,100% { box-shadow:0 0 0 0 rgba(200,245,58,.5); }
+  50%      { box-shadow:0 0 0 14px rgba(200,245,58,0); }
+}
+.calib-dot.sampling { animation:cpulse .85s infinite; }
+
+/* ══ Screen 3: Reading ══ */
+#screen-read {
+  flex-direction:column; align-items:center;
+  width:100%; flex:1; overflow:hidden; position:relative;
+}
+#read-header {
+  width:100%; max-width:700px;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 0 12px; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+#read-header-left { display:flex; flex-direction:column; gap:4px; }
+#read-header-left > span { font-family:Arial,sans-serif; font-size:13px; color:var(--text2); }
+
+#stab-row { display:flex; align-items:center; gap:7px; font-family:Arial,sans-serif; font-size:11px; color:var(--text3); }
+#stab-bar-wrap { width:60px; height:4px; background:var(--surface2); border-radius:2px; overflow:hidden; }
+#stab-bar { height:100%; background:var(--accent); width:0%; transition:width .4s; border-radius:2px; }
+
+.read-btns { display:flex; gap:8px; }
+.btn-sm {
+  padding:6px 14px; border-radius:6px;
+  background:transparent; color:var(--text2);
+  border:1px solid var(--border); font-size:12px;
+  cursor:pointer; font-family:Arial,sans-serif; transition:background .15s,color .15s;
+}
+.btn-sm:hover { background:var(--surface); color:var(--text); }
+.btn-sm.accent { border-color:var(--accent); color:var(--accent); }
+.btn-sm.accent:hover { background:var(--accent-d); }
+
+#article-wrap {
+  width:100%; max-width:700px;
+  padding:34px 0 56px; overflow-y:auto; flex:1; min-height:0;
+}
+.article-title { font-size:24px; font-weight:400; line-height:1.4; letter-spacing:-.02em; margin-bottom:7px; }
+.article-meta  { font-size:12px; color:var(--text2); font-family:Arial,sans-serif; margin-bottom:30px; padding-bottom:18px; border-bottom:1px solid var(--border); }
+.article-body p { font-size:19px; line-height:2.05; margin-bottom:30px; letter-spacing:.01em; word-break:keep-all; }
+
+.word { display:inline; border-radius:3px; padding:1px 1px; transition:background .08s,color .08s; }
+.word.gazed   { background:var(--accent-d); color:var(--accent); }
+.word.visited { border-bottom:1px solid rgba(200,245,58,.18); }
+
+/* ══ Gaze overlays ══ */
+#gaze-dot {
+  position:fixed; width:14px; height:14px; border-radius:50%;
+  background:rgba(200,245,58,.85);
+  pointer-events:none; transform:translate(-50%,-50%);
+  z-index:999; box-shadow:0 0 10px rgba(200,245,58,.4);
+  opacity:0; transition:opacity .2s;
+}
+#gaze-dot.visible { opacity:1; }
+
+#trail-canvas { position:fixed; inset:0; pointer-events:none; z-index:998; }
+
+#prog-bar {
+  position:fixed; top:46px; left:0;
+  height:2px; background:var(--accent);
+  width:0%; z-index:100; opacity:0; transition:width .15s;
+}
+#prog-bar.visible { opacity:1; }
+
+/* ══ Screen 4: Result ══ */
+#screen-result {
+  justify-content:center; gap:24px;
+  padding:48px 24px; max-width:520px; margin:0 auto; text-align:center; overflow-y:auto;
+}
+.result-title { font-size:24px; font-weight:400; letter-spacing:-.02em; }
+.result-grid  { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; }
+.result-card  {
+  background:var(--surface); border:1px solid var(--border); border-radius:10px;
+  padding:18px 14px; display:flex; flex-direction:column; align-items:center; gap:5px;
+}
+.result-val   { font-family:Arial,sans-serif; font-size:30px; font-weight:700; color:var(--accent); letter-spacing:-.02em; }
+.result-lbl   { font-size:11px; color:var(--text2); font-family:Arial,sans-serif; letter-spacing:.04em; }
+.result-desc  { font-size:13px; color:var(--text2); line-height:1.8; font-family:Arial,sans-serif; max-width:400px; }
+.btn-row { display:flex; gap:10px; justify-content:center; }
+
+/* ══ Loading overlay ══ */
+#loading-overlay {
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(12,12,12,.95);
+  display:none; flex-direction:column;
+  align-items:center; justify-content:center; gap:16px;
+}
+#loading-overlay.active { display:flex; }
+.loading-spinner {
+  width:32px; height:32px; border-radius:50%;
+  border:3px solid var(--surface2);
+  border-top-color:var(--accent);
+  animation:spin .7s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+#loading-text {
+  font-family:Arial,sans-serif; font-size:13px;
+  color:var(--text2); text-align:center; line-height:1.6;
+}
+</style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div id="loading-text">EyeDID SDK 초기화 중...</div>
+</div>
+
+<!-- Gaze overlays -->
+<canvas id="trail-canvas"></canvas>
+<div id="gaze-dot"></div>
+<div id="prog-bar"></div>
+
+<!-- Topbar -->
+<div id="topbar">
+  <span class="brand">눈<em>길</em><sub>EyeDID</sub></span>
+  <div id="step-indicator">
+    <div class="s-pip active" id="pip-0"></div>
+    <div class="s-pip" id="pip-1"></div>
+    <div class="s-pip" id="pip-2"></div>
+    <div class="s-pip" id="pip-3"></div>
+  </div>
+  <div id="sys-status">
+    <div class="sdot" id="sdot"></div>
+    <span id="status-txt">대기 중</span>
+  </div>
+</div>
+
+<!-- Screen 1: Setup -->
+<div class="screen active" id="screen-setup">
+  <h1 class="setup-title">읽기 시선 추적 테스트</h1>
+  <p class="setup-desc">EyeDID SDK 기반 고정밀 시선 추적입니다.<br>캘리브레이션 후 글을 평소처럼 읽어 주세요.</p>
+  <div class="checklist">
+    <div class="check-item" id="chk-browser"><span class="check-icon">○</span><span>Chrome / Edge / Firefox / Safari 브라우저</span></div>
+    <div class="check-item" id="chk-camera"><span class="check-icon">○</span><span>카메라 확인 중...</span></div>
+    <div class="check-item" id="chk-sdk"><span class="check-icon">○</span><span>EyeDID SDK 로딩 확인 중...</span></div>
+    <div class="check-item" id="chk-env"><span class="check-icon">○</span><span>화면에서 50–70cm, 정면을 바라보세요</span></div>
+  </div>
+  <button class="btn-main" id="btn-begin" disabled onclick="beginSession()">시작하기</button>
+  <p class="privacy-note">카메라 데이터는 브라우저 내에서만 처리됩니다. 외부 서버로 영상이 전송되지 않습니다.</p>
+</div>
+
+<!-- Screen 2: Calibration -->
+<div class="screen" id="screen-calib">
+  <div id="calib-hud">
+    <div id="calib-phase-lbl">CALIBRATION</div>
+    <div id="calib-title">초록색 점을 바라봐 주세요</div>
+    <div id="calib-sub">각 점이 나타나면 점을 바라보며 잠시 기다려 주세요.<br>자동으로 시선 데이터를 수집합니다.</div>
+  </div>
+  <div id="calib-dots-wrap"></div>
+  <div id="calib-bottom">
+    <div id="calib-pips"></div>
+    <div id="calib-prog-txt">0 / 5</div>
+  </div>
+</div>
+
+<!-- Screen 3: Reading -->
+<div class="screen" id="screen-read">
+  <div id="read-header">
+    <div id="read-header-left">
+      <span>글을 평소처럼 읽어 주세요</span>
+      <div id="stab-row">
+        <span>시선 안정도</span>
+        <div id="stab-bar-wrap"><div id="stab-bar"></div></div>
+        <span id="stab-val">—</span>
+      </div>
+    </div>
+    <div class="read-btns">
+      <button class="btn-sm" onclick="restartCalib()">재캘리브레이션</button>
+      <button class="btn-sm accent" onclick="finishReading()">읽기 완료 →</button>
+    </div>
+  </div>
+  <div id="article-wrap"><div id="article-content"></div></div>
+</div>
+
+<!-- Screen 4: Result -->
+<div class="screen" id="screen-result">
+  <h2 class="result-title">결과 요약</h2>
+  <div class="result-grid">
+    <div class="result-card"><div class="result-val" id="res-cov">—</div><div class="result-lbl">텍스트 커버리지</div></div>
+    <div class="result-card"><div class="result-val" id="res-on">—</div><div class="result-lbl">화면 유지율</div></div>
+    <div class="result-card"><div class="result-val" id="res-time">—</div><div class="result-lbl">읽기 소요 시간</div></div>
+    <div class="result-card"><div class="result-val" id="res-words">—</div><div class="result-lbl">응시 단어 수</div></div>
+  </div>
+  <p class="result-desc" id="res-summary"></p>
+  <div class="btn-row">
+    <button class="btn-sm" onclick="restartCalib()">재캘리브레이션</button>
+    <button class="btn-sm accent" onclick="nextPassage()">다음 글 읽기</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ════════════════════════════════════════════════════════════════
+//  눈길 — EyeDID (SeeSo) SDK 기반 시선 추적
+//
+//  파이프라인 (MediaPipe 대비 대폭 간소화):
+//  1. EyeDID SDK가 딥러닝으로 시선 좌표(px) 직접 출력
+//  2. OneEuroFilter로 스무딩
+//  3. 읽기 추적 & 결과 분석 (기존 로직 유지)
+// ════════════════════════════════════════════════════════════════
+
+const LICENSE_KEY = 'dev_figw9wf24kntvlm1kitwvabnthsh58be86ysqt8e';
+
+// ── 읽기 텍스트 (기존과 동일) ────────────────────────────────
+const PASSAGES = [
+  {
+    title: "집중이란 무엇인가",
+    meta: "심리학 | 읽기 예상 시간 약 1분",
+    body: [
+      "집중이란 단순히 한 가지 일에 오래 앉아 있는 것을 의미하지 않는다. 진정한 집중은 외부 자극에 반응하지 않으면서 내면의 주의를 특정 대상에 능동적으로 고정하는 상태를 말한다. 이 상태에서 뇌는 불필요한 정보를 걸러내고, 필요한 정보만을 처리하는 선택적 주의를 발휘하게 된다.",
+      "현대인에게 집중은 점점 희귀한 자원이 되고 있다. 스마트폰 알림, 소셜미디어, 짧은 영상 콘텐츠는 뇌가 빠른 보상에 익숙해지도록 훈련시킨다. 그 결과 길고 깊은 사고를 요하는 독서나 학습에서 주의가 쉽게 흩어지는 현상이 나타난다. 이를 주의 단편화라 부른다.",
+      "집중력을 회복하는 핵심은 환경 설계에 있다. 방해 요소를 물리적으로 차단하고, 명확한 목표를 설정하며, 한 번에 하나의 과제에만 몰두하는 습관이 중요하다. 시선을 텍스트 위에 천천히 고정하며 읽는 행위 자체가 집중 근육을 단련하는 가장 오래된 방법 중 하나이다.",
+    ]
+  },
+  {
+    title: "글을 읽는다는 것의 의미",
+    meta: "인문학 | 읽기 예상 시간 약 1분",
+    body: [
+      "글을 읽는다는 행위는 단순한 정보 수집 이상의 의미를 지닌다. 독자는 텍스트를 통해 저자의 사고 과정을 따라가며, 그 과정에서 자신의 경험과 지식을 새로운 방식으로 재구성한다. 이것이 독서를 단순 검색과 구분 짓는 본질적 차이다.",
+      "눈은 텍스트를 선형적으로 훑지 않는다. 숙련된 독자의 시선은 줄 위를 빠르게 도약하다가, 중요한 단어나 개념에서 일시적으로 멈추는 고정 패턴을 반복한다. 이 고정 지점의 분포를 분석하면 독자가 어느 부분에서 인지적 부하를 느끼는지 파악할 수 있다.",
+      "글을 깊이 이해하려면 단어 단위의 인식을 넘어 문장과 문단의 구조를 파악해야 한다. 핵심 주장과 근거를 구분하고, 글의 흐름을 예측하며 읽는 능동적 독해가 기억 정착률과 이해도를 크게 높인다. 시선 추적 데이터는 이 과정을 가시화하는 창이 된다.",
+    ]
+  },
+  {
+    title: "기억과 반복 사이",
+    meta: "학습과학 | 읽기 예상 시간 약 1분",
+    body: [
+      "인간의 기억은 반복 노출만으로 강화되지 않는다. 단순히 같은 내용을 여러 번 읽는 것은 친숙함의 착각을 만들 뿐, 실제 장기기억으로의 전환 효율은 낮다. 진정한 기억 강화는 인출 연습, 즉 머릿속에서 능동적으로 내용을 꺼내는 과정을 통해 이루어진다.",
+      "시선이 텍스트 위에 머무는 시간은 처리 깊이와 비례한다. 짧고 빠른 시선 이동은 표면적 훑기를 의미하며, 반대로 특정 문장에서 시선이 느리게 이동하거나 되돌아오는 현상은 의미를 적극적으로 처리하고 있다는 신호다. 이를 회귀 안구 운동이라 한다.",
+      "효과적인 학습자는 자신이 이해하지 못한 부분을 스스로 감지하고, 그 지점에서 읽기 속도를 늦추거나 다시 읽는 전략을 자연스럽게 구사한다. 시선 추적은 이러한 자기조절 학습의 패턴을 외부에서 관찰하고 분석하는 강력한 도구가 된다.",
+    ]
+  }
+];
+
+// ════════════════════════════════════════════════════════════════
+//  State
+// ════════════════════════════════════════════════════════════════
+const S = {
+  sdkReady: false,
+
+  // Smoothing
+  prevX: 0, prevY: 0,
+  stabBuf: [],
+
+  // Gaze output
+  gx: 0, gy: 0,
+
+  // Calibration
+  calibDone: false,
+  calibPointIdx: 0,
+  calibTotalPoints: 5,
+
+  // Reading
+  readStart: null,
+  onFrames: 0, totFrames: 0,
+  gazedWords: new Set(),
+  totalWords: 0,
+  passageIdx: 0,
+};
+
+// ── SDK 인스턴스 ──────────────────────────────────────────
+let seeso = null;
+
+// ── DOM ──────────────────────────────────────────────────────
+const gazeDot      = document.getElementById('gaze-dot');
+const trailCanvas  = document.getElementById('trail-canvas');
+const tCtx         = trailCanvas.getContext('2d');
+const trail        = [];
+
+function resizeCanvases() {
+  trailCanvas.width  = window.innerWidth;
+  trailCanvas.height = window.innerHeight;
+}
+resizeCanvases();
+window.addEventListener('resize', resizeCanvases);
+
+// ════════════════════════════════════════════════════════════════
+//  간단한 스무딩 (EMA + Velocity damping)
+//  — OneEuroFilter가 CDN 번들에 포함되지 않을 경우의 폴백
+// ════════════════════════════════════════════════════════════════
+const EMA_A = 0.25;
+const VEL_T = 80;
+const VEL_D = 0.35;
+
+function smoothGaze(rx, ry) {
+  if (S.prevX === 0 && S.prevY === 0) {
+    S.prevX = rx; S.prevY = ry;
+  }
+
+  // EMA
+  let ex = EMA_A * rx + (1 - EMA_A) * S.prevX;
+  let ey = EMA_A * ry + (1 - EMA_A) * S.prevY;
+
+  // Velocity damping
+  const dx = ex - S.prevX, dy = ey - S.prevY;
+  const vel = Math.sqrt(dx * dx + dy * dy);
+  if (vel > VEL_T) {
+    ex = S.prevX + dx * VEL_D;
+    ey = S.prevY + dy * VEL_D;
+  }
+
+  S.prevX = ex; S.prevY = ey;
+  S.stabBuf.push(vel);
+  if (S.stabBuf.length > 30) S.stabBuf.shift();
+
+  return { x: ex, y: ey };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  시선 콜백 (EyeDID onGaze)
+// ════════════════════════════════════════════════════════════════
+function onGaze(gazeInfo) {
+  // gazeInfo: { x, y, trackingState, eyeMovementState, timestamp }
+  if (!gazeInfo || gazeInfo.trackingState === 0) {
+    // FACE_MISSING or invalid
+    return;
+  }
+
+  const raw = smoothGaze(gazeInfo.x, gazeInfo.y);
+  S.gx = raw.x;
+  S.gy = raw.y;
+
+  // ── Gaze dot 이동 ──
+  gazeDot.style.left = S.gx + 'px';
+  gazeDot.style.top  = S.gy + 'px';
+
+  // ── Trail ──
+  trail.push({ x: S.gx, y: S.gy, t: Date.now() });
+  if (trail.length > 50) trail.shift();
+  drawTrail();
+
+  // ── Stability UI ──
+  updateStabUI();
+
+  // ── Reading tracking ──
+  if (S.calibDone &&
+      document.getElementById('screen-read').classList.contains('active')) {
+    S.totFrames++;
+    const r = document.getElementById('screen-read').getBoundingClientRect();
+    if (S.gx > r.left && S.gx < r.right && S.gy > r.top && S.gy < r.bottom) {
+      S.onFrames++;
+    }
+    detectGazedWord(S.gx, S.gy);
+    updateProgBar(S.gy);
+  }
+}
+
+function onDebug(FPS, accuracy) {
+  // 디버그 정보 (필요 시 활용)
+}
+
+// ════════════════════════════════════════════════════════════════
+//  Setup checks
+// ════════════════════════════════════════════════════════════════
+async function checkSetup() {
+  // 브라우저 체크 (EyeDID는 더 많은 브라우저 지원)
+  const ok = typeof navigator.mediaDevices !== 'undefined';
+  setChk('chk-browser', ok, ok ? '브라우저 확인됨' : '카메라 API를 지원하지 않는 브라우저입니다');
+
+  setChk('chk-env', true, '화면에서 50–70cm, 정면을 바라보세요');
+
+  // SDK 로딩 체크
+  const sdkLoaded = typeof EasySeeSo !== 'undefined';
+  setChk('chk-sdk', sdkLoaded, sdkLoaded ? 'EyeDID SDK 로딩됨' : 'EyeDID SDK를 로딩할 수 없습니다');
+
+  // 카메라 체크
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream.getTracks().forEach(t => t.stop());
+    setChk('chk-camera', true, '카메라 접근 허용됨');
+    if (ok && sdkLoaded) {
+      document.getElementById('btn-begin').disabled = false;
+    }
+  } catch(e) {
+    setChk('chk-camera', false, '카메라 접근이 거부되었습니다');
+  }
+}
+
+function setChk(id, ok, msg) {
+  const el = document.getElementById(id);
+  el.className = 'check-item' + (ok ? ' ok' : ' err');
+  el.querySelector('.check-icon').textContent = ok ? '✓' : '✗';
+  el.querySelector('span:last-child').textContent = msg;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  세션 시작 → EyeDID SDK 초기화
+// ════════════════════════════════════════════════════════════════
+async function beginSession() {
+  showLoading('EyeDID SDK 초기화 중...');
+
+  try {
+    seeso = new EasySeeSo();
+
+    await seeso.init(
+      LICENSE_KEY,
+      onGaze,
+      onDebug
+    );
+
+    S.sdkReady = true;
+    setStatus('SDK 준비됨', 'on');
+    hideLoading();
+
+    // 캘리브레이션 화면으로
+    setStep(1);
+    beginCalibration();
+
+  } catch(e) {
+    hideLoading();
+    setStatus('SDK 초기화 실패: ' + e.message, 'err');
+    console.error('EyeDID init error:', e);
+    alert('EyeDID SDK 초기화에 실패했습니다.\n\n오류: ' + (e.message || e) + '\n\n인터넷 연결을 확인하고 다시 시도해 주세요.');
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  캘리브레이션 (EyeDID SDK 내장 기능 사용)
+// ════════════════════════════════════════════════════════════════
+function beginCalibration() {
+  S.calibPointIdx = 0;
+  S.calibDone = false;
+
+  const wrap = document.getElementById('calib-dots-wrap');
+  wrap.innerHTML = '';
+
+  document.getElementById('calib-phase-lbl').textContent = 'CALIBRATION';
+  document.getElementById('calib-title').textContent = '초록색 점을 바라봐 주세요';
+  document.getElementById('calib-sub').textContent =
+    '각 점이 나타나면 점을 바라보며 잠시 기다려 주세요. 자동으로 시선 데이터를 수집합니다.';
+
+  // 캘리브레이션 진행 상태 pip 초기화
+  const pipsEl = document.getElementById('calib-pips');
+  pipsEl.innerHTML = '';
+  for (let i = 0; i < S.calibTotalPoints; i++) {
+    pipsEl.innerHTML += `<div class="c-pip" id="cpip-${i}"></div>`;
+  }
+  document.getElementById('calib-prog-txt').textContent = `0 / ${S.calibTotalPoints}`;
+
+  setStatus('캘리브레이션 시작', 'warn');
+
+  // 추적 시작 (캘리브레이션 전 필수)
+  seeso.startTracking();
+
+  // ── 커스텀 캘리브레이션 콜백 설정 ──
+
+  // 1) 다음 캘리브레이션 포인트 좌표 수신
+  seeso.setOnCalibrationNextPoint(function(x, y) {
+    showCalibDot(x, y, S.calibPointIdx);
+
+    // 포인트를 표시한 뒤 사용자가 볼 시간(1초)을 준 후 샘플 수집 시작
+    setTimeout(function() {
+      try {
+        seeso.startCollectSamples();
+      } catch(e) {
+        console.warn('startCollectSamples error:', e);
+      }
+    }, 1000);
+  });
+
+  // 2) 진행률 콜백
+  seeso.setOnCalibrationProgress(function(progress) {
+    updateCalibProgress(S.calibPointIdx, progress);
+  });
+
+  // 3) 캘리브레이션 완료
+  seeso.setOnCalibrationFinished(function(calibrationData) {
+    setStatus('캘리브레이션 완료', 'on');
+    // 캘리브레이션 데이터 저장 (재사용 가능)
+    try {
+      localStorage.setItem('nungil_calib', calibrationData);
+    } catch(e) {}
+
+    // 읽기 모드로
+    setTimeout(function() {
+      proceedToRead();
+    }, 500);
+  });
+
+  // 캘리브레이션 시작! (5포인트)
+  seeso.startCalibration(S.calibTotalPoints);
+}
+
+function showCalibDot(x, y, idx) {
+  const wrap = document.getElementById('calib-dots-wrap');
+
+  // 이전 점 정리
+  const prevDot = document.getElementById('cdot-active');
+  if (prevDot) {
+    prevDot.classList.remove('visible', 'sampling');
+    prevDot.classList.add('done');
+    prevDot.id = '';
+  }
+
+  // 이전 pip done
+  if (idx > 0) {
+    const prevPip = document.getElementById(`cpip-${idx - 1}`);
+    if (prevPip) { prevPip.classList.remove('active'); prevPip.classList.add('done'); }
+  }
+
+  // 현재 pip active
+  const curPip = document.getElementById(`cpip-${idx}`);
+  if (curPip) curPip.classList.add('active');
+
+  S.calibPointIdx = idx + 1;
+  document.getElementById('calib-prog-txt').textContent =
+    `${S.calibPointIdx} / ${S.calibTotalPoints}`;
+
+  // 새 점 생성
+  const d = document.createElement('div');
+  d.className = 'calib-dot visible sampling';
+  d.id = 'cdot-active';
+  d.style.left = x + 'px';
+  d.style.top  = (y - 46) + 'px'; // topbar 높이 보정 (calib 영역이 topbar 아래)
+  d.innerHTML = `
+    <svg class="calib-ring-svg" viewBox="0 0 42 42" style="width:42px;height:42px;">
+      <circle cx="21" cy="21" r="17" fill="none" stroke="rgba(200,245,58,.1)" stroke-width="2"/>
+      <circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="var(--accent)"
+        stroke-width="2.5" stroke-linecap="round"
+        stroke-dasharray="106.8" stroke-dashoffset="106.8"
+        transform="rotate(-90 21 21)"/>
+    </svg>
+    <div class="calib-dot-inner"></div>`;
+  wrap.appendChild(d);
+}
+
+function updateCalibProgress(idx, progress) {
+  const ring = document.getElementById('cring-active');
+  if (ring) {
+    const total = 106.8;
+    ring.style.strokeDashoffset = total * (1 - progress);
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  읽기
+// ════════════════════════════════════════════════════════════════
+function proceedToRead() {
+  S.calibDone = true;
+  buildArticle();
+  setStep(2);
+  document.getElementById('prog-bar').classList.add('visible');
+  gazeDot.classList.add('visible');
+  setStatus('추적 중', 'on');
+  S.readStart = Date.now();
+  S.onFrames  = 0; S.totFrames = 0;
+  S.gazedWords = new Set();
+  S.totalWords = document.querySelectorAll('.word').length;
+}
+
+function buildArticle() {
+  const p = PASSAGES[S.passageIdx % PASSAGES.length];
+  let html = `<div class="article-title">${p.title}</div>
+              <div class="article-meta">${p.meta}</div>
+              <div class="article-body">`;
+  p.body.forEach((para, pi) => {
+    html += '<p>';
+    para.split(/\s+/).forEach((w, wi) => {
+      html += `<span class="word" id="w-${pi}-${wi}">${w} </span>`;
+    });
+    html += '</p>';
+  });
+  html += '</div>';
+  document.getElementById('article-content').innerHTML = html;
+}
+
+function detectGazedWord(x, y) {
+  document.querySelector('.word.gazed')?.classList.replace('gazed','visited');
+  const el = document.elementFromPoint(x, y);
+  if (el?.classList.contains('word')) {
+    el.classList.add('gazed');
+    S.gazedWords.add(el.id);
+  }
+}
+
+function updateProgBar(gy) {
+  const wrap = document.getElementById('article-wrap');
+  if (!wrap) return;
+  const r   = wrap.getBoundingClientRect();
+  const pct = Math.min(100, Math.max(0, ((gy-r.top)/r.height)*100));
+  document.getElementById('prog-bar').style.width = pct+'%';
+}
+
+function updateStabUI() {
+  if (!S.stabBuf.length) return;
+  const avg  = S.stabBuf.reduce((a,b)=>a+b,0)/S.stabBuf.length;
+  const stab = Math.max(0, Math.min(100, 100-avg*1.2));
+  document.getElementById('stab-bar').style.width = Math.round(stab)+'%';
+  document.getElementById('stab-val').textContent  = Math.round(stab)+'%';
+}
+
+function drawTrail() {
+  tCtx.clearRect(0,0,trailCanvas.width,trailCanvas.height);
+  if (trail.length < 2) return;
+  const now = Date.now();
+  for (let i=1; i<trail.length; i++) {
+    const a=trail[i-1], b=trail[i];
+    const age   = (now-b.t)/700;
+    const alpha = Math.max(0,(1-age)*0.4);
+    tCtx.beginPath(); tCtx.moveTo(a.x,a.y); tCtx.lineTo(b.x,b.y);
+    tCtx.strokeStyle = `rgba(200,245,58,${alpha})`;
+    tCtx.lineWidth=2; tCtx.stroke();
+  }
+}
+
+// ════════════════════════════════════════════════════════════════
+//  결과
+// ════════════════════════════════════════════════════════════════
+function finishReading() {
+  const elapsed = Math.round((Date.now()-S.readStart)/1000);
+  gazeDot.classList.remove('visible');
+  tCtx.clearRect(0,0,trailCanvas.width,trailCanvas.height);
+  document.getElementById('prog-bar').classList.remove('visible');
+  setStatus('완료', '');
+
+  const onPct    = S.totFrames > 0 ? Math.round((S.onFrames/S.totFrames)*100) : 0;
+  const coverage = S.totalWords > 0 ? Math.round((S.gazedWords.size/S.totalWords)*100) : 0;
+  const mm = Math.floor(elapsed/60);
+  const ss = (elapsed%60).toString().padStart(2,'0');
+
+  document.getElementById('res-cov').textContent   = coverage+'%';
+  document.getElementById('res-on').textContent    = onPct+'%';
+  document.getElementById('res-time').textContent  = mm>0 ? `${mm}분 ${ss}초` : `${ss}초`;
+  document.getElementById('res-words').textContent = S.gazedWords.size;
+  document.getElementById('res-summary').textContent =
+    coverage>=80 ? '텍스트 대부분을 시선으로 따라갔습니다. 추적 정확도가 우수합니다.' :
+    coverage>=55 ? '절반 이상을 추적했습니다. 재캘리브레이션하면 더 높아질 수 있습니다.' :
+                   '추적 범위가 좁습니다. 재캘리브레이션을 권장합니다.';
+  setStep(3);
+  S.passageIdx++;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  네비게이션
+// ════════════════════════════════════════════════════════════════
+function restartCalib() {
+  Object.assign(S, {
+    calibDone: false,
+    calibPointIdx: 0,
+    prevX: 0, prevY: 0,
+    stabBuf: [],
+  });
+  trail.length = 0;
+  tCtx.clearRect(0,0,trailCanvas.width,trailCanvas.height);
+  gazeDot.classList.remove('visible');
+
+  // 추적 중이면 정지
+  try { seeso.stopTracking(); } catch(e) {}
+
+  setStep(1);
+  beginCalibration();
+}
+
+function nextPassage() { restartCalib(); }
+
+// ════════════════════════════════════════════════════════════════
+//  유틸
+// ════════════════════════════════════════════════════════════════
+function setStep(n) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  ['screen-setup','screen-calib','screen-read','screen-result'][n] &&
+    document.getElementById(['screen-setup','screen-calib','screen-read','screen-result'][n])
+      .classList.add('active');
+  for (let i=0;i<4;i++)
+    document.getElementById(`pip-${i}`).className =
+      's-pip'+(i===n?' active':i<n?' done':'');
+}
+
+function setStatus(msg, mode) {
+  document.getElementById('status-txt').textContent = msg;
+  const d = document.getElementById('sdot');
+  d.className = 'sdot'+(mode==='on'?' on':mode==='warn'?' warn':mode==='err'?' err':'');
+}
+
+function showLoading(msg) {
+  document.getElementById('loading-text').textContent = msg;
+  document.getElementById('loading-overlay').classList.add('active');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('active');
+}
+
+// Boot
+checkSetup();
+</script>
+</body>
+</html>

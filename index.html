@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>눈길 — EyeDID 읽기 시선 추적</title>
+<style>
+/* ──────────────────────────────────────────────────────
+   리셋 (Reset)
+   모든 요소의 box-sizing을 border-box로 통일.
+   border-box: padding/border가 width/height 안에 포함됨.
+   margin, padding을 0으로 초기화해 브라우저 기본 스타일 제거.
+────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ──────────────────────────────────────────────────────
+   CSS 커스텀 프로퍼티(변수) — 디자인 토큰
+   :root = 문서 최상위 요소(html), 전역 변수 정의 공간.
+   var(--이름)으로 어디서든 참조 가능.
+────────────────────────────────────────────────────── */
+:root{
+  --bg:#0c0c0c;           /* 페이지 배경 (거의 검정) */
+  --surface:#181818;      /* 카드/패널 표면 색 */
+  --surface2:#202020;     /* 보조 표면 색 (프로그레스 바 배경 등) */
+  --border:rgba(255,255,255,0.08);   /* 연한 흰색 테두리 */
+  --border2:rgba(255,255,255,0.15);  /* 조금 더 진한 테두리 */
+  --text:#ece8e0;          /* 본문 텍스트 (따뜻한 흰색) */
+  --text2:#78736e;         /* 보조 텍스트 (회갈색) */
+  --text3:#38352f;         /* 비활성 텍스트 (어두운 회갈색) */
+  --accent:#c8f53a;        /* 포인트 색상 (형광 연두) */
+  --accent-d:rgba(200,245,58,0.12); /* 포인트 색 연하게 (응시 하이라이트 배경) */
+  --warn:#f5c43a;          /* 경고 색 (노란색) */
+  --danger:#f5443a;        /* 오류 색 (빨간색) */
+}
+
+/* html, body를 100% 차지하게, 스크롤 없앰 → 풀스크린 UI */
+html,body{width:100%;height:100%;overflow:hidden}
+/* flex-column: 상단바 + 콘텐츠 영역을 세로로 배치 */
+body{background:var(--bg);color:var(--text);font-family:Georgia,serif;display:flex;flex-direction:column;align-items:center}
+
+/* ──────────────────────────────────────────────────────
+   상단바 (Top Bar)
+   flex-shrink:0 → 화면이 줄어들어도 높이가 줄지 않음
+   z-index:300 → 다른 요소 위에 항상 표시
+────────────────────────────────────────────────────── */
+#topbar{width:100%;height:46px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 28px;border-bottom:1px solid var(--border);background:var(--bg);z-index:300}
+
+/* 브랜드 로고 텍스트 */
+.brand{font-family:Arial,sans-serif;font-size:15px;font-weight:700;letter-spacing:-.02em}
+.brand em{color:var(--accent);font-style:normal}   /* "길" 강조 */
+.brand sub{font-size:9px;color:var(--text3);font-weight:400;vertical-align:baseline;margin-left:6px;letter-spacing:.04em}
+
+/* ──────────────────────────────────────────────────────
+   단계 표시기 (Step Indicator)
+   현재 진행 단계를 작은 점(pip)으로 표시.
+   pip 색상: 비활성=text3, 현재=accent(초록), 완료=text2
+────────────────────────────────────────────────────── */
+#step-indicator{display:flex;align-items:center;gap:5px}
+.s-pip{width:6px;height:6px;border-radius:50%;background:var(--text3);transition:background .3s}
+.s-pip.active{background:var(--accent)}.s-pip.done{background:var(--text2)}
+
+/* ──────────────────────────────────────────────────────
+   시스템 상태 표시 (우상단)
+   sdot: 상태 LED. on=초록, warn=노랑, err=빨강
+────────────────────────────────────────────────────── */
+#sys-status{display:flex;align-items:center;gap:7px;font-family:Arial,sans-serif;font-size:12px;color:var(--text2)}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .3s,box-shadow .3s}
+.sdot.on{background:var(--accent);box-shadow:0 0 6px var(--accent)} /* 활성: 글로우 효과 */
+.sdot.warn{background:var(--warn)}.sdot.err{background:var(--danger)}
+
+/* ──────────────────────────────────────────────────────
+   화면 전환 시스템 (Screen System)
+   .screen: 기본 display:none → 숨김
+   .screen.active: display:flex → 표시
+   JS의 setStep()이 .active 클래스를 이동시켜 화면 전환
+────────────────────────────────────────────────────── */
+.screen{display:none;flex-direction:column;align-items:center;width:100%;flex:1;min-height:0}
+.screen.active{display:flex}
+
+/* ── 화면 0: 셋업 ── */
+#screen-setup{justify-content:center;gap:22px;padding:40px 24px;max-width:460px;margin:0 auto;text-align:center}
+.setup-title{font-size:26px;font-weight:400;letter-spacing:-.02em;line-height:1.35}
+.setup-desc{font-size:13px;color:var(--text2);line-height:1.85;font-family:Arial,sans-serif}
+
+/* 체크리스트 항목들: ok=초록 테두리, err=빨간 테두리 */
+.checklist{display:flex;flex-direction:column;gap:7px;width:100%}
+.check-item{display:flex;align-items:center;gap:12px;padding:11px 15px;border-radius:8px;background:var(--surface);border:1px solid var(--border);font-size:13px;font-family:Arial,sans-serif;color:var(--text2);transition:border-color .3s,color .3s}
+.check-item.ok{border-color:rgba(200,245,58,.3);color:var(--text)}
+.check-item.err{border-color:rgba(245,68,58,.4);color:var(--danger)}
+.check-icon{font-size:13px;width:18px;text-align:center;color:var(--text3);transition:color .3s}
+.check-item.ok .check-icon{color:var(--accent)}.check-item.err .check-icon{color:var(--danger)}
+
+/* 주 버튼: disabled일 때 opacity .2로 흐려짐 */
+.btn-main{padding:13px 38px;border-radius:8px;background:var(--accent);color:#0a0a0a;border:none;font-family:Arial,sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:.02em;transition:opacity .15s}
+.btn-main:hover{opacity:.88}.btn-main:disabled{opacity:.2;cursor:not-allowed}
+.privacy-note{font-size:11px;color:var(--text3);font-family:Arial,sans-serif;line-height:1.7}
+
+/* ── 화면 1: 캘리브레이션 ── */
+#screen-calib{position:relative;width:100%;flex:1;overflow:hidden;background:var(--bg)}
+
+/* HUD(헤드업 디스플레이): 화면 상단 중앙 안내 텍스트 */
+#calib-hud{position:absolute;top:0;left:0;right:0;display:flex;flex-direction:column;align-items:center;padding:22px 20px 0;z-index:30;pointer-events:none}
+#calib-phase-lbl{font-family:Arial,sans-serif;font-size:10px;letter-spacing:.12em;color:var(--text3);text-transform:uppercase;margin-bottom:7px}
+#calib-title{font-size:20px;font-weight:400;color:var(--text);margin-bottom:5px;text-align:center}
+#calib-sub{font-size:13px;color:var(--text2);font-family:Arial,sans-serif;text-align:center;line-height:1.6;max-width:420px}
+
+/* 하단 진행률 표시 영역 */
+#calib-bottom{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:30;pointer-events:none}
+#calib-pips{display:flex;gap:5px;flex-wrap:wrap;justify-content:center;max-width:220px}
+
+/* 캘리브레이션 포인트 진행 pip: active=노랑(진행중), done=초록(완료) */
+.c-pip{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .2s}
+.c-pip.active{background:var(--warn)}.c-pip.done{background:var(--accent)}
+#calib-prog-txt{font-family:Arial,sans-serif;font-size:12px;color:var(--text2);letter-spacing:.06em}
+
+/* ──────────────────────────────────────────────────────
+   캘리브레이션 점 (Calib Dot)
+   position:fixed → 화면 절대 좌표 (SDK가 주는 x,y에 배치)
+   transform:translate(-50%,-50%) → 점 중앙이 좌표와 일치
+   opacity:0 → 기본 숨김, .visible 시 나타남
+────────────────────────────────────────────────────── */
+.calib-dot{position:fixed;width:32px;height:32px;border-radius:50%;border:2px solid var(--accent);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;z-index:9000;pointer-events:none;opacity:0;transition:opacity .3s}
+.calib-dot.visible{opacity:1}.calib-dot.done{border-color:var(--text3);opacity:.15}
+.calib-dot-inner{width:12px;height:12px;border-radius:50%;background:var(--accent);position:relative;z-index:2}
+.calib-ring-svg{position:absolute;inset:-6px;pointer-events:none}
+
+/* 샘플링 중 펄스 애니메이션: box-shadow를 확산→소멸 반복 */
+@keyframes cpulse{0%,100%{box-shadow:0 0 0 0 rgba(200,245,58,.5)}50%{box-shadow:0 0 0 14px rgba(200,245,58,0)}}
+.calib-dot.sampling{animation:cpulse .85s infinite}
+
+/* ── 화면 2: 읽기 ── */
+#screen-read{flex-direction:column;align-items:center;width:100%;flex:1;overflow:hidden;position:relative}
+
+/* 읽기 헤더: 안내 텍스트 + 시선 안정도 + 버튼 */
+#read-header{width:100%;max-width:700px;display:flex;align-items:center;justify-content:space-between;padding:14px 0 12px;border-bottom:1px solid var(--border);flex-shrink:0}
+#read-header-left{display:flex;flex-direction:column;gap:4px}
+#read-header-left>span{font-family:Arial,sans-serif;font-size:13px;color:var(--text2)}
+
+/* 시선 안정도 바 */
+#stab-row{display:flex;align-items:center;gap:7px;font-family:Arial,sans-serif;font-size:11px;color:var(--text3)}
+#stab-bar-wrap{width:60px;height:4px;background:var(--surface2);border-radius:2px;overflow:hidden}
+#stab-bar{height:100%;background:var(--accent);width:0%;transition:width .4s;border-radius:2px} /* width가 안정도(%) */
+
+/* 소형 버튼 (재캘리브레이션, 완료) */
+.read-btns{display:flex;gap:8px}
+.btn-sm{padding:6px 14px;border-radius:6px;background:transparent;color:var(--text2);border:1px solid var(--border);font-size:12px;cursor:pointer;font-family:Arial,sans-serif;transition:background .15s,color .15s}
+.btn-sm:hover{background:var(--surface);color:var(--text)}
+.btn-sm.accent{border-color:var(--accent);color:var(--accent)}.btn-sm.accent:hover{background:var(--accent-d)}
+
+/* 글 스크롤 영역: overflow-y:auto로 세로 스크롤 가능, flex:1로 남은 공간 모두 차지 */
+#article-wrap{width:100%;max-width:700px;padding:34px 0 56px;overflow-y:auto;flex:1;min-height:0}
+.article-title{font-size:24px;font-weight:400;line-height:1.4;letter-spacing:-.02em;margin-bottom:7px}
+.article-meta{font-size:12px;color:var(--text2);font-family:Arial,sans-serif;margin-bottom:30px;padding-bottom:18px;border-bottom:1px solid var(--border)}
+
+/* 본문 단어 단위 span 스타일 */
+.article-body p{font-size:19px;line-height:2.05;margin-bottom:30px;letter-spacing:.01em;word-break:keep-all}
+.word{display:inline;border-radius:3px;padding:1px 1px;transition:background .08s,color .08s}
+.word.gazed{background:var(--accent-d);color:var(--accent)} /* 현재 응시 중인 단어: 하이라이트 */
+.word.visited{border-bottom:1px solid rgba(200,245,58,.18)} /* 이미 읽은 단어: 밑줄 */
+
+/* ──────────────────────────────────────────────────────
+   시선 점 (Gaze Dot)
+   position:fixed + translate(-50%,-50%) → 시선 좌표 중앙 배치
+   z-index:99999 → 최상위
+   JS에서 left/top을 매 프레임 갱신
+────────────────────────────────────────────────────── */
+#gaze-dot{position:fixed;width:14px;height:14px;border-radius:50%;background:rgba(200,245,58,.85);pointer-events:none;transform:translate(-50%,-50%);z-index:99999;box-shadow:0 0 10px rgba(200,245,58,.4);opacity:0;transition:left .05s linear,top .05s linear,opacity .2s}
+#gaze-dot.visible{opacity:1}
+#gaze-dot.blink{opacity:.2;transition:opacity .05s} /* 눈 깜빡임 시 반투명 */
+
+/* 시선 궤적 캔버스: 전체 화면 고정, 클릭 이벤트 통과 */
+#trail-canvas{position:fixed;inset:0;pointer-events:none;z-index:998}
+
+/* 읽기 진행 바: 상단바 바로 아래 (top:46px), 시선 Y위치로 너비 결정 */
+#prog-bar{position:fixed;top:46px;left:0;height:2px;background:var(--accent);width:0%;z-index:100;opacity:0;transition:width .15s}
+#prog-bar.visible{opacity:1}
+
+/* ── 화면 3: 결과 ── */
+#screen-result{justify-content:center;gap:24px;padding:48px 24px;max-width:520px;margin:0 auto;text-align:center;overflow-y:auto}
+.result-title{font-size:24px;font-weight:400;letter-spacing:-.02em}
+
+/* 2열 그리드로 4개 지표 카드 배치 */
+.result-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;width:100%}
+.result-card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:18px 14px;display:flex;flex-direction:column;align-items:center;gap:5px}
+.result-val{font-family:Arial,sans-serif;font-size:30px;font-weight:700;color:var(--accent);letter-spacing:-.02em}
+.result-lbl{font-size:11px;color:var(--text2);font-family:Arial,sans-serif;letter-spacing:.04em}
+.result-desc{font-size:13px;color:var(--text2);line-height:1.8;font-family:Arial,sans-serif;max-width:400px}
+.btn-row{display:flex;gap:10px;justify-content:center}
+
+/* ──────────────────────────────────────────────────────
+   로딩 오버레이
+   position:fixed;inset:0 → 전체 화면 덮기
+   display:none → 기본 숨김, .active 시 flex로 중앙 정렬
+────────────────────────────────────────────────────── */
+#loading-overlay{position:fixed;inset:0;z-index:99999;background:rgba(12,12,12,.95);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+#loading-overlay.active{display:flex}
+
+/* 스피너: border-top만 accent색 → 회전하면 돌아가는 원처럼 보임 */
+.loading-spinner{width:32px;height:32px;border-radius:50%;border:3px solid var(--surface2);border-top-color:var(--accent);animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading-text{font-family:Arial,sans-serif;font-size:13px;color:var(--text2);text-align:center;line-height:1.6}
+
+/* 디버그 패널: 개발 중 시선 좌표/상태 실시간 출력 */
+#debug-panel{position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,.85);color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;border-radius:6px;z-index:999999;pointer-events:none;line-height:1.5}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════
+     로딩 오버레이: SDK 초기화 중 전체 화면을 가림
+     JS의 showLoading() / hideLoading()으로 제어
+══════════════════════════════════════════════════════ -->
+<div id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div id="loading-text">EyeDID SDK 초기화 중...</div>
+</div>
+
+<!-- 시선 궤적 캔버스: JS의 drawTrail()이 이 위에 선을 그림 -->
+<canvas id="trail-canvas"></canvas>
+
+<!-- 시선 점: JS의 onGaze()가 left/top을 실시간으로 업데이트 -->
+<div id="gaze-dot"></div>
+
+<!-- 읽기 진행 바: 시선 Y좌표에 따라 너비가 늘어남 -->
+<div id="prog-bar"></div>
+
+<!-- 디버그 패널: 10프레임마다 시선 상태를 텍스트로 출력 -->
+<div id="debug-panel">대기 중...</div>
+
+<!-- ══════════════════════════════════════════════════════
+     상단바: 로고 | 단계 pip | 시스템 상태
+══════════════════════════════════════════════════════ -->
+<div id="topbar">
+  <!-- 브랜드: "눈길" 중 "길"만 accent색 -->
+  <span class="brand">눈<em>길</em><sub>EyeDID</sub></span>
+
+  <!-- 단계 표시기: 0=셋업, 1=캘리브레이션, 2=읽기, 3=결과 -->
+  <div id="step-indicator">
+    <div class="s-pip active" id="pip-0"></div>
+    <div class="s-pip" id="pip-1"></div>
+    <div class="s-pip" id="pip-2"></div>
+    <div class="s-pip" id="pip-3"></div>
+  </div>
+
+  <!-- 시스템 상태 LED + 텍스트 -->
+  <div id="sys-status">
+    <div class="sdot" id="sdot"></div>
+    <span id="status-txt">대기 중</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     화면 0: 셋업
+     - 브라우저/카메라/SDK 체크리스트
+     - 조건 충족 시 시작 버튼 활성화
+══════════════════════════════════════════════════════ -->
+<div class="screen active" id="screen-setup">
+  <h1 class="setup-title">읽기 시선 추적 테스트</h1>
+  <p class="setup-desc">EyeDID SDK 기반 고정밀 시선 추적입니다.<br>캘리브레이션 후 글을 평소처럼 읽어 주세요.</p>
+  <div class="checklist">
+    <!-- 각 check-item은 JS의 setChk()가 ok/err 클래스로 상태 변경 -->
+    <div class="check-item" id="chk-browser"><span class="check-icon">○</span><span>브라우저 확인 중...</span></div>
+    <div class="check-item" id="chk-camera"><span class="check-icon">○</span><span>카메라 확인 중...</span></div>
+    <div class="check-item" id="chk-sdk"><span class="check-icon">○</span><span>EyeDID SDK 로딩 확인 중...</span></div>
+    <div class="check-item" id="chk-env"><span class="check-icon">○</span><span>화면에서 50–70cm, 정면을 바라보세요</span></div>
+  </div>
+  <!-- disabled로 시작 → 체크항목 3개 이상 ok 시 활성화 -->
+  <button class="btn-main" id="btn-begin" disabled onclick="beginSession()">시작하기</button>
+  <p class="privacy-note">카메라 데이터는 브라우저 내에서만 처리됩니다.</p>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     화면 1: 캘리브레이션
+     - 상단 HUD: 안내 문구
+     - 화면 중앙: SDK가 지정한 위치에 calib-dot 동적 생성
+     - 하단: 진행 pip + 텍스트 카운터
+══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-calib">
+  <div id="calib-hud">
+    <div id="calib-phase-lbl">CALIBRATION</div>
+    <div id="calib-title">초록색 점을 바라봐 주세요</div>
+    <div id="calib-sub">각 점이 나타나면 점을 정확히 응시하세요. 정밀도 향상을 위해 6개 점을 수집합니다.</div>
+  </div>
+  <div id="calib-bottom">
+    <div id="calib-pips"></div>          <!-- JS가 동적으로 c-pip 삽입 -->
+    <div id="calib-prog-txt">0 / 6</div> <!-- 현재 포인트 / 전체 포인트 -->
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     화면 2: 읽기
+     - 헤더: 안내 + 시선 안정도 바 + 버튼
+     - article-wrap: 단어 단위로 분리된 본문 (JS가 buildArticle로 생성)
+══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-read">
+  <div id="read-header">
+    <div id="read-header-left">
+      <span>글을 평소처럼 읽어 주세요</span>
+      <!-- 시선 안정도: 최근 30프레임 평균 속도로 계산 -->
+      <div id="stab-row">
+        <span>시선 안정도</span>
+        <div id="stab-bar-wrap"><div id="stab-bar"></div></div>
+        <span id="stab-val">—</span>
+      </div>
+    </div>
+    <div class="read-btns">
+      <button class="btn-sm" onclick="restartCalib()">재캘리브레이션</button>
+      <button class="btn-sm accent" onclick="finishReading()">읽기 완료 →</button>
+    </div>
+  </div>
+  <!-- article-content는 buildArticle()이 innerHTML로 채움 -->
+  <div id="article-wrap"><div id="article-content"></div></div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     화면 3: 결과
+     - 4개 지표 카드 (커버리지, 유지율, 시간, 단어수)
+     - 요약 텍스트 + 재시작/다음 버튼
+══════════════════════════════════════════════════════ -->
+<div class="screen" id="screen-result">
+  <h2 class="result-title">결과 요약</h2>
+  <div class="result-grid">
+    <div class="result-card"><div class="result-val" id="res-cov">—</div><div class="result-lbl">텍스트 커버리지</div></div>
+    <div class="result-card"><div class="result-val" id="res-on">—</div><div class="result-lbl">화면 유지율</div></div>
+    <div class="result-card"><div class="result-val" id="res-time">—</div><div class="result-lbl">읽기 소요 시간</div></div>
+    <div class="result-card"><div class="result-val" id="res-words">—</div><div class="result-lbl">응시 단어 수</div></div>
+  </div>
+  <p class="result-desc" id="res-summary"></p>
+  <div class="btn-row">
+    <button class="btn-sm" onclick="restartCalib()">재캘리브레이션</button>
+    <button class="btn-sm accent" onclick="nextPassage()">다음 글 읽기</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     EyeDID SDK 모듈 로드
+     type="module" → ES Module (import/export 문법 사용 가능)
+     easy-seeso.js를 동적으로 로드하고, 로드 완료 시:
+       1. window.EasySeeSo에 클래스 등록 (전역 접근용)
+       2. window._sdkLoaded 플래그 설정
+       3. 'seeso-ready' 커스텀 이벤트 발생 → checkSetup()이 감지
+══════════════════════════════════════════════════════ -->
+<script type="module">
+import EasySeeSo from './easy-seeso.js';
+window.EasySeeSo = EasySeeSo;       // 일반 script에서도 접근 가능하도록 전역 등록
+window._sdkLoaded = true;           // SDK 로드 완료 플래그
+window.dispatchEvent(new Event('seeso-ready')); // 로드 완료 이벤트 발송
+</script>
+
+<script>
+'use strict'; // 엄격 모드: 암묵적 전역변수 선언 등 위험한 패턴을 에러로 처리
+
+// ═══════════════════════════════════════════════════════
+//  EyeDID SDK 라이선스 키
+//  실제 배포 시 서버 측에서 관리해야 함 (클라이언트 노출 주의)
+// ═══════════════════════════════════════════════════════
+var LICENSE_KEY = 'dev_figw9wf24kntvlm1kitwvabnthsh58be86ysqt8e';
+
+// ═══════════════════════════════════════════════════════
+//  글 데이터 (PASSAGES)
+//  각 passage: { title, meta, body: [문단1, 문단2, ...] }
+//  body의 각 문단은 공백 기준으로 분리되어 .word span이 됨
+// ═══════════════════════════════════════════════════════
+var PASSAGES = [
+  { title:"집중이란 무엇인가", meta:"심리학 | 약 1분",
+    body:["집중이란 단순히 한 가지 일에 오래 앉아 있는 것을 의미하지 않는다. 진정한 집중은 외부 자극에 반응하지 않으면서 내면의 주의를 특정 대상에 능동적으로 고정하는 상태를 말한다. 이 상태에서 뇌는 불필요한 정보를 걸러내고, 필요한 정보만을 처리하는 선택적 주의를 발휘하게 된다.",
+    "현대인에게 집중은 점점 희귀한 자원이 되고 있다. 스마트폰 알림, 소셜미디어, 짧은 영상 콘텐츠는 뇌가 빠른 보상에 익숙해지도록 훈련시킨다. 그 결과 길고 깊은 사고를 요하는 독서나 학습에서 주의가 쉽게 흩어지는 현상이 나타난다. 이를 주의 단편화라 부른다.",
+    "집중력을 회복하는 핵심은 환경 설계에 있다. 방해 요소를 물리적으로 차단하고, 명확한 목표를 설정하며, 한 번에 하나의 과제에만 몰두하는 습관이 중요하다. 시선을 텍스트 위에 천천히 고정하며 읽는 행위 자체가 집중 근육을 단련하는 가장 오래된 방법 중 하나이다."]},
+  { title:"글을 읽는다는 것의 의미", meta:"인문학 | 약 1분",
+    body:["글을 읽는다는 행위는 단순한 정보 수집 이상의 의미를 지닌다. 독자는 텍스트를 통해 저자의 사고 과정을 따라가며, 그 과정에서 자신의 경험과 지식을 새로운 방식으로 재구성한다.",
+    "눈은 텍스트를 선형적으로 훑지 않는다. 숙련된 독자의 시선은 줄 위를 빠르게 도약하다가, 중요한 단어나 개념에서 일시적으로 멈추는 고정 패턴을 반복한다.",
+    "글을 깊이 이해하려면 단어 단위의 인식을 넘어 문장과 문단의 구조를 파악해야 한다. 핵심 주장과 근거를 구분하고, 글의 흐름을 예측하며 읽는 능동적 독해가 기억 정착률과 이해도를 크게 높인다."]}
+];
+
+// ════════════════════════════════════════
+//  EyeDID SDK의 gazeInfo 콜백 객체 구조:
+//  {
+//    timestamp      : 밀리초 타임스탬프
+//    x, y           : raw 시선 좌표 (픽셀)
+//    fixationX/Y    : SDK 내부 안정화 좌표 (FIXATION 상태에서만 유효)
+//    leftOpenness   : 왼쪽 눈 열림 정도 (-1=비활성, 0=감음, 1=완전히 뜸)
+//    rightOpenness  : 오른쪽 눈 열림 정도
+//    trackingState  : 추적 상태 코드
+//    eyemovementState: 0=FIXATION(고정), 1=SACCADE(도약), 2=UNKNOWN
+//  }
+// ════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════
+//  전역 상태 객체 S (State)
+//  앱 전반의 런타임 상태를 하나의 객체로 집중 관리
+// ═══════════════════════════════════════════════════════
+var S = {
+  prevX:0, prevY:0,       // 이전 프레임의 시선 좌표 (EMA 계산용)
+  stabBuf:[],             // 최근 30프레임 속도 버퍼 (안정도 계산용)
+  gx:0, gy:0,             // 현재 스무딩된 시선 좌표
+
+  calibDone:false,        // 캘리브레이션 완료 여부
+  calibPointIdx:0,        // 현재까지 표시된 캘리브레이션 포인트 수
+  calibTotalPoints: 6,    // 총 캘리브레이션 포인트 수 (변경 시 이 값도 수정)
+
+  readStart:null,         // 읽기 시작 시각 (Date.now() 값)
+  onFrames:0,             // 시선이 읽기 화면 안에 있던 프레임 수
+  totFrames:0,            // 총 프레임 수 (onFrames/totFrames = 유지율)
+
+  gazedWords:new Set(),   // 응시한 단어 ID 집합 (중복 제거용 Set)
+  totalWords:0,           // 전체 단어 수 (커버리지 계산용)
+  passageIdx:0,           // 현재 글 인덱스 (다음 글로 넘어갈 때 증가)
+
+  gazeCount:0,            // onGaze 총 호출 횟수 (디버그용)
+  gazeValid:0,            // 유효한(NaN 아닌) 시선 데이터 횟수
+
+  // ★ 눈 깜빡임(Blink) 감지용
+  blinkFrames: 0,         // 연속 blink 프레임 수 (0이면 정상 추적 중)
+  lastValidX: 0,          // 마지막으로 유효했던 X좌표 (blink 시 복원용)
+  lastValidY: 0,          // 마지막으로 유효했던 Y좌표
+};
+
+var seeso = null;  // EasySeeSo 인스턴스 (SDK 객체)
+
+// 주요 DOM 요소 캐싱 (매 프레임 querySelector 호출 방지 → 성능)
+var gazeDot     = document.getElementById('gaze-dot');
+var trailCanvas = document.getElementById('trail-canvas');
+var tCtx        = trailCanvas.getContext('2d'); // 2D 캔버스 컨텍스트
+var debugPanel  = document.getElementById('debug-panel');
+var trail       = []; // 시선 궤적 점들 [{x, y, t}, ...], 최대 50개 유지
+
+// 캔버스를 윈도우 크기에 맞춤 (CSS와 별개로 canvas의 실제 픽셀 크기 설정 필요)
+function resizeCanvases() {
+  trailCanvas.width = window.innerWidth;
+  trailCanvas.height = window.innerHeight;
+}
+resizeCanvases();
+// 윈도우 리사이즈 시 캔버스도 재조정
+window.addEventListener('resize', resizeCanvases);
+
+// ═══════════════════════════════════════════════════════
+//  시선 스무딩 상수
+// ═══════════════════════════════════════════════════════
+var SMOOTH_A  = 0.2;   // EMA(지수 이동 평균) 계수. 0에 가까울수록 부드럽지만 반응이 느림
+var VEL_MAX   = 120;   // 허용 최대 속도 (px/frame). 초과 시 댐핑 적용
+var VEL_DAMP  = 0.25;  // 급변 시 속도를 25%만 반영 (급격한 점프 억제)
+var BLINK_Y_JUMP = 80; // Y축 급변 임계값(px). 이 이상 아래로 튀면 blink로 간주
+
+// ═══════════════════════════════════════════════════════
+//  smoothGaze(rx, ry, isBlink)
+//  목적: raw 시선 좌표의 노이즈 제거
+//  1단계: blink 판정 → 이전 유효 좌표 반환
+//  2단계: Y축 급변 감지 → blink로 간주, 이전 좌표 유지
+//  3단계: EMA(지수 이동 평균) 적용 → 부드러운 이동
+//  4단계: Velocity Damping → 속도 급변 억제
+// ═══════════════════════════════════════════════════════
+function smoothGaze(rx, ry, isBlink) {
+  // blink 플래그가 true면 좌표를 갱신하지 않고 마지막 유효 좌표 반환
+  if (isBlink) {
+    S.blinkFrames++;
+    return { x: S.lastValidX || S.prevX, y: S.lastValidY || S.prevY };
+  }
+
+  // 첫 프레임: 이전 좌표가 (0,0)이면 현재 좌표로 초기화
+  if (S.prevX === 0 && S.prevY === 0) { S.prevX = rx; S.prevY = ry; }
+
+  // Y축 급변 감지: 이전 Y보다 BLINK_Y_JUMP(80px) 이상 아래로 갑자기 튀면
+  // → 눈 깜빡임으로 인한 노이즈로 판단, 이전 좌표 유지
+  var dy = ry - S.prevY;
+  if (Math.abs(dy) > BLINK_Y_JUMP && dy > 0) {
+    S.blinkFrames++;
+    return { x: S.lastValidX || S.prevX, y: S.lastValidY || S.prevY };
+  }
+
+  S.blinkFrames = 0; // 정상 추적 중이면 blink 카운터 리셋
+
+  // EMA(지수 이동 평균) 스무딩:
+  // 새 값(rx) * SMOOTH_A + 이전 값(prevX) * (1 - SMOOTH_A)
+  // SMOOTH_A=0.2이면 새 값 20%, 기존 값 80%를 반영 → 부드러운 이동
+  var ex = SMOOTH_A * rx + (1 - SMOOTH_A) * S.prevX;
+  var ey = SMOOTH_A * ry + (1 - SMOOTH_A) * S.prevY;
+
+  // Velocity Damping: 프레임 간 이동 거리(속도)가 VEL_MAX를 초과하면
+  // 이동량을 VEL_DAMP(25%) 비율로 줄여 급격한 점프를 억제
+  var dx2 = ex - S.prevX, dy2 = ey - S.prevY;
+  var vel = Math.sqrt(dx2*dx2 + dy2*dy2); // 유클리드 거리 = 프레임 속도
+  if (vel > VEL_MAX) {
+    ex = S.prevX + dx2 * VEL_DAMP;
+    ey = S.prevY + dy2 * VEL_DAMP;
+    vel = VEL_MAX * VEL_DAMP;
+  }
+
+  // 상태 업데이트
+  S.prevX = ex; S.prevY = ey;
+  S.lastValidX = ex; S.lastValidY = ey;
+
+  // 안정도 계산용 버퍼: 최근 30프레임 속도 유지 (FIFO)
+  S.stabBuf.push(vel);
+  if (S.stabBuf.length > 30) S.stabBuf.shift();
+
+  return { x: ex, y: ey };
+}
+
+// ═══════════════════════════════════════════════════════
+//  onGaze(gazeInfo)
+//  EyeDID SDK가 매 프레임(~60fps) 호출하는 콜백
+//  흐름:
+//   1. 유효성 검사 (NaN, undefined 필터링)
+//   2. Blink 감지 (leftOpenness + rightOpenness)
+//   3. FIXATION 상태면 fixationX/Y 사용 (더 안정적)
+//   4. smoothGaze()로 노이즈 제거
+//   5. 시선 점 위치 업데이트
+//   6. 궤적 추가 + 드로우
+//   7. 읽기 중이면 단어 응시 감지 + 진행 바 업데이트
+// ═══════════════════════════════════════════════════════
+function onGaze(gazeInfo) {
+  S.gazeCount++;
+  if (!gazeInfo) return;
+
+  var x = gazeInfo.x;
+  var y = gazeInfo.y;
+  // 숫자이고 유한한 값인지 확인 (SDK가 가끔 NaN/Infinity를 반환할 수 있음)
+  var hasXY = (typeof x === 'number' && typeof y === 'number' && isFinite(x) && isFinite(y));
+  if (!hasXY) return;
+
+  S.gazeValid++;
+
+  // ── Blink 감지 ──
+  // leftOpenness/rightOpenness: -1이면 해당 옵션 미사용
+  // 두 눈 모두 0.3 이하(거의 감긴 상태)면 blink로 판정
+  var lo = gazeInfo.leftOpenness;
+  var ro = gazeInfo.rightOpenness;
+  var isBlink = false;
+  if (lo !== -1 && ro !== -1) {
+    isBlink = (lo < 0.3 && ro < 0.3);
+  }
+
+  // ── 좌표 선택 ──
+  // eyemovementState === 0 (FIXATION): SDK가 안정화한 fixationX/Y 사용
+  // 그 외 (SACCADE, UNKNOWN): raw x/y 사용
+  var useX = x, useY = y;
+  if (gazeInfo.eyemovementState === 0 && gazeInfo.fixationX && gazeInfo.fixationY) {
+    useX = gazeInfo.fixationX;
+    useY = gazeInfo.fixationY;
+  }
+
+  // ── 스무딩 적용 ──
+  var raw = smoothGaze(useX, useY, isBlink);
+  S.gx = raw.x;
+  S.gy = raw.y;
+
+  // ── 시선 점 UI 업데이트 ──
+  // blink 중이면 반투명 클래스 추가 (CSS: opacity .2)
+  if (isBlink || S.blinkFrames > 0) {
+    gazeDot.classList.add('blink');
+  } else {
+    gazeDot.classList.remove('blink');
+  }
+  // 시선 점을 현재 좌표로 이동
+  gazeDot.style.left = S.gx + 'px';
+  gazeDot.style.top  = S.gy + 'px';
+
+  // ── 궤적 추가 ──
+  // blink 중에는 잘못된 좌표가 궤적에 포함되지 않도록 스킵
+  if (!isBlink && S.blinkFrames === 0) {
+    trail.push({ x: S.gx, y: S.gy, t: Date.now() });
+    if (trail.length > 50) trail.shift(); // 최대 50점 유지 (FIFO)
+  }
+  drawTrail();
+  updateStabUI();
+
+  // ── 디버그 패널: 10프레임마다 갱신 (매 프레임은 너무 빠름) ──
+  if (S.gazeValid % 10 === 0) {
+    debugPanel.textContent =
+      (isBlink ? 'BLINK' : 'TRACK') +
+      ' (' + Math.round(S.gx) + ',' + Math.round(S.gy) + ')' +
+      ' eye:' + (lo!==-1 ? lo.toFixed(2) : 'off') +
+      ' mov:' + gazeInfo.eyemovementState +
+      ' v:' + S.gazeValid;
+  }
+
+  // ── 읽기 추적 (읽기 화면이 활성 상태이고 캘리브레이션이 완료된 경우만) ──
+  if (S.calibDone && !isBlink && S.blinkFrames === 0 &&
+      document.getElementById('screen-read').classList.contains('active')) {
+    S.totFrames++; // 전체 프레임 카운트
+    // 시선이 읽기 화면 영역 내에 있으면 onFrames 증가 (화면 유지율 계산용)
+    var r = document.getElementById('screen-read').getBoundingClientRect();
+    if (S.gx > r.left && S.gx < r.right && S.gy > r.top && S.gy < r.bottom) S.onFrames++;
+    detectGazedWord(S.gx, S.gy);  // 현재 시선 좌표 아래의 단어 감지
+    updateProgBar(S.gy);           // 읽기 진행 바 업데이트
+  }
+}
+
+// SDK 디버그 콜백 (FPS, accuracy 정보 수신, 현재는 미사용)
+function onDebug(FPS, accuracy) {}
+
+// ═══════════════════════════════════════════════════════
+//  checkSetup()
+//  페이지 로드 시 자동 실행: 브라우저/카메라/SDK 사전 조건 체크
+//  모든 항목이 ok → 시작 버튼 활성화
+// ═══════════════════════════════════════════════════════
+async function checkSetup() {
+  // 브라우저 확인: mediaDevices API 존재 여부로 WebRTC 지원 체크
+  var hasMD = !!navigator.mediaDevices;
+  setChk('chk-browser', hasMD, hasMD ? '브라우저 확인됨' : '카메라 API 미지원');
+
+  // 환경 안내: 항상 ok (물리적 조건이므로 자동 확인 불가)
+  setChk('chk-env', true, '화면에서 50–70cm, 정면을 바라보세요');
+
+  // SDK 확인: 모듈 스크립트가 이미 로드됐으면 즉시 ok
+  if (window._sdkLoaded) {
+    setChk('chk-sdk', true, 'EyeDID SDK 로딩됨');
+  } else {
+    // 아직 로드 중이면 'seeso-ready' 이벤트 대기
+    setChk('chk-sdk', false, 'EyeDID SDK 로딩 중...');
+    window.addEventListener('seeso-ready', function() {
+      setChk('chk-sdk', true, 'EyeDID SDK 로딩됨');
+      tryEnableBegin();
+    });
+  }
+
+  // 카메라 접근 시도: getUserMedia로 실제 권한 확인
+  // await: 비동기 처리 → 사용자가 팝업에서 허용/거부할 때까지 대기
+  try {
+    var s = await navigator.mediaDevices.getUserMedia({ video: true });
+    // 권한 확인용이므로 즉시 스트림 종료 (실제 사용은 SDK가 함)
+    s.getTracks().forEach(function(t){ t.stop(); });
+    setChk('chk-camera', true, '카메라 접근 허용됨');
+  } catch(e) {
+    setChk('chk-camera', false, '카메라 접근 거부됨');
+  }
+  tryEnableBegin();
+}
+
+// ok 상태인 check-item 개수가 3개 이상이면 시작 버튼 활성화
+function tryEnableBegin() {
+  document.getElementById('btn-begin').disabled =
+    document.querySelectorAll('.check-item.ok').length < 3;
+}
+
+// 체크리스트 항목 상태 설정 유틸리티
+// id: 항목 ID, ok: 성공/실패 boolean, msg: 표시 텍스트
+function setChk(id, ok, msg) {
+  var el = document.getElementById(id);
+  el.className = 'check-item ' + (ok ? 'ok' : 'err');
+  el.querySelector('.check-icon').textContent = ok ? '✓' : '✗';
+  el.querySelector('span:last-child').textContent = msg;
+}
+
+// ═══════════════════════════════════════════════════════
+//  beginSession()
+//  "시작하기" 버튼 → SDK 초기화 → 캘리브레이션
+//  async/await로 비동기 SDK 초기화 처리
+// ═══════════════════════════════════════════════════════
+async function beginSession() {
+  showLoading('EyeDID SDK 초기화 중...');
+  try {
+    var EasySeeSo = window.EasySeeSo;
+    if (!EasySeeSo) throw new Error('SDK 모듈 미로드');
+    seeso = new EasySeeSo();
+
+    // seeso.init(라이선스키, 성공콜백, 실패콜백)
+    // Promise로 감싸져 있어 await 가능
+    await seeso.init(
+      LICENSE_KEY,
+      function() {
+        // SDK 초기화 성공 콜백
+        console.log('[눈길] SDK init 성공');
+        // 정밀도 향상을 위한 물리 환경 설정
+        try {
+          seeso.setMonitorSize(15);                        // 모니터 크기(인치)
+          seeso.setFaceDistance(60);                       // 사용자-화면 거리(cm)
+          seeso.setCameraPosition(window.innerWidth / 2, true); // 카메라 위치: 화면 상단 중앙
+        } catch(e) { console.warn('설정 오류:', e); }
+        hideLoading();
+        setStatus('SDK 준비됨', 'on');
+        setStep(1);          // 캘리브레이션 화면으로 전환
+        beginCalibration();
+      },
+      function() {
+        // SDK 초기화 실패 콜백 (라이선스 오류 등)
+        hideLoading();
+        setStatus('SDK 인증 실패', 'err');
+        alert('EyeDID SDK 인증 실패');
+      }
+    );
+  } catch(e) {
+    hideLoading();
+    setStatus('SDK 오류', 'err');
+    alert('SDK 오류: ' + e.message);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  beginCalibration()
+//  EyeDID SDK의 6포인트 캘리브레이션 시작
+//  SDK가 세 가지 콜백을 순서대로 호출:
+//   1. onCalibrationNextPoint(x, y): 다음 포인트 위치 → 점 표시
+//   2. onCalibrationProgress(progress): 샘플 수집 진행률 (0~1)
+//   3. onCalibrationFinished(data): 완료 → 읽기 화면으로
+// ═══════════════════════════════════════════════════════
+async function beginCalibration() {
+  // 캘리브레이션 상태 초기화
+  S.calibPointIdx = 0; S.calibDone = false;
+  S.prevX = 0; S.prevY = 0; S.stabBuf = [];
+  S.gazeCount = 0; S.gazeValid = 0;
+  S.blinkFrames = 0; S.lastValidX = 0; S.lastValidY = 0;
+
+  // UI 초기화
+  document.getElementById('calib-phase-lbl').textContent = 'CALIBRATION';
+  document.getElementById('calib-title').textContent = '초록색 점을 바라봐 주세요';
+  document.getElementById('calib-sub').textContent = '각 점이 나타나면 점을 정확히 응시하세요. 정밀도 향상을 위해 ' + S.calibTotalPoints + '개 점을 수집합니다.';
+
+  // 진행 pip 동적 생성: calibTotalPoints 개수만큼
+  var pE = document.getElementById('calib-pips');
+  pE.innerHTML = '';
+  for (var i = 0; i < S.calibTotalPoints; i++) pE.innerHTML += '<div class="c-pip" id="cpip-' + i + '"></div>';
+  document.getElementById('calib-prog-txt').textContent = '0 / ' + S.calibTotalPoints;
+
+  // 이전 캘리브레이션 점 제거
+  document.querySelectorAll('.calib-dot').forEach(function(el){ el.remove(); });
+
+  // 시선 추적 시작 (카메라 활성화)
+  setStatus('추적 시작 중...', 'warn');
+  var trackOk = await seeso.startTracking(onGaze, onDebug);
+  if (!trackOk) { setStatus('카메라 실패', 'err'); return; }
+
+  // 카메라 초기화 대기 (0.8초)
+  await new Promise(function(r){ setTimeout(r, 800); });
+  setStatus('캘리브레이션 진행 중', 'warn');
+  gazeDot.classList.add('visible');
+
+  // ── SDK 캘리브레이션 시작 ──
+  seeso.startCalibration(
+    // 콜백 1: 다음 캘리브레이션 포인트 좌표 수신
+    function(x, y) {
+      showCalibDot(x, y); // 해당 위치에 점 표시
+      // 2초 후 샘플 수집 시작 (사용자가 점에 시선을 고정할 시간 확보)
+      setTimeout(function() {
+        try { seeso.startCollectSamples(); } catch(e) {}
+      }, 2000);
+    },
+    // 콜백 2: 샘플 수집 진행률 (0.0 ~ 1.0)
+    // SVG stroke-dashoffset으로 원형 진행 링을 그림
+    // stroke-dasharray="106.8" (원 둘레 ≈ 2π×17), offset이 줄어들수록 링이 채워짐
+    function(progress) {
+      var ring = document.getElementById('cring-active');
+      if (ring) ring.style.strokeDashoffset = 106.8 * (1 - progress);
+    },
+    // 콜백 3: 캘리브레이션 완료 (calibrationData 수신)
+    function(calibrationData) {
+      // 마지막 pip을 done 상태로
+      var lastPip = document.getElementById('cpip-' + (S.calibTotalPoints - 1));
+      if (lastPip) { lastPip.classList.remove('active'); lastPip.classList.add('done'); }
+      // 남은 캘리브레이션 점들 정리
+      document.querySelectorAll('.calib-dot').forEach(function(el){
+        el.classList.remove('visible','sampling'); el.classList.add('done');
+      });
+      setStatus('캘리브레이션 완료!', 'on');
+      setTimeout(proceedToRead, 800); // 0.8초 후 읽기 화면으로
+    },
+    S.calibTotalPoints // 6포인트 캘리브레이션
+  );
+}
+
+// ═══════════════════════════════════════════════════════
+//  showCalibDot(x, y)
+//  SDK가 지정한 (x, y) 위치에 캘리브레이션 점 DOM 생성
+//  - 이전 점을 done 상태로 변경
+//  - pip 상태 업데이트 (active → done)
+//  - SVG 링 내부에 원형 진행 링 포함 (progress 콜백이 채움)
+// ═══════════════════════════════════════════════════════
+function showCalibDot(x, y) {
+  // 이전 활성 점을 done으로 변경 (희미하게 남김)
+  var prev = document.getElementById('cdot-active');
+  if (prev) { prev.classList.remove('visible','sampling'); prev.classList.add('done'); prev.id = ''; }
+
+  // 이전 pip → done 상태
+  if (S.calibPointIdx > 0) {
+    var pp = document.getElementById('cpip-' + (S.calibPointIdx - 1));
+    if (pp) { pp.classList.remove('active'); pp.classList.add('done'); }
+  }
+
+  // 현재 pip → active 상태
+  var cp = document.getElementById('cpip-' + S.calibPointIdx);
+  if (cp) cp.classList.add('active');
+  S.calibPointIdx++;
+  document.getElementById('calib-prog-txt').textContent = S.calibPointIdx + ' / ' + S.calibTotalPoints;
+
+  // 캘리브레이션 점 DOM 생성
+  var d = document.createElement('div');
+  d.className = 'calib-dot visible sampling'; // visible+sampling → 표시 + 펄스 애니메이션
+  d.id = 'cdot-active';
+  d.style.left = x + 'px';
+  d.style.top = y + 'px';
+  // SVG 원형 링: 진행률에 따라 stroke-dashoffset이 줄어들어 링이 채워짐
+  d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42" style="width:42px;height:42px;">' +
+    '<circle cx="21" cy="21" r="17" fill="none" stroke="rgba(200,245,58,.1)" stroke-width="2"/>' +
+    '<circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="var(--accent)" ' +
+    'stroke-width="2.5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" ' +
+    'transform="rotate(-90 21 21)"/></svg>' +  // rotate(-90): 12시 방향에서 시작
+    '<div class="calib-dot-inner"></div>';
+  document.body.appendChild(d);
+}
+
+// ═══════════════════════════════════════════════════════
+//  proceedToRead()
+//  캘리브레이션 완료 → 읽기 화면으로 전환 및 읽기 세션 초기화
+// ═══════════════════════════════════════════════════════
+function proceedToRead() {
+  S.calibDone = true;
+  // 남은 캘리브레이션 점 제거
+  document.querySelectorAll('.calib-dot').forEach(function(el){ el.remove(); });
+  buildArticle();  // 글 렌더링
+  setStep(2);      // 읽기 화면으로 전환
+  document.getElementById('prog-bar').classList.add('visible');
+  gazeDot.classList.add('visible');
+  setStatus('추적 중', 'on');
+  // 읽기 통계 초기화
+  S.readStart = Date.now();
+  S.onFrames = 0; S.totFrames = 0;
+  S.gazedWords = new Set();
+  S.totalWords = document.querySelectorAll('.word').length;
+}
+
+// ═══════════════════════════════════════════════════════
+//  buildArticle()
+//  현재 PASSAGES[passageIdx]를 HTML로 렌더링.
+//  각 단어를 <span class="word" id="w-단락번호-단어번호">로 감싸
+//  → detectGazedWord()에서 elementFromPoint로 응시 단어를 식별 가능하게 함
+// ═══════════════════════════════════════════════════════
+function buildArticle() {
+  var p = PASSAGES[S.passageIdx % PASSAGES.length]; // 글 순환
+  var h = '<div class="article-title">' + p.title + '</div>' +
+          '<div class="article-meta">' + p.meta + '</div>' +
+          '<div class="article-body">';
+  p.body.forEach(function(para, pi) {
+    h += '<p>';
+    // 각 단어를 공백 기준 분리 → span으로 래핑, ID는 "w-단락-단어" 형식
+    para.split(/\s+/).forEach(function(w, wi) {
+      h += '<span class="word" id="w-' + pi + '-' + wi + '">' + w + ' </span>';
+    });
+    h += '</p>';
+  });
+  h += '</div>';
+  document.getElementById('article-content').innerHTML = h;
+}
+
+var _lastLoggedWord = ''; // 콘솔 중복 로그 방지용 (마지막으로 로그한 단어)
+
+// ═══════════════════════════════════════════════════════
+//  detectGazedWord(x, y)
+//  매 프레임 호출. 시선 좌표 (x,y) 아래에 있는 DOM 요소를 찾아
+//  .word 클래스이면 응시 중(gazed)으로 표시.
+//
+//  document.elementFromPoint(x, y): 브라우저의 hit-test API
+//  → 해당 좌표에 렌더링된 최상위 요소 반환
+// ═══════════════════════════════════════════════════════
+function detectGazedWord(x, y) {
+  // 이전 응시 단어를 visited(방문)로 변경
+  var prev = document.querySelector('.word.gazed');
+  if (prev) prev.classList.replace('gazed', 'visited');
+
+  // 현재 좌표의 요소 가져오기
+  var el = document.elementFromPoint(x, y);
+  if (el && el.classList.contains('word')) {
+    el.classList.add('gazed');         // 현재 응시 중 하이라이트
+    S.gazedWords.add(el.id);           // Set에 추가 (중복 자동 제거 → 커버리지 계산용)
+
+    // 콘솔에 컨텍스트 로그 (새 단어일 때만, 중복 방지)
+    var word = el.textContent.trim();
+    if (word && word !== _lastLoggedWord) {
+      _lastLoggedWord = word;
+      var parentP = el.closest('p');
+      if (parentP) {
+        var allWords = Array.from(parentP.querySelectorAll('.word'));
+        var idx = allWords.indexOf(el);
+        // 현재 단어 전후 4~5개 단어를 컨텍스트로 추출
+        var s = Math.max(0, idx - 4), e = Math.min(allWords.length, idx + 5);
+        var ctx = allWords.slice(s, e).map(function(w, i) {
+          var t = w.textContent.trim();
+          // 현재 단어에 【】 강조 표시 (유니코드 [\u3010, \u3011])
+          return (i === idx - s) ? '\u3010' + t + '\u3011' : t;
+        }).join(' ');
+        // 콘솔에 초록색 강조 로그
+        console.log('%c\uD83D\uDC41 ' + word + '%c  \u2190 ' + ctx,
+          'color:#c8f53a;font-size:13px;font-weight:bold',
+          'color:#78736e;font-size:11px');
+      }
+    }
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  updateProgBar(gy)
+//  시선 Y좌표를 article-wrap 높이 대비 비율로 환산 → 진행 바 너비
+//  Math.max/min으로 0~100% 범위 클리핑
+// ═══════════════════════════════════════════════════════
+function updateProgBar(gy) {
+  var w = document.getElementById('article-wrap'); if (!w) return;
+  var r = w.getBoundingClientRect();
+  document.getElementById('prog-bar').style.width =
+    Math.min(100, Math.max(0, ((gy - r.top) / r.height) * 100)) + '%';
+}
+
+// ═══════════════════════════════════════════════════════
+//  updateStabUI()
+//  stabBuf(최근 30프레임 속도)의 평균으로 안정도(%) 계산
+//  안정도 = 100 - 평균속도 * 1.2 (속도가 낮을수록 안정)
+// ═══════════════════════════════════════════════════════
+function updateStabUI() {
+  if (!S.stabBuf.length) return;
+  var avg = S.stabBuf.reduce(function(a,b){return a+b},0) / S.stabBuf.length;
+  var stab = Math.max(0, Math.min(100, 100 - avg * 1.2)); // 0~100% 클리핑
+  document.getElementById('stab-bar').style.width = Math.round(stab) + '%';
+  document.getElementById('stab-val').textContent = Math.round(stab) + '%';
+}
+
+// ═══════════════════════════════════════════════════════
+//  drawTrail()
+//  trail 배열의 점들을 캔버스에 선으로 연결 (시선 궤적 시각화)
+//  각 선분의 투명도는 age(오래된 정도)에 반비례: 최대 0.4
+//  700ms 지나면 사라짐 (age = (현재시각 - 점시각) / 700)
+// ═══════════════════════════════════════════════════════
+function drawTrail() {
+  tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height); // 매 프레임 캔버스 초기화
+  if (trail.length < 2) return;
+  var now = Date.now();
+  for (var i = 1; i < trail.length; i++) {
+    var a = trail[i-1], b = trail[i];
+    var age = (now - b.t) / 700; // 0~1 (0=최신, 1=0.7초 경과)
+    var alpha = Math.max(0, (1 - age) * 0.4); // 투명도: 새로울수록 불투명
+    tCtx.beginPath();
+    tCtx.moveTo(a.x, a.y);
+    tCtx.lineTo(b.x, b.y);
+    tCtx.strokeStyle = 'rgba(200,245,58,' + alpha + ')';
+    tCtx.lineWidth = 2;
+    tCtx.stroke();
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+//  finishReading()
+//  "읽기 완료" 버튼 → 결과 계산 후 결과 화면 표시
+//
+//  계산 지표:
+//  - 커버리지: 응시 단어 수 / 전체 단어 수 * 100
+//  - 화면 유지율: 시선이 화면 내 프레임 / 전체 프레임 * 100
+//  - 읽기 시간: Date.now() - readStart (초 단위)
+//  - 응시 단어 수: gazedWords.size
+// ═══════════════════════════════════════════════════════
+function finishReading() {
+  var elapsed = Math.round((Date.now() - S.readStart) / 1000); // 초 단위 경과 시간
+  // UI 정리
+  gazeDot.classList.remove('visible');
+  tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+  document.getElementById('prog-bar').classList.remove('visible');
+  setStatus('완료', '');
+
+  // 지표 계산
+  var onPct = S.totFrames > 0 ? Math.round((S.onFrames / S.totFrames) * 100) : 0;
+  var coverage = S.totalWords > 0 ? Math.round((S.gazedWords.size / S.totalWords) * 100) : 0;
+
+  // 시간 포매팅: mm분 ss초 또는 ss초
+  var mm = Math.floor(elapsed / 60);
+  var ss = (elapsed % 60).toString().padStart(2, '0'); // "5" → "05"
+
+  // 결과 카드 값 표시
+  document.getElementById('res-cov').textContent = coverage + '%';
+  document.getElementById('res-on').textContent = onPct + '%';
+  document.getElementById('res-time').textContent = mm > 0 ? mm + '분 ' + ss + '초' : ss + '초';
+  document.getElementById('res-words').textContent = S.gazedWords.size;
+
+  // 커버리지에 따른 요약 메시지 (80% 이상 / 55% 이상 / 미만)
+  document.getElementById('res-summary').textContent =
+    coverage >= 80 ? '텍스트 대부분을 시선으로 따라갔습니다.' :
+    coverage >= 55 ? '절반 이상을 추적했습니다. 재캘리브레이션하면 더 높아질 수 있습니다.' :
+    '추적 범위가 좁습니다. 재캘리브레이션을 권장합니다.';
+
+  setStep(3);       // 결과 화면으로 전환
+  S.passageIdx++;   // 다음 글 준비
+}
+
+// 재캘리브레이션: 상태 초기화 후 캘리브레이션 재시작
+function restartCalib() {
+  S.calibDone = false; S.calibPointIdx = 0;
+  S.prevX = 0; S.prevY = 0; S.stabBuf = [];
+  trail.length = 0; // 배열 내용 비우기 (새 배열 생성보다 참조 유지하며 비움)
+  tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+  gazeDot.classList.remove('visible');
+  document.querySelectorAll('.calib-dot').forEach(function(el){ el.remove(); });
+  try { seeso.stopTracking(); } catch(e) {}
+  setStep(1);
+  beginCalibration();
+}
+
+// 다음 글: 재캘리브레이션과 동일 (passageIdx는 finishReading에서 이미 증가됨)
+function nextPassage() { restartCalib(); }
+
+// ═══════════════════════════════════════════════════════
+//  UI 유틸리티 함수들
+// ═══════════════════════════════════════════════════════
+
+// 화면 전환: n번 화면을 active로, 나머지는 숨김. pip도 함께 업데이트.
+function setStep(n) {
+  document.querySelectorAll('.screen').forEach(function(s){ s.classList.remove('active'); });
+  var screens = ['screen-setup','screen-calib','screen-read','screen-result'];
+  if (screens[n]) document.getElementById(screens[n]).classList.add('active');
+  // pip 상태: 현재=active, 이전=done, 이후=기본
+  for (var i = 0; i < 4; i++)
+    document.getElementById('pip-' + i).className = 's-pip' +
+      (i === n ? ' active' : i < n ? ' done' : '');
+}
+
+// 시스템 상태 표시: LED 색 + 텍스트 동시 업데이트
+// mode: 'on'(초록), 'warn'(노랑), 'err'(빨강), ''(기본/회색)
+function setStatus(msg, mode) {
+  document.getElementById('status-txt').textContent = msg;
+  document.getElementById('sdot').className = 'sdot' +
+    (mode === 'on' ? ' on' : mode === 'warn' ? ' warn' : mode === 'err' ? ' err' : '');
+}
+
+// 로딩 오버레이 표시/숨김
+function showLoading(msg) {
+  document.getElementById('loading-text').textContent = msg;
+  document.getElementById('loading-overlay').classList.add('active');
+}
+function hideLoading() { document.getElementById('loading-overlay').classList.remove('active'); }
+
+// ── 앱 시작점: 페이지 로드 완료 후 셋업 체크 실행 ──
+checkSetup();
+</script>
+</body>
+</html>

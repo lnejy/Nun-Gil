@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>눈길 — EyeDID SDK 마이그레이션 가이드</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0a0a0b;
+  --surface: #111113;
+  --surface2: #19191c;
+  --surface3: #222226;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.12);
+  --text: #e8e6e1;
+  --text2: #8a857f;
+  --text3: #4a4640;
+  --accent: #c8f53a;
+  --accent-dim: rgba(200,245,58,0.08);
+  --accent-mid: rgba(200,245,58,0.2);
+  --warn: #f5c43a;
+  --info: #5abdf5;
+  --danger: #f55a4a;
+  --code-bg: #0d1117;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+/* ── Sidebar Nav ── */
+.layout { display: flex; min-height: 100vh; }
+
+.sidebar {
+  position: fixed; top: 0; left: 0; bottom: 0;
+  width: 280px; padding: 28px 20px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  overflow-y: auto; z-index: 100;
+  display: flex; flex-direction: column;
+}
+.sidebar-brand {
+  font-size: 20px; font-weight: 900; letter-spacing: -0.03em;
+  margin-bottom: 4px;
+}
+.sidebar-brand em { color: var(--accent); font-style: normal; }
+.sidebar-sub { font-size: 11px; color: var(--text3); margin-bottom: 28px; letter-spacing: 0.06em; text-transform: uppercase; }
+
+.nav-section { margin-bottom: 18px; }
+.nav-label {
+  font-size: 10px; font-weight: 700; color: var(--text3);
+  text-transform: uppercase; letter-spacing: 0.1em;
+  margin-bottom: 8px; padding-left: 12px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 12px; border-radius: 6px;
+  font-size: 13px; color: var(--text2);
+  text-decoration: none;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.nav-item:hover { background: var(--surface2); color: var(--text); }
+.nav-item.active { background: var(--accent-dim); color: var(--accent); }
+.nav-step {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--surface3); border: 1px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+  flex-shrink: 0;
+}
+.nav-item.active .nav-step { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+
+/* ── Main Content ── */
+.main {
+  margin-left: 280px; flex: 1;
+  padding: 48px 56px 100px;
+  max-width: 920px;
+}
+
+h1 {
+  font-size: 36px; font-weight: 900; letter-spacing: -0.03em;
+  line-height: 1.25; margin-bottom: 12px;
+}
+h1 em { color: var(--accent); font-style: normal; }
+
+.hero-desc {
+  font-size: 16px; color: var(--text2); line-height: 1.9;
+  margin-bottom: 40px; max-width: 640px;
+}
+
+h2 {
+  font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
+  margin-top: 56px; margin-bottom: 16px;
+  padding-top: 32px; border-top: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px;
+}
+h2 .step-badge {
+  background: var(--accent); color: #0a0a0a;
+  font-size: 11px; font-weight: 800; padding: 3px 10px;
+  border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+}
+
+h3 {
+  font-size: 16px; font-weight: 700;
+  margin-top: 32px; margin-bottom: 10px;
+  color: var(--text);
+}
+
+p { margin-bottom: 14px; color: var(--text2); }
+p strong { color: var(--text); font-weight: 600; }
+
+/* ── Info boxes ── */
+.box {
+  padding: 16px 20px; border-radius: 10px;
+  margin: 18px 0; font-size: 13px; line-height: 1.8;
+  border-left: 3px solid;
+}
+.box.warn  { background: rgba(245,196,58,0.06); border-color: var(--warn); color: #c9a832; }
+.box.info  { background: rgba(90,189,245,0.06); border-color: var(--info); color: #6eb8dd; }
+.box.good  { background: var(--accent-dim); border-color: var(--accent); color: #a6c842; }
+.box.danger { background: rgba(245,90,74,0.06); border-color: var(--danger); color: #d06a5e; }
+.box strong { color: inherit; }
+.box code { background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 3px; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+
+/* ── Code blocks ── */
+.code-wrap {
+  background: var(--code-bg); border-radius: 10px;
+  border: 1px solid var(--border);
+  margin: 16px 0; overflow: hidden;
+}
+.code-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 16px;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border);
+}
+.code-lang {
+  font-size: 11px; font-weight: 600; color: var(--text3);
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.code-copy {
+  font-size: 11px; color: var(--text3); cursor: pointer;
+  background: none; border: 1px solid var(--border2);
+  padding: 3px 10px; border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  transition: all 0.15s;
+}
+.code-copy:hover { color: var(--accent); border-color: var(--accent); }
+pre {
+  padding: 16px 20px; overflow-x: auto;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; line-height: 1.7;
+  color: #c9d1d9;
+}
+pre .kw  { color: #ff7b72; }
+pre .str { color: #a5d6ff; }
+pre .cm  { color: #8b949e; font-style: italic; }
+pre .fn  { color: #d2a8ff; }
+pre .num { color: #79c0ff; }
+pre .op  { color: #ff7b72; }
+pre .type { color: #ffa657; }
+
+/* ── Comparison table ── */
+.compare-table {
+  width: 100%; border-collapse: collapse;
+  margin: 20px 0; font-size: 13px;
+}
+.compare-table th {
+  text-align: left; padding: 10px 14px;
+  background: var(--surface2); color: var(--text2);
+  font-weight: 600; font-size: 11px;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border2);
+}
+.compare-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+  color: var(--text2);
+}
+.compare-table tr:hover td { background: var(--surface); }
+.compare-table .tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 11px; font-weight: 600;
+}
+.tag-mp { background: rgba(245,90,74,0.12); color: var(--danger); }
+.tag-ey { background: var(--accent-dim); color: var(--accent); }
+
+/* ── Flow diagram ── */
+.flow {
+  display: flex; align-items: center; gap: 0;
+  margin: 24px 0; overflow-x: auto;
+  padding: 12px 0;
+}
+.flow-node {
+  padding: 10px 16px; border-radius: 8px;
+  background: var(--surface2); border: 1px solid var(--border2);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+  flex-shrink: 0;
+}
+.flow-node.highlight { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.flow-arrow {
+  color: var(--text3); font-size: 16px; padding: 0 6px;
+  flex-shrink: 0;
+}
+
+/* ── Numbered steps ── */
+.steps { margin: 20px 0; }
+.step-item {
+  display: flex; gap: 14px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.step-item:last-child { border-bottom: none; }
+.step-num {
+  width: 28px; height: 28px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface3); border-radius: 50%;
+  font-size: 12px; font-weight: 700; color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 2px;
+}
+.step-content { flex: 1; }
+.step-content strong { color: var(--text); display: block; margin-bottom: 4px; font-size: 14px; }
+.step-content p { margin: 0; font-size: 13px; }
+
+/* ── Links ── */
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+code:not(pre code) {
+  background: var(--surface2); padding: 1px 6px;
+  border-radius: 4px; font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; color: #c9d1d9;
+}
+
+ul { padding-left: 20px; margin: 10px 0; }
+li { margin-bottom: 6px; color: var(--text2); font-size: 14px; }
+li strong { color: var(--text); }
+
+/* ── Mobile ── */
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 28px 20px 80px; }
+  h1 { font-size: 26px; }
+  .flow { flex-wrap: wrap; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="sidebar-brand">눈<em>길</em></div>
+  <div class="sidebar-sub">EyeDID SDK 가이드</div>
+
+  <div class="nav-section">
+    <div class="nav-label">Overview</div>
+    <a class="nav-item active" href="#overview"><span class="nav-step">0</span> MediaPipe vs EyeDID</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Setup</div>
+    <a class="nav-item" href="#step1"><span class="nav-step">1</span> 라이선스 키 발급</a>
+    <a class="nav-item" href="#step2"><span class="nav-step">2</span> SDK 설치 및 로드</a>
+    <a class="nav-item" href="#step3"><span class="nav-step">3</span> GazeTracker 초기화</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Core API</div>
+    <a class="nav-item" href="#step4"><span class="nav-step">4</span> 시선 추적 시작</a>
+    <a class="nav-item" href="#step5"><span class="nav-step">5</span> 캘리브레이션</a>
+    <a class="nav-item" href="#step6"><span class="nav-step">6</span> 필터링 & 후처리</a>
+  </div>
+  <div class="nav-section">
+    <div class="nav-label">Migration</div>
+    <a class="nav-item" href="#step7"><span class="nav-step">7</span> 눈길 마이그레이션 전략</a>
+    <a class="nav-item" href="#step8"><span class="nav-step">8</span> 전체 코드 구조</a>
+  </div>
+</nav>
+
+<!-- Main Content -->
+<main class="main">
+
+<h1><em>EyeDID SDK</em> 웹 통합 가이드</h1>
+<p class="hero-desc">
+  MediaPipe FaceMesh 기반 프로토타입에서 EyeDID(구 SeeSo) SDK로 마이그레이션하기 위한 단계별 가이드입니다. API 사용법, 캘리브레이션 흐름, 그리고 눈길 프로젝트에 맞는 구현 전략을 다룹니다.
+</p>
+
+
+<!-- ============================================ -->
+<!-- STEP 0: Overview -->
+<!-- ============================================ -->
+<h2 id="overview"><span class="step-badge">STEP 0</span> MediaPipe vs EyeDID 비교</h2>
+
+<p>현재 프로토타입은 MediaPipe FaceMesh 468 랜드마크에서 iris 중심을 추출하고, 직접 구현한 2차 다항식 회귀로 화면 좌표를 매핑하고 있습니다. EyeDID SDK로 전환하면 다음과 같은 이점이 있습니다.</p>
+
+<table class="compare-table">
+  <tr>
+    <th>항목</th>
+    <th><span class="tag tag-mp">MediaPipe (현재)</span></th>
+    <th><span class="tag tag-ey">EyeDID SDK</span></th>
+  </tr>
+  <tr>
+    <td><strong>시선 추적 방식</strong></td>
+    <td>iris 좌표 → 직접 회귀 매핑</td>
+    <td>딥러닝 기반 Gaze Estimation (화면 좌표 직접 출력)</td>
+  </tr>
+  <tr>
+    <td><strong>캘리브레이션</strong></td>
+    <td>직접 구현 (16점 + 검증 4점)</td>
+    <td>SDK 내장 (1/5/6점 모드 선택 가능)</td>
+  </tr>
+  <tr>
+    <td><strong>정확도</strong></td>
+    <td>환경에 따라 편차 큼 (60~150px)</td>
+    <td>약 2~3cm 오차 (일반 웹캠 기준)</td>
+  </tr>
+  <tr>
+    <td><strong>눈 깜빡임 감지</strong></td>
+    <td>EAR 비율 직접 계산</td>
+    <td>BlinkInfo로 자동 제공</td>
+  </tr>
+  <tr>
+    <td><strong>사용자 상태</strong></td>
+    <td>없음</td>
+    <td>Attention Score, Drowsiness 등 내장</td>
+  </tr>
+  <tr>
+    <td><strong>필터링</strong></td>
+    <td>직접 구현 (Median+EMA+Velocity)</td>
+    <td>OneEuroFilter 내장 제공</td>
+  </tr>
+  <tr>
+    <td><strong>비용</strong></td>
+    <td>무료 (오픈소스)</td>
+    <td>개발용 무료 / 프로덕션 유료</td>
+  </tr>
+</table>
+
+<div class="box info">
+  <strong>핵심:</strong> 현재 프로토타입에서 직접 구현한 iris 추출, 다항식 회귀, 캘리브레이션 그리드, 검증 로직이 모두 SDK 한 줄로 대체됩니다. 여러분의 앱 로직(읽기 추적, 집중도 분석, UI)에만 집중할 수 있게 됩니다.
+</div>
+
+<h3>전체 API 호출 흐름</h3>
+<div class="flow">
+  <div class="flow-node">라이선스 키 발급</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-node">npm install seeso</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-node highlight">EasySeeSo.init()</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-node">startTracking()</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-node highlight">calibration</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-node">onGaze() 콜백</div>
+  <span class="flow-arrow">→</span>
+  <div class="flow-node">시선 데이터 활용</div>
+</div>
+
+
+<!-- ============================================ -->
+<!-- STEP 1: License Key -->
+<!-- ============================================ -->
+<h2 id="step1"><span class="step-badge">STEP 1</span> 라이선스 키 발급</h2>
+
+<p>EyeDID SDK는 인증 기반으로 동작합니다. 시작 전 반드시 라이선스 키를 발급받아야 합니다.</p>
+
+<div class="steps">
+  <div class="step-item">
+    <div class="step-num">1</div>
+    <div class="step-content">
+      <strong><a href="https://manage.seeso.io" target="_blank">manage.seeso.io</a> 접속 → 회원가입</strong>
+      <p>VisualCamp 콘솔에 가입합니다. 구글 계정으로 빠르게 가입 가능합니다.</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">2</div>
+    <div class="step-content">
+      <strong>콘솔 → License Keys → Development Key 생성</strong>
+      <p>개발(Development) 키는 무료이며, 도메인 제한 없이 테스트할 수 있습니다. 프로덕션 키는 별도 요청이 필요합니다.</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">3</div>
+    <div class="step-content">
+      <strong>키를 안전하게 보관</strong>
+      <p>발급받은 키를 환경 변수나 설정 파일에 저장합니다. 클라이언트 사이드 코드에 직접 노출되지만, Development 키는 이 방식이 일반적입니다.</p>
+    </div>
+  </div>
+</div>
+
+<div class="box warn">
+  <strong>주의:</strong> SDK 인증에는 <strong>인터넷 연결이 필수</strong>입니다. 초기화 시 EyeDID 서버에서 세션을 발급받으며, 오프라인 환경에서는 작동하지 않습니다.
+</div>
+
+
+<!-- ============================================ -->
+<!-- STEP 2: Install -->
+<!-- ============================================ -->
+<h2 id="step2"><span class="step-badge">STEP 2</span> SDK 설치 및 로드</h2>
+
+<h3>방법 A — npm (권장, 번들러 사용 시)</h3>
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">bash</span>
+  </div>
+  <pre>npm install seeso</pre>
+</div>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — import</span>
+  </div>
+  <pre><span class="kw">import</span> EasySeeSo <span class="kw">from</span> <span class="str">'seeso/easy-seeso'</span>;
+<span class="kw">import</span> { TrackingState } <span class="kw">from</span> <span class="str">'seeso'</span>;</pre>
+</div>
+
+<h3>방법 B — CDN (단일 HTML 파일)</h3>
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">html</span>
+  </div>
+  <pre><span class="cm">&lt;!-- SeeSo SDK CDN --&gt;</span>
+&lt;script src=<span class="str">"https://cdn.seeso.io/seeso.js"</span>&gt;&lt;/script&gt;
+
+<span class="cm">&lt;!-- 이후 전역 EasySeeSo, SeeSo 객체 사용 가능 --&gt;</span></pre>
+</div>
+
+<div class="box info">
+  <strong>현재 눈길 프로토타입이 단일 HTML 파일이므로</strong> CDN 방식이 가장 빠르게 전환할 수 있는 방법입니다. 프로젝트가 React/Vue로 확장되면 npm 방식으로 전환하세요.
+</div>
+
+
+<!-- ============================================ -->
+<!-- STEP 3: Initialize -->
+<!-- ============================================ -->
+<h2 id="step3"><span class="step-badge">STEP 3</span> GazeTracker 초기화</h2>
+
+<p>EasySeeSo는 SeeSo SDK를 간편하게 사용할 수 있는 래퍼 클래스입니다. <code>init()</code> 호출 시 라이선스 키 인증 → 카메라 접근 → GazeTracker 생성이 순차적으로 이루어집니다.</p>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — 초기화</span>
+  </div>
+  <pre><span class="kw">const</span> licenseKey = <span class="str">'YOUR_LICENSE_KEY'</span>;
+
+<span class="cm">// EasySeeSo 인스턴스 생성</span>
+<span class="kw">const</span> seeso = <span class="kw">new</span> <span class="fn">EasySeeSo</span>();
+
+<span class="cm">// 초기화 (비동기)</span>
+<span class="kw">async function</span> <span class="fn">initEyeTracking</span>() {
+  <span class="kw">try</span> {
+    <span class="kw">await</span> seeso.<span class="fn">init</span>(
+      licenseKey,
+      <span class="cm">// 시선 콜백 — 핵심!</span>
+      <span class="fn">onGaze</span>,
+      <span class="cm">// 디버그 콜백 (선택)</span>
+      <span class="fn">onDebug</span>
+    );
+    console.<span class="fn">log</span>(<span class="str">'✅ EyeDID 초기화 성공'</span>);
+  } <span class="kw">catch</span>(e) {
+    console.<span class="fn">error</span>(<span class="str">'❌ 초기화 실패:'</span>, e);
+  }
+}
+
+<span class="cm">// 시선 데이터 콜백</span>
+<span class="kw">function</span> <span class="fn">onGaze</span>(gazeInfo) {
+  <span class="kw">if</span> (gazeInfo.trackingState === TrackingState.SUCCESS) {
+    <span class="kw">const</span> x = gazeInfo.x;  <span class="cm">// 화면 X 좌표 (px)</span>
+    <span class="kw">const</span> y = gazeInfo.y;  <span class="cm">// 화면 Y 좌표 (px)</span>
+    <span class="cm">// → 여기서 시선 처리 로직 실행</span>
+  }
+}
+
+<span class="kw">function</span> <span class="fn">onDebug</span>(FPS, accuracy) {
+  console.<span class="fn">log</span>(<span class="str">`FPS: ${FPS}, Accuracy: ${accuracy}`</span>);
+}</pre>
+</div>
+
+<div class="box good">
+  <strong>MediaPipe 대비 변화:</strong> 기존에 <code>FaceMesh</code> 초기화 → <code>Camera</code> 시작 → <code>onResults</code> 콜백에서 iris 추출 → 직접 predict 하던 과정이 <code>seeso.init(key, onGaze)</code> 한 줄로 대체됩니다.
+</div>
+
+
+<!-- ============================================ -->
+<!-- STEP 4: Tracking -->
+<!-- ============================================ -->
+<h2 id="step4"><span class="step-badge">STEP 4</span> 시선 추적 시작</h2>
+
+<p>초기화 성공 후 <code>startTracking()</code>을 호출하면 웹캠 기반 시선 추적이 시작됩니다. 매 프레임마다 <code>onGaze</code> 콜백이 호출됩니다.</p>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — 추적 시작/종료</span>
+  </div>
+  <pre><span class="cm">// 추적 시작</span>
+seeso.<span class="fn">startTracking</span>();
+
+<span class="cm">// 추적 종료</span>
+seeso.<span class="fn">stopTracking</span>();
+
+<span class="cm">// ─────────────────────────────────────────────</span>
+<span class="cm">// onGaze 콜백에서 받는 gazeInfo 객체 구조:</span>
+<span class="cm">// ─────────────────────────────────────────────</span>
+<span class="kw">function</span> <span class="fn">onGaze</span>(gazeInfo) {
+  <span class="cm">// gazeInfo.x              → 화면 X 좌표 (px)</span>
+  <span class="cm">// gazeInfo.y              → 화면 Y 좌표 (px)</span>
+  <span class="cm">// gazeInfo.trackingState  → SUCCESS | LOW_CONFIDENCE | UNSUPPORTED</span>
+  <span class="cm">// gazeInfo.eyeMovementState → FIXATION | SACCADE | UNKNOWN</span>
+  <span class="cm">// gazeInfo.timestamp      → 밀리초 타임스탬프</span>
+
+  <span class="kw">if</span> (gazeInfo.trackingState === TrackingState.SUCCESS) {
+    <span class="cm">// 높은 신뢰도 — 정밀 추적에 사용</span>
+    <span class="fn">moveGazeDot</span>(gazeInfo.x, gazeInfo.y);
+    <span class="fn">detectGazedWord</span>(gazeInfo.x, gazeInfo.y);
+  }
+  <span class="kw">else if</span> (gazeInfo.trackingState === TrackingState.LOW_CONFIDENCE) {
+    <span class="cm">// 낮은 신뢰도 — 대략적 위치만 참고</span>
+    <span class="fn">moveGazeDot</span>(gazeInfo.x, gazeInfo.y);
+  }
+  <span class="kw">else</span> {
+    <span class="cm">// UNSUPPORTED — 얼굴 미감지</span>
+    <span class="fn">showFaceMissing</span>();
+  }
+}</pre>
+</div>
+
+<div class="box warn">
+  <strong>TrackingState 주의:</strong> <code>SUCCESS</code>와 <code>LOW_CONFIDENCE</code> 모두 유효한 좌표를 반환합니다. 읽기 추적처럼 정밀도가 필요한 경우 <code>SUCCESS</code>만 사용하고, 단순 시선 표시는 둘 다 활용하세요.
+</div>
+
+
+<!-- ============================================ -->
+<!-- STEP 5: Calibration -->
+<!-- ============================================ -->
+<h2 id="step5"><span class="step-badge">STEP 5</span> 캘리브레이션</h2>
+
+<p>EyeDID는 두 가지 캘리브레이션 방식을 제공합니다. 눈길 프로젝트에는 <strong>커스텀 캘리브레이션</strong>이 적합합니다.</p>
+
+<h3>방법 A — Quick 캘리브레이션 (외부 페이지)</h3>
+<p>SDK가 제공하는 별도 캘리브레이션 페이지로 리다이렉트합니다. 간단하지만 UX 커스터마이즈가 제한적입니다.</p>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — Quick 방식</span>
+  </div>
+  <pre><span class="cm">// 캘리브레이션 페이지로 리다이렉트</span>
+EasySeeSo.<span class="fn">openCalibrationPage</span>(
+  licenseKey,
+  <span class="str">'user-id-123'</span>,         <span class="cm">// 사용자 식별자</span>
+  <span class="str">'https://myapp.com/read'</span>, <span class="cm">// 완료 후 리다이렉트 URL</span>
+  <span class="num">5</span>                         <span class="cm">// 캘리브레이션 포인트 수 (1 or 5)</span>
+);
+
+<span class="cm">// ─ 리다이렉트된 페이지에서 캘리브레이션 데이터 파싱 ─</span>
+<span class="kw">function</span> <span class="fn">loadCalibrationData</span>() {
+  <span class="kw">const</span> href = window.location.href;
+  <span class="kw">const</span> decoded = <span class="fn">decodeURI</span>(href);
+  <span class="kw">const</span> qs = decoded.<span class="fn">split</span>(<span class="str">'?'</span>)[<span class="num">1</span>];
+  <span class="kw">if</span> (!qs) <span class="kw">return</span>;
+  <span class="kw">const</span> json = qs.<span class="fn">slice</span>(<span class="str">'calibrationData='</span>.length);
+  seeso.<span class="fn">setCalibrationData</span>(json);
+}</pre>
+</div>
+
+<h3>방법 B — 커스텀 캘리브레이션 (권장)</h3>
+<p>앱 내에서 직접 캘리브레이션 UI를 구현합니다. 눈길의 기존 디자인 시스템을 유지할 수 있습니다.</p>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — 커스텀 캘리브레이션 (핵심 코드)</span>
+  </div>
+  <pre><span class="cm">// 캘리브레이션 시작 (5점 모드)</span>
+<span class="kw">const</span> calibrationPoints = <span class="num">5</span>; <span class="cm">// 1, 5, 6 중 선택</span>
+
+seeso.<span class="fn">startCalibration</span>(calibrationPoints);
+
+<span class="cm">// ──────────────────────────────────────────────</span>
+<span class="cm">// 콜백 1: 다음 캘리브레이션 포인트 좌표 전달</span>
+<span class="cm">// SDK가 "이 좌표를 사용자에게 보여주세요"라고 알려줌</span>
+<span class="cm">// ──────────────────────────────────────────────</span>
+seeso.<span class="fn">setOnCalibrationNextPoint</span>(<span class="kw">function</span>(x, y) {
+  <span class="cm">// 1) 해당 좌표에 캘리브레이션 점(dot) UI를 표시</span>
+  <span class="fn">showCalibDot</span>(x, y);
+
+  <span class="cm">// 2) 사용자가 점을 바라볼 시간을 준 뒤 샘플 수집 시작</span>
+  <span class="fn">setTimeout</span>(() => {
+    seeso.<span class="fn">startCollectSamples</span>();
+  }, <span class="num">1000</span>); <span class="cm">// 1초 대기</span>
+});
+
+<span class="cm">// ──────────────────────────────────────────────</span>
+<span class="cm">// 콜백 2: 진행률 (0.0 ~ 1.0)</span>
+<span class="cm">// ──────────────────────────────────────────────</span>
+seeso.<span class="fn">setOnCalibrationProgress</span>(<span class="kw">function</span>(progress) {
+  <span class="fn">updateCalibRing</span>(progress); <span class="cm">// 기존 링 애니메이션 재활용</span>
+});
+
+<span class="cm">// ──────────────────────────────────────────────</span>
+<span class="cm">// 콜백 3: 캘리브레이션 완료 → 데이터 저장</span>
+<span class="cm">// ──────────────────────────────────────────────</span>
+seeso.<span class="fn">setOnCalibrationFinished</span>(<span class="kw">function</span>(calibrationData) {
+  console.<span class="fn">log</span>(<span class="str">'✅ 캘리브레이션 완료'</span>);
+
+  <span class="cm">// calibrationData를 저장해두면 재시작 시 재캘리브 불필요</span>
+  localStorage.<span class="fn">setItem</span>(<span class="str">'eyedid_calib'</span>, calibrationData);
+
+  <span class="cm">// → 읽기 화면으로 전환</span>
+  <span class="fn">proceedToRead</span>();
+});</pre>
+</div>
+
+<div class="box good">
+  <strong>큰 이점:</strong> 캘리브레이션 데이터를 <code>localStorage</code>에 저장하고 <code>seeso.setCalibrationData(data)</code>로 복원할 수 있습니다. 사용자가 다시 접속해도 재캘리브레이션 없이 즉시 사용 가능합니다!
+</div>
+
+<h3>기존 눈길 캘리브레이션과의 매핑</h3>
+<table class="compare-table">
+  <tr>
+    <th>눈길 기존 (MediaPipe)</th>
+    <th>EyeDID SDK 대응</th>
+  </tr>
+  <tr>
+    <td>16점 그리드 + 클릭 수집</td>
+    <td><code>startCalibration(5)</code> — 5점이면 충분</td>
+  </tr>
+  <tr>
+    <td>SETTLE_MS + SAMPLE_MS 타이밍</td>
+    <td><code>onCalibrationNextPoint</code> → setTimeout → <code>startCollectSamples</code></td>
+  </tr>
+  <tr>
+    <td>링 애니메이션</td>
+    <td><code>onCalibrationProgress</code>로 동일하게 구현</td>
+  </tr>
+  <tr>
+    <td><code>fitModel()</code> 다항식 회귀</td>
+    <td><strong>삭제</strong> — SDK 내부에서 자동 처리</td>
+  </tr>
+  <tr>
+    <td>검증(Validation) 4점</td>
+    <td><strong>선택</strong> — 자체 검증 로직은 유지 가능 (onGaze 좌표 vs 표시 점 비교)</td>
+  </tr>
+</table>
+
+
+<!-- ============================================ -->
+<!-- STEP 6: Filtering -->
+<!-- ============================================ -->
+<h2 id="step6"><span class="step-badge">STEP 6</span> 필터링 & 후처리</h2>
+
+<p>EyeDID SDK는 <strong>OneEuroFilter</strong>를 내장 제공합니다. 기존 눈길의 Median+EMA+Velocity damping 파이프라인을 대체할 수 있습니다.</p>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — OneEuroFilter 사용</span>
+  </div>
+  <pre><span class="cm">// seeso 패키지에서 OneEuroFilter import</span>
+<span class="kw">import</span> { OneEuroFilter } <span class="kw">from</span> <span class="str">'seeso'</span>;
+
+<span class="cm">// 필터 생성 (2차원: x, y)</span>
+<span class="kw">const</span> gazeFilter = <span class="kw">new</span> <span class="fn">OneEuroFilter</span>(<span class="num">2</span>);
+
+<span class="kw">function</span> <span class="fn">onGaze</span>(gazeInfo) {
+  <span class="kw">if</span> (gazeInfo.trackingState === TrackingState.SUCCESS) {
+    <span class="cm">// 필터 적용</span>
+    <span class="kw">if</span> (gazeFilter.<span class="fn">filterValues</span>(gazeInfo.timestamp, [gazeInfo.x, gazeInfo.y])) {
+      <span class="kw">const</span> [fx, fy] = gazeFilter.<span class="fn">getFilteredValues</span>();
+      <span class="fn">moveGazeDot</span>(fx, fy);
+      <span class="fn">detectGazedWord</span>(fx, fy);
+    }
+  }
+}</pre>
+</div>
+
+<div class="box info">
+  <strong>기존 코드 제거 대상:</strong>
+  <code>medianOf()</code>, <code>filterCoords()</code>, EMA 로직, Velocity damping, <code>bufX/bufY</code> 버퍼 — 모두 OneEuroFilter가 대체합니다.
+</div>
+
+
+<!-- ============================================ -->
+<!-- STEP 7: Migration -->
+<!-- ============================================ -->
+<h2 id="step7"><span class="step-badge">STEP 7</span> 눈길 마이그레이션 전략</h2>
+
+<p>기존 1,175줄 프로토타입에서 <strong>제거할 코드</strong>와 <strong>유지할 코드</strong>를 명확히 구분합니다.</p>
+
+<h3>🗑️ 삭제 (SDK가 대체)</h3>
+<ul>
+  <li><strong>MediaPipe 초기화</strong> — <code>initMediaPipe()</code>, FaceMesh 설정, Camera 인스턴스</li>
+  <li><strong>iris 추출</strong> — <code>irisCenter()</code>, <code>extractGazeVector()</code>, 랜드마크 인덱스 상수</li>
+  <li><strong>눈 깜빡임 감지</strong> — <code>detectBlink()</code> (SDK의 BlinkInfo 사용)</li>
+  <li><strong>회귀 매핑</strong> — <code>polyFeatures()</code>, <code>fitModel()</code>, <code>predict()</code>, <code>matMul()</code>, <code>matInv6()</code></li>
+  <li><strong>필터링</strong> — <code>medianOf()</code>, <code>filterCoords()</code>, EMA/Velocity 로직</li>
+  <li><strong>캘리브레이션 그리드 구축</strong> — <code>buildCalibGrid()</code>, <code>onCalibClick()</code>, <code>finishCalibPoint()</code></li>
+  <li><strong>검증 로직</strong> — <code>beginValidation()</code>, <code>showValDot()</code>, <code>computeValResults()</code></li>
+  <li><strong>Face preview 미니 캔버스</strong> — <code>drawFacePreview()</code></li>
+</ul>
+
+<h3>✅ 유지 (앱 고유 로직)</h3>
+<ul>
+  <li><strong>UI 구조</strong> — 4단계 화면 (Setup, Calibration, Reading, Result)</li>
+  <li><strong>읽기 추적</strong> — <code>detectGazedWord()</code>, <code>updateProgBar()</code>, <code>buildArticle()</code></li>
+  <li><strong>시각 피드백</strong> — gazeDot 이동, trail 그리기, stability UI</li>
+  <li><strong>결과 계산</strong> — <code>finishReading()</code>, 커버리지/소요시간 통계</li>
+  <li><strong>CSS/디자인</strong> — 전체 디자인 시스템 (변수, 애니메이션 등)</li>
+  <li><strong>캘리브레이션 UI</strong> — 점 표시, 링 애니메이션 → SDK 콜백에 연결만 변경</li>
+  <li><strong>PASSAGES 텍스트</strong> — 읽기 지문 데이터</li>
+</ul>
+
+<h3>🔄 수정 (연결 변경)</h3>
+<ul>
+  <li><strong>onFaceResults → onGaze</strong>: 메인 콜백 함수 교체</li>
+  <li><strong>캘리브레이션 흐름</strong>: 클릭 기반 → SDK 콜백 기반으로 전환</li>
+  <li><strong>Setup 체크</strong>: MediaPipe 로딩 체크 → EyeDID init 성공 체크</li>
+</ul>
+
+
+<!-- ============================================ -->
+<!-- STEP 8: Full Structure -->
+<!-- ============================================ -->
+<h2 id="step8"><span class="step-badge">STEP 8</span> 전체 코드 구조</h2>
+
+<p>마이그레이션 후 핵심 코드의 전체 구조입니다. 기존 1,175줄에서 약 300~400줄로 대폭 줄어듭니다.</p>
+
+<div class="code-wrap">
+  <div class="code-header">
+    <span class="code-lang">javascript — 마이그레이션 후 핵심 구조</span>
+  </div>
+  <pre><span class="str">'use strict'</span>;
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="cm">//  눈길 — EyeDID SDK 기반 시선 추적</span>
+<span class="cm">// ════════════════════════════════════════════</span>
+
+<span class="kw">const</span> LICENSE_KEY = <span class="str">'YOUR_LICENSE_KEY'</span>;
+<span class="kw">let</span> seeso;
+<span class="kw">let</span> gazeFilter;
+
+<span class="cm">// ── State (기존 S 객체에서 SDK 관련 항목 제거) ──</span>
+<span class="kw">const</span> S = {
+  calibDone: <span class="kw">false</span>,
+  readStart: <span class="kw">null</span>,
+  onFrames: <span class="num">0</span>, totFrames: <span class="num">0</span>,
+  gazedWords: <span class="kw">new</span> <span class="fn">Set</span>(),
+  totalWords: <span class="num">0</span>,
+  passageIdx: <span class="num">0</span>,
+  stabBuf: [],
+};
+
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="cm">//  1. 초기화</span>
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="kw">async function</span> <span class="fn">initEyeTracking</span>() {
+  seeso = <span class="kw">new</span> <span class="fn">EasySeeSo</span>();
+  gazeFilter = <span class="kw">new</span> <span class="fn">OneEuroFilter</span>(<span class="num">2</span>);
+
+  <span class="kw">try</span> {
+    <span class="kw">await</span> seeso.<span class="fn">init</span>(LICENSE_KEY, <span class="fn">onGaze</span>, <span class="fn">onDebug</span>);
+    <span class="fn">setStatus</span>(<span class="str">'SDK 초기화 완료'</span>, <span class="str">'on'</span>);
+    <span class="fn">setStep</span>(<span class="num">1</span>);  <span class="cm">// 캘리브레이션 화면으로</span>
+    <span class="fn">startCalibration</span>();
+  } <span class="kw">catch</span>(e) {
+    <span class="fn">setStatus</span>(<span class="str">'초기화 실패: '</span> + e, <span class="str">'err'</span>);
+  }
+}
+
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="cm">//  2. 캘리브레이션 (커스텀 UI)</span>
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="kw">function</span> <span class="fn">startCalibration</span>() {
+  <span class="cm">// 저장된 캘리브레이션 데이터가 있으면 재사용</span>
+  <span class="kw">const</span> saved = localStorage.<span class="fn">getItem</span>(<span class="str">'eyedid_calib'</span>);
+  <span class="kw">if</span> (saved) {
+    seeso.<span class="fn">setCalibrationData</span>(saved);
+    <span class="fn">proceedToRead</span>();
+    <span class="kw">return</span>;
+  }
+
+  seeso.<span class="fn">startTracking</span>();
+  seeso.<span class="fn">startCalibration</span>(<span class="num">5</span>);
+
+  seeso.<span class="fn">setOnCalibrationNextPoint</span>((x, y) => {
+    <span class="fn">showCalibDot</span>(x, y); <span class="cm">// 기존 UI 재활용</span>
+    <span class="fn">setTimeout</span>(() => seeso.<span class="fn">startCollectSamples</span>(), <span class="num">1000</span>);
+  });
+
+  seeso.<span class="fn">setOnCalibrationProgress</span>((progress) => {
+    <span class="fn">updateCalibRing</span>(progress);
+  });
+
+  seeso.<span class="fn">setOnCalibrationFinished</span>((data) => {
+    localStorage.<span class="fn">setItem</span>(<span class="str">'eyedid_calib'</span>, data);
+    <span class="fn">proceedToRead</span>();
+  });
+}
+
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="cm">//  3. 시선 처리 (핵심 콜백)</span>
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="kw">function</span> <span class="fn">onGaze</span>(gazeInfo) {
+  <span class="kw">if</span> (gazeInfo.trackingState !== TrackingState.SUCCESS) <span class="kw">return</span>;
+
+  <span class="cm">// OneEuroFilter 적용</span>
+  <span class="kw">if</span> (!gazeFilter.<span class="fn">filterValues</span>(gazeInfo.timestamp, [gazeInfo.x, gazeInfo.y])) <span class="kw">return</span>;
+  <span class="kw">const</span> [gx, gy] = gazeFilter.<span class="fn">getFilteredValues</span>();
+
+  <span class="cm">// Gaze dot 이동</span>
+  gazeDot.style.left = gx + <span class="str">'px'</span>;
+  gazeDot.style.top  = gy + <span class="str">'px'</span>;
+
+  <span class="cm">// Trail</span>
+  trail.<span class="fn">push</span>({ x: gx, y: gy, t: Date.<span class="fn">now</span>() });
+  <span class="kw">if</span> (trail.length > <span class="num">50</span>) trail.<span class="fn">shift</span>();
+  <span class="fn">drawTrail</span>();
+
+  <span class="cm">// 읽기 추적 (기존 로직 그대로)</span>
+  <span class="kw">if</span> (S.calibDone) {
+    S.totFrames++;
+    <span class="fn">detectGazedWord</span>(gx, gy);
+    <span class="fn">updateProgBar</span>(gy);
+    <span class="fn">updateStabUI</span>();
+  }
+}
+
+<span class="cm">// ════════════════════════════════════════════</span>
+<span class="cm">//  4. 나머지 — 기존 코드 유지</span>
+<span class="cm">//  • buildArticle(), detectGazedWord()</span>
+<span class="cm">//  • finishReading(), 결과 계산</span>
+<span class="cm">//  • drawTrail(), updateStabUI()</span>
+<span class="cm">//  • UI 헬퍼 (setStep, setStatus)</span>
+<span class="cm">// ════════════════════════════════════════════</span></pre>
+</div>
+
+
+<h3>다음 단계: 프로젝트 확장</h3>
+<p>SDK 마이그레이션이 완료되면, 기능구조도에 명시된 핵심 기능들을 추가해 나갈 수 있습니다.</p>
+
+<div class="steps">
+  <div class="step-item">
+    <div class="step-num">A</div>
+    <div class="step-content">
+      <strong>집중도 분석 엔진 구현</strong>
+      <p>Fixation Duration, Regression Count, Gaze Dispersion을 <code>onGaze</code> 콜백 데이터로 계산. <code>eyeMovementState</code>가 FIXATION/SACCADE를 자동 구분해줍니다.</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">B</div>
+    <div class="step-content">
+      <strong>집중 Mode (블러 효과)</strong>
+      <p>시선이 위치한 문단만 선명하게, 나머지는 블러/채도 저하. <code>onGaze</code>에서 현재 시선 영역을 판별하여 CSS 필터를 동적 적용.</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">C</div>
+    <div class="step-content">
+      <strong>Attention Score 활용</strong>
+      <p>EyeDID의 UserStatus 기능으로 집중도를 자동 측정. 임계값 이하 시 알림을 트리거하는 로직 추가.</p>
+    </div>
+  </div>
+  <div class="step-item">
+    <div class="step-num">D</div>
+    <div class="step-content">
+      <strong>PDF 뷰어 통합 + 학습 자산화</strong>
+      <p>PDF.js 기반 뷰어에 시선 추적을 오버레이하고, 학습 후 AI 요약/마인드맵 생성 기능 연동.</p>
+    </div>
+  </div>
+</div>
+
+<div class="box warn" style="margin-top:32px">
+  <strong>Web SDK 현황 참고:</strong> EyeDID의 Web(JavaScript) API 문서는 아직 "추후 공개(It will be released at a later date)" 상태입니다. 현재 Web SDK는 <code>seeso</code> npm 패키지와 <code>cdn.seeso.io/seeso.js</code> CDN으로 제공되며, 공식 샘플 코드가 GitHub(<code>visualcamp/seeso-sample-web</code>)에 공개되어 있습니다. 최신 API 변경사항은 반드시 공식 문서(<a href="https://docs.eyedid.ai" target="_blank">docs.eyedid.ai</a>)와 npm 패키지의 README를 확인하세요.
+</div>
+
+</main>
+</div>
+
+<script>
+// Simple active nav tracking
+document.querySelectorAll('.nav-item').forEach(item => {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+    item.classList.add('active');
+  });
+});
+
+// Scroll spy
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      document.querySelectorAll('.nav-item').forEach(i => {
+        i.classList.toggle('active', i.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { rootMargin: '-20% 0px -60% 0px' });
+
+document.querySelectorAll('h2[id]').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
