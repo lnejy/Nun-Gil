@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>눈길 — 뷰어</title>
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- ═══ GAZE OVERLAY ═══ -->
+  <canvas id="trail-canvas"></canvas>
+  <div id="gaze-dot"></div>
+
+  <!-- ═══ CALIBRATION OVERLAY ═══ -->
+  <div id="calibOverlay" class="calib-overlay">
+    <div class="calib-phase active" id="calibSetup">
+      <div class="calib-card">
+        <div class="calib-card-icon">👁</div>
+        <h2 class="calib-card-title">시선 캘리브레이션</h2>
+        <p class="calib-card-desc">EyeDID SDK로 시선을 보정합니다.<br>화면에서 <strong>50–70cm</strong> 거리, 정면을 바라봐 주세요.</p>
+        <div class="calib-steps">
+          <div class="calib-step"><strong>1. 환경 확인</strong><span>브라우저와 카메라 권한을 자동으로 확인합니다.</span></div>
+          <div class="calib-step"><strong>2. 캘리브레이션</strong><span>화면에 나타나는 6개의 점을 순서대로 응시합니다.</span></div>
+          <div class="calib-step"><strong>3. 완료 후 진입</strong><span>보정이 끝나면 시선 추적을 활용할 수 있습니다.</span></div>
+        </div>
+        <div class="calib-check">
+          <div class="calib-chk-item" id="chkBrowser"><span class="calib-chk-icon">○</span><span>브라우저 확인 중...</span></div>
+          <div class="calib-chk-item" id="chkCamera"><span class="calib-chk-icon">○</span><span>카메라 확인 중...</span></div>
+          <div class="calib-chk-item" id="chkSdk"><span class="calib-chk-icon">○</span><span>EyeDID SDK 로딩 확인 중...</span></div>
+        </div>
+        <button class="btn-dark" id="btnStartCalib" disabled>캘리브레이션 시작</button>
+        <p style="font-size:11px;color:var(--text-light);margin-top:14px;">카메라 데이터는 브라우저 내에서만 처리됩니다.</p>
+      </div>
+    </div>
+    <div class="calib-fullscreen" id="calibScreen">
+      <div class="calib-hud">
+        <div class="calib-phase-lbl">CALIBRATION</div>
+        <div class="calib-title" id="calibTitle">파란색 점을 바라봐 주세요</div>
+        <div class="calib-sub-text" id="calibSub">각 점이 나타나면 점을 정확히 응시하세요.<br>정밀도 향상을 위해 6개 점을 수집합니다.</div>
+      </div>
+      <div class="calib-bottom-bar">
+        <div class="calib-pips" id="calibPips"></div>
+        <div class="calib-prog-txt" id="calibProgTxt">0 / 6</div>
+      </div>
+    </div>
+    <div class="calib-phase" id="calibDonePhase">
+      <div class="calib-card calib-done-card">
+        <div class="calib-done-icon">✓</div>
+        <h2 class="calib-card-title">캘리브레이션 완료!</h2>
+        <p class="calib-card-desc">시선 보정이 성공적으로 완료되었습니다.<br>이제 문서를 읽으며 시선 추적을 활용할 수 있습니다.</p>
+        <button class="btn-dark" id="btnCalibDone">워크스페이스로 진입 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Viewer Sidebar ═══ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="sb-brand" onclick="location.href='ui_nungil.html'" style="cursor:pointer;">👀 <span class="sb-name">눈길</span></div>
+      <button class="sb-toggle-btn" id="sidebarToggle">⟨</button>
+    </div>
+    <div class="sb-add-section">
+      <button class="sb-add-btn" onclick="location.href='ui_nungil.html'"><span>새 문서 추가</span></button>
+    </div>
+    <div class="sb-tool-section">
+      <div class="sb-tool-grid">
+        <button class="sb-tool-item" onclick="showOrigin()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>원본</span>
+        </button>
+        <button class="sb-tool-item" onclick="showSummary()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>요약</span>
+        </button>
+        <button class="sb-tool-item" onclick="showMind()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          <span>마인드맵</span>
+        </button>
+        <button class="sb-tool-item" onclick="alert('퀴즈 기능은 개발 중입니다.')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          <span>퀴즈</span>
+        </button>
+      </div>
+    </div>
+    <div class="sidebar-scroll">
+      <div class="sb-label">프로젝트함 문서</div>
+      <div class="sb-list">
+        <button class="sb-item active"><span class="sb-item-text">03/16 캡스톤 디자인 회의록</span></button>
+        <button class="sb-item"><span class="sb-item-text">기말 발표 자료.pptx</span></button>
+      </div>
+    </div>
+    <div class="sb-profile">
+      <div class="profile-card">
+        <div class="avatar"><svg viewBox="0 0 64 64" fill="currentColor" width="24"><circle cx="32" cy="24" r="10"/><path d="M18 46C18 38.268 24.268 32 32 32C39.732 32 46 38.268 46 46V48H18V46Z"/></svg></div>
+        <div class="profile-info">
+          <div class="profile-name">신영서</div>
+          <div class="profile-email">nungil@workspace.ai</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══ Main Wrapper ═══ -->
+  <main class="main-wrapper">
+    <!-- Floating Toolbar -->
+    <div class="toolbar-wrapper">
+      <header class="floating-toolbar">
+        <div class="group-left">
+          <div class="font-island">
+            <select id="fontSel" onchange="chFont(this.value)" style="border:none;background:none;font-weight:700;font-family:'Pretendard',sans-serif;outline:none;cursor:pointer;color:var(--text);font-size:13px;">
+              <option value="Pretendard">프리텐다드</option>
+              <option value="Nanum Myeongjo">나눔명조</option>
+              <option value="GmarketSans">G마켓산스</option>
+            </select>
+            <span class="divider" style="margin:0 8px;color:#ccc;">|</span>
+            <span class="zoom-controls" style="display:inline-flex;align-items:center;gap:6px;">
+              <button onclick="adjSz(-1)" style="border:none;background:none;cursor:pointer;font-weight:800;font-size:.95rem;color:var(--text);padding:0;">−</button>
+              <span id="fsd" style="font-size:.76rem;font-weight:700;width:32px;display:inline-block;text-align:center;">100%</span>
+              <button onclick="adjSz(1)" style="border:none;background:none;cursor:pointer;font-weight:800;font-size:.95rem;color:var(--text);padding:0;">+</button>
+            </span>
+          </div>
+        </div>
+        <div class="group-right">
+          <button class="tool-btn-main" id="noteBtn" onclick="togNote()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            <span>메모장</span>
+          </button>
+          <button class="tool-btn-main" id="bmBtn" onclick="togBmMode()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <span>북마크</span>
+          </button>
+          <button class="tool-btn-main" id="bookmarkListBtn" onclick="togBookmarkOverlay()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            <span>북마크함</span>
+          </button>
+          <button class="tool-btn-main" id="ptBtn" onclick="togPtMode()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <span>포스트잇</span>
+          </button>
+        </div>
+      </header>
+    </div>
+
+    <!-- Content Container -->
+    <div class="content-container">
+      <div class="center-area">
+        <article class="paper-canvas" id="pdf">
+          <h1 id="docTitle" style="font-size:1.45rem;font-weight:800;letter-spacing:-.5px;margin-bottom:14px;">03/16 캡스톤 디자인 회의록</h1>
+          <div id="dc">
+            <p class="meta">일시: 2025년 3월 16일 (일) 오후 2시 ~ 5시 30분<br>장소: 한서대학교 공학관 404호 회의실<br>참석자: 김민준(팀장), 이수아, 박지훈, 최유진, 정다은<br>서기: 이수아<br>프로젝트명: 눈길 — 시선 추적 기반 지능형 문서 학습 보조 시스템</p>
+            <hr>
+            <h2>1. 회의 개요 및 목적</h2>
+            <p>본 회의는 캡스톤 디자인 프로젝트 '눈길'의 2차 정기 회의로, 지난 1차 회의에서 결정된 기획안을 토대로 각 파트별 진행 상황을 점검하고, 향후 3주간의 개발 로드맵을 구체화하기 위해 소집되었다. 특히 <span class="wl" onclick="onWC(event,this,'아이트래킹')">아이트래킹</span> 모듈의 기술 선정 문제와 프론트엔드 뷰어 UI 설계 방향에 대해 집중적으로 논의하였다.</p>
+            <p>팀장 김민준은 회의 시작에 앞서 현재 프로젝트 일정이 당초 계획 대비 약 5일 지연된 상태임을 공유하며, 이번 회의를 통해 핵심 기술 스택을 확정하고 담당자별 마감일을 재설정하는 것을 목표로 삼겠다고 밝혔다. 또한 지도 교수님의 중간 발표 피드백을 바탕으로, 사용자 경험(<span class="wl" onclick="onWC(event,this,'UX')">UX</span>) 측면에서 보다 직관적인 인터페이스 설계가 필요하다는 점을 강조하였다.</p>
+            <hr>
+            <h2>2. 파트별 진행 현황 보고</h2>
+            <h3>2-1. 아이트래킹 모듈 (담당: 박지훈)</h3>
+            <p>박지훈은 지난 2주간 WebGazer.js와 GazeRecorder API를 비교 분석한 결과를 공유하였다. WebGazer.js의 경우 오픈소스 기반으로 커스터마이징이 자유롭다는 장점이 있으나, <span class="wl" onclick="onWC(event,this,'calibration')">calibration</span> 과정이 복잡하고 CPU 사용률이 높아 저사양 기기에서 불안정한 문제가 있었다.</p>
+            <p>테스트 결과, 일반 웹캠 환경에서 WebGazer.js의 평균 시선 오차는 약 98픽셀, GazeRecorder는 약 62픽셀로 측정되었으며, 이는 A4 용지 기준 약 2~3줄 범위의 정확도에 해당한다.</p>
+            <h3>2-2. 문서 뷰어 UI (담당: 이수아, 최유진)</h3>
+            <p>이수아는 현재까지 구현된 PDF 뷰어 인터페이스의 데모를 시연하였다. 기본적인 문서 표시 기능, 단어 클릭 시 정의 팝업, 폰트 크기 및 종류 변경 기능, 메모장 사이드바가 완성된 상태이며, 아이트래킹 패널의 활성화/비활성화 UI도 구현되었다고 보고하였다.</p>
+            <p>최유진은 5명의 베타 테스터를 대상으로 진행한 프로토타입 테스트에서, 참여자의 80%가 현재 인터페이스의 직관성에 만족감을 표했으나, 60%가 "읽다가 어디까지 읽었는지 표시가 되면 좋겠다"는 의견을 제시하였다.</p>
+            <h3>2-3. 백엔드 및 데이터 처리 (담당: 정다은)</h3>
+            <p>정다은은 <span class="wl" onclick="onWC(event,this,'Flask')">Flask</span> 기반의 백엔드 API 서버 구축 현황을 공유하였다. 현재 PDF 파일 업로드 및 텍스트 추출 기능(PyMuPDF 활용)이 완성되었으며, 단어별 빈도 분석 및 형태소 분석(KoNLPy Okt 모듈 사용)도 기본 동작이 확인되었다.</p>
+            <p>또한 <span class="wl" onclick="onWC(event,this,'GPT-4o')">GPT-4o</span> API를 활용한 문서 요약 기능의 초기 프로토타입이 완성되었다. 현재 평균 응답 시간이 약 4~7초로, 스트리밍 응답 방식으로의 전환을 검토 중이라고 밝혔다.</p>
+            <hr>
+            <h2>3. 주요 의사결정 사항</h2>
+            <h3>3-1. 기술 스택 최종 확정</h3>
+            <p>프론트엔드는 바닐라 JavaScript와 HTML/CSS를 기반으로 하되, 복잡한 상태 관리가 필요한 경우 Alpine.js 도입을 검토하기로 하였다. 백엔드는 Python 3.11 기반의 Flask 프레임워크를 유지하며, 데이터베이스는 SQLite를 1차 적용 후 필요 시 PostgreSQL로 마이그레이션하는 방향으로 결정되었다.</p>
+            <h3>3-2. 북마크 기능 설계 방향 결정</h3>
+            <p>팀원들은 기존 PDF 뷰어들과의 차별화를 위해, 단순한 페이지 북마크 방식이 아닌 문장 단위 인덱스 탭 방식을 채택하기로 하였다. 뷰어 왼쪽에 색상이 구분된 탭이 생성되어 사용자가 시각적으로 북마크 위치를 파악할 수 있도록 설계된다.</p>
+            <h3>3-3. 중간 발표 준비 방향</h3>
+            <p>4월 셋째 주로 예정된 중간 발표에 대한 준비 방향이 논의되었다. 팀장 김민준은 "왜 이 기능이 학습자에게 필요한가"를 중심으로 발표 스크립트를 구성하겠다고 밝혔다.</p>
+            <hr>
+            <h2>4. 개발 스프린트 계획 (3/17 ~ 4/6)</h2>
+            <h3>Week 1 (3/17 ~ 3/23): 핵심 기능 완성</h3>
+            <ul>
+              <li>북마크 기능 구현 및 테스트 — 이수아, 최유진</li>
+              <li>아이트래킹 프로토타입 정확도 개선 — 박지훈</li>
+              <li>요약 API 스트리밍 방식 전환 벤치마크 — 정다은</li>
+              <li>마인드맵 뷰 기본 레이아웃 구현 — 이수아</li>
+            </ul>
+            <h3>Week 2 (3/24 ~ 3/30): 통합 및 테스트</h3>
+            <ul>
+              <li>프론트엔드-백엔드 API 연동 1차 통합 — 전원</li>
+              <li>아이트래킹 모듈 뷰어 연동 — 박지훈, 이수아</li>
+              <li>한자 혼용 문서 OCR 전처리 개선 — 정다은</li>
+              <li>내부 1차 QA 진행 — 최유진 주도</li>
+            </ul>
+            <h3>Week 3 (3/31 ~ 4/6): 데모 준비 및 발표 자료 제작</h3>
+            <ul>
+              <li>데모 영상 시나리오 작성 및 촬영 — 최유진, 정다은</li>
+              <li>발표 PPT 초안 작성 — 김민준</li>
+              <li>성능 지표 정리(시선 추적 정확도, 응답 시간 등) — 박지훈</li>
+              <li>사용자 테스트 2차 진행 (외부 5명) — 최유진</li>
+            </ul>
+            <hr>
+            <h2>5. 실행 항목</h2>
+            <div class="ai">[김민준] 중간 발표 스크립트 초안 작성 — 마감: 3월 30일</div>
+            <div class="ai">[이수아] 북마크 기능 구현 완료 및 팀 내 데모 — 마감: 3월 23일</div>
+            <div class="ai">[박지훈] GazeRecorder 정확도 테스트 보고서 작성 — 마감: 3월 23일</div>
+            <div class="ai">[최유진] 사용자 테스트 2차 설문지 준비 — 마감: 3월 25일</div>
+            <div class="ai">[정다은] 스트리밍 vs 일반 응답 벤치마크 결과 제출 — 마감: 3월 22일</div>
+            <div class="ai">[전원] 다음 정기 회의 참석 — 일시: 3월 30일 오후 3시</div>
+            <hr>
+            <h2>6. 기타 논의 사항</h2>
+            <h3>6-1. 협업 도구 정비</h3>
+            <p>현재 팀 협업 도구로 Notion(문서), GitHub(코드), KakaoTalk(실시간 소통)을 병행 사용 중이다. 최유진은 Notion의 데이터베이스 기능을 활용하여 스프린트 진행 현황을 시각화하는 대시보드를 만들겠다고 제안하였으며, 팀원 모두가 동의하였다.</p>
+            <h3>6-2. 저작권 및 라이선스 검토</h3>
+            <p>정다은은 프로젝트에서 사용 중인 오픈소스 라이브러리들의 라이선스를 검토한 결과를 공유하였다. PyMuPDF는 AGPL-3.0 라이선스를 따르므로, 상업적 배포 시 소스코드 공개 의무가 발생할 수 있음을 지적하였다.</p>
+            <h3>6-3. 멘토링 일정 조율</h3>
+            <p>지도 교수님과의 월간 멘토링이 3월 28일 오후 4시로 예정되어 있음을 팀장 김민준이 재공지하였다. 회의 전까지 각 파트의 진행 현황을 1페이지 분량의 요약 슬라이드로 정리하여 팀 공유 폴더에 업로드해 줄 것을 요청하였다.</p>
+            <hr>
+            <h2>7. 회의 결론 및 다음 회의 예고</h2>
+            <p>이번 회의를 통해 프로젝트의 핵심 기술 스택이 확정되었으며, 북마크 기능의 Phase 1 포함이 결정되었다. 또한 향후 3주간의 스프린트 계획과 담당자별 실행 항목이 명확하게 정리되었다.</p>
+            <p>다음 정기 회의는 <strong>2025년 3월 30일(일) 오후 3시</strong>, 같은 장소에서 개최될 예정이다.</p>
+            <p style="color:#94a3b8;font-size:.84rem;margin-top:38px;text-align:right;">— 이수아 서기 작성 | 2025. 3. 16. —</p>
+          </div>
+          <div id="defBox" class="def-box"><span class="def-t" id="defW"></span><p id="defT"></p></div>
+        </article>
+      </div>
+      <div class="side-area">
+        <aside class="note-sb" id="noteSb">
+          <div class="note-box">
+            <div class="note-h">메모장</div>
+            <textarea class="note-ta" placeholder="여기에 실시간 메모를 작성하세요..."></textarea>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </main>
+
+  <!-- BM nav LEFT -->
+  <div class="bm-nav" id="bmNav" style="display:none;">
+    <button class="bm-nb" id="bmPrev" onclick="goBm(-1)">▲</button>
+    <div class="bm-ct" id="bmCt">0/0</div>
+    <button class="bm-nb" id="bmNext" onclick="goBm(1)">▼</button>
+  </div>
+
+  <!-- ET panel -->
+  <div class="et min" id="etP" onclick="etExpand()">
+    <div class="et-dot r" id="etDot"></div>
+    <div class="et-c" id="etC">
+      <span class="et-lbl" id="etLbl">아이트래킹 비활성화</span>
+      <div class="et-acts">
+        <button class="et-tog off" id="etTog" onclick="etToggle(event)">활성화</button>
+        <button class="et-cx" onclick="etCollapse(event)">✕</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BM MODAL ═══ -->
+  <div class="mo" id="mo">
+    <div class="mo-box">
+      <h3>북마크 이름</h3>
+      <p>이 위치에 붙일 이름을 입력하세요. 비워두면 번호가 자동 지정됩니다.</p>
+      <input type="text" id="bmIn" placeholder="예) 중요한 부분, 나중에 다시 읽기..." maxlength="20">
+      <div class="mo-acts">
+        <button class="mo-btn cancel" onclick="bmCancel()">취소</button>
+        <button class="mo-btn ok" onclick="bmConfirm()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ BOOKMARK OVERLAY ═══ -->
+  <div class="bookmark-overlay" id="bookmarkOverlay">
+    <div class="bookmark-modal">
+      <div class="bm-modal-header">
+        <h2>저장된 북마크</h2>
+        <button class="bm-close-btn" onclick="togBookmarkOverlay()">✕</button>
+      </div>
+      <div class="bm-modal-grid" id="bmOverlayGrid">
+        <div style="padding:40px;text-align:center;color:var(--sub);grid-column:1/-1;">북마크가 없습니다.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ EyeDID SDK ═══ -->
+  <script type="module">
+  import EasySeeSo from './easy-seeso.js';
+  window.EasySeeSo = EasySeeSo;
+  window._sdkLoaded = true;
+  window.dispatchEvent(new Event('seeso-ready'));
+  </script>
+
+  <!-- ═══ MAIN SCRIPT ═══ -->
+  <script>
+  /* ══════════════════════════════════════════════════════
+     INIT — 진입 시 캘리브레이션
+  ══════════════════════════════════════════════════════ */
+  var G = {
+    prevX:0, prevY:0, stabBuf:[], gx:0, gy:0,
+    calibDone:false, calibPointIdx:0,
+    blinkFrames:0, lastValidX:0, lastValidY:0,
+    gazeCount:0, gazeValid:0,
+    gazedWords: new Set(), totalWords:0,
+    warmup:0
+  };
+
+  window.addEventListener('load', function() {
+    origContent = document.getElementById('dc').innerHTML;
+    if (!G.calibDone) showCalibOverlay();
+  });
+
+  /* ══════════════════════════════════════════════════════
+     SIDEBAR TOGGLE
+  ══════════════════════════════════════════════════════ */
+  document.getElementById('sidebarToggle').addEventListener('click', function() {
+    document.getElementById('sidebar').classList.toggle('collapsed');
+  });
+
+  /* ══════════════════════════════════════════════════════
+     FONT / ZOOM
+  ══════════════════════════════════════════════════════ */
+  var sc = 100;
+  function adjSz(d) { sc = Math.min(200, Math.max(50, sc + d * 10)); document.getElementById('fsd').textContent = sc + '%'; document.getElementById('pdf').style.fontSize = (sc / 100) + 'rem'; }
+  function chFont(f) { document.getElementById('pdf').style.fontFamily = f + ',Pretendard,sans-serif'; }
+
+  /* ══════════════════════════════════════════════════════
+     ORIGIN / SUMMARY / MIND
+  ══════════════════════════════════════════════════════ */
+  var origContent = '';
+  function showOrigin() { document.getElementById('docTitle').textContent = '03/16 캡스톤 디자인 회의록'; if (origContent) document.getElementById('dc').innerHTML = origContent; }
+  function showSummary() { document.getElementById('docTitle').textContent = '문서 요약본'; document.getElementById('dc').innerHTML = '<p style="color:#94a3b8;line-height:2.2;">요약 기능은 백엔드 API 연동 후 활성화됩니다.</p>'; }
+  function showMind() { document.getElementById('docTitle').textContent = '마인드맵 뷰'; document.getElementById('dc').innerHTML = '<p style="color:#94a3b8;line-height:2.2;">마인드맵 뷰는 개발 중입니다.</p>'; }
+
+  /* ══════════════════════════════════════════════════════
+     NOTE
+  ══════════════════════════════════════════════════════ */
+  function togNote() {
+    var s = document.getElementById('noteSb');
+    s.classList.toggle('open');
+    document.getElementById('noteBtn').classList.toggle('active', s.classList.contains('open'));
+  }
+
+  /* ══════════════════════════════════════════════════════
+     WORD CLICK / DEFINITION
+  ══════════════════════════════════════════════════════ */
+  var DEFS = {
+    '아이트래킹': '눈의 움직임과 시선 위치를 실시간으로 추적·분석하는 기술. 학습 집중도 분석, UX 연구 등에 활용.',
+    'UX': 'User Experience. 사용자가 제품이나 서비스를 이용하면서 느끼는 총체적인 경험.',
+    'calibration': '기기나 시스템을 기준값에 맞게 보정하는 과정. 아이트래킹에서는 시선 기준점을 설정하는 단계.',
+    'Flask': 'Python 기반의 경량 웹 프레임워크. 빠른 프로토타이핑과 소규모 API 서버 구축에 적합.',
+    'GPT-4o': 'OpenAI의 멀티모달 언어 모델. 텍스트·이미지·음성을 통합 처리하며 빠른 응답속도가 특징.'
+  };
+  function onWC(e, el, w) { e.stopPropagation(); if (ptMode) { spawnPt(el); return; } showDef(el, w); }
+  function showDef(el, w) {
+    var box = document.getElementById('defBox');
+    document.getElementById('defW').textContent = w;
+    document.getElementById('defT').textContent = DEFS[w] || '정의 데이터가 없습니다.';
+    var r = el.getBoundingClientRect(), pr = document.getElementById('pdf').getBoundingClientRect();
+    box.style.top = (r.top - pr.top - 10) + 'px'; box.style.display = 'block';
+  }
+
+  /* ══════════════════════════════════════════════════════
+     POSTIT
+  ══════════════════════════════════════════════════════ */
+  var PT_CLS = ['pt-y','pt-g','pt-b','pt-p','pt-r','pt-o'];
+  var ptMode = false, ptCnt = 0;
+  function togPtMode() {
+    ptMode = !ptMode;
+    document.getElementById('ptBtn').classList.toggle('active', ptMode);
+    document.getElementById('pdf').classList.toggle('pt-mode', ptMode);
+  }
+  function spawnPt(refEl) {
+    var pdf = document.getElementById('pdf');
+    var top = 0, el = refEl; while (el && el !== pdf) { top += el.offsetTop; el = el.offsetParent; }
+    var cls = PT_CLS[ptCnt % PT_CLS.length];
+    var d = document.createElement('div'); d.className = 'pt ' + cls; d.style.top = (top - 8) + 'px';
+    var tag = document.createElement('div'); tag.className = 'pt-tag'; tag.textContent = '메모';
+    var ta = document.createElement('textarea'); ta.className = 'pt-ta'; ta.placeholder = '여기에 메모를 입력하세요...';
+    var xb = document.createElement('button'); xb.className = 'pt-x'; xb.textContent = '✕'; xb.onclick = function(e) { e.stopPropagation(); d.remove(); };
+    d.appendChild(xb); d.appendChild(tag); d.appendChild(ta); pdf.appendChild(d);
+    ptCnt++; if (ptMode) togPtMode(); setTimeout(function(){ ta.focus(); }, 50);
+  }
+  function spawnPtPara(targetEl) {
+    var pdf = document.getElementById('pdf');
+    var top = 0, el = targetEl; while (el && el !== pdf) { top += el.offsetTop; el = el.offsetParent; }
+    var cls = PT_CLS[ptCnt % PT_CLS.length];
+    var d = document.createElement('div'); d.className = 'pt ' + cls; d.style.top = (top - 8) + 'px';
+    var tag = document.createElement('div'); tag.className = 'pt-tag'; tag.textContent = '메모';
+    var ta = document.createElement('textarea'); ta.className = 'pt-ta'; ta.placeholder = '여기에 메모를 입력하세요...';
+    var xb = document.createElement('button'); xb.className = 'pt-x'; xb.textContent = '✕'; xb.onclick = function(e) { e.stopPropagation(); d.remove(); };
+    d.appendChild(xb); d.appendChild(tag); d.appendChild(ta); pdf.appendChild(d);
+    ptCnt++; if (ptMode) togPtMode(); setTimeout(function(){ ta.focus(); }, 50);
+  }
+
+  /* ══════════════════════════════════════════════════════
+     BOOKMARK
+  ══════════════════════════════════════════════════════ */
+  var BM_C = ['#3b82f6','#ef4444','#10b981','#f59e0b','#8b5cf6','#ec4899','#06b6d4','#f97316'];
+  var bmMode = false, bms = [], bmIdx = -1, bmPend = null;
+  function togBmMode() {
+    bmMode = !bmMode;
+    document.getElementById('bmBtn').classList.toggle('active', bmMode);
+    document.getElementById('pdf').classList.toggle('bm-mode', bmMode);
+  }
+
+  document.getElementById('pdf').addEventListener('click', function(e) {
+    if (!e.target.classList.contains('wl') && !e.target.closest('.def-box')) document.getElementById('defBox').style.display = 'none';
+    if (e.target.closest('.bm-tab') || e.target.closest('.pt')) return;
+    if (ptMode && !e.target.classList.contains('wl')) {
+      var t = e.target.closest('p,li,h2,h3,.ai,.meta'); if (t && !t.closest('#defBox')) { spawnPtPara(t); return; }
+    }
+    if (!bmMode) return;
+    var t = e.target.closest('p,li,h2,h3,.ai,.meta'); if (!t || t.closest('#defBox')) return;
+    var ex = bms.findIndex(function(b){ return b.el === t; }); if (ex !== -1) { rmBm(ex); return; }
+    bmPend = t; openMo();
+  });
+
+  function openMo() { document.getElementById('bmIn').value = ''; document.getElementById('mo').classList.add('open'); setTimeout(function(){ document.getElementById('bmIn').focus(); }, 80); }
+  function bmCancel() { document.getElementById('mo').classList.remove('open'); bmPend = null; if (bmMode) togBmMode(); }
+  function bmConfirm() { document.getElementById('mo').classList.remove('open'); var l = document.getElementById('bmIn').value.trim(); if (bmPend) addBm(bmPend, l); bmPend = null; }
+  document.getElementById('bmIn').addEventListener('keydown', function(e) { if (e.key === 'Enter') bmConfirm(); if (e.key === 'Escape') bmCancel(); });
+
+  function addBm(el, lbl) {
+    var pdf = document.getElementById('pdf'), color = BM_C[bms.length % BM_C.length], id = Date.now();
+    var disp = lbl || String(bms.length + 1);
+    var top = 0, e2 = el; while (e2 && e2 !== pdf) { top += e2.offsetTop; e2 = e2.offsetParent; } top += el.offsetHeight / 2 - 13;
+    var tab = document.createElement('div'); tab.className = 'bm-tab'; tab.style.top = top + 'px'; tab.style.background = color; tab.title = disp; tab.textContent = disp;
+    tab.addEventListener('click', function(ev) { ev.stopPropagation(); scrollBm(bms.findIndex(function(b){ return b.id === id; })); });
+    pdf.appendChild(tab);
+    var hl = document.createElement('div'); hl.className = 'bm-hl'; hl.style.top = (top + 13) + 'px'; hl.style.background = color; pdf.appendChild(hl);
+    bms.push({ id:id, top:top, el:el, tab:tab, hl:hl, color:color, lbl:disp }); bmIdx = bms.length - 1;
+    if (bmMode) togBmMode(); updBmNav(); updBmOverlay(); scrollBm(bmIdx);
+  }
+  function rmBm(i) {
+    bms[i].tab.remove(); bms[i].hl.remove(); bms.splice(i, 1);
+    bms.forEach(function(b, j) { if (/^\d+$/.test(b.lbl)) { b.lbl = String(j + 1); b.tab.textContent = b.lbl; b.tab.title = b.lbl; } });
+    if (bmIdx >= bms.length) bmIdx = bms.length - 1;
+    updBmNav(); updBmOverlay();
+  }
+  function scrollBm(i) {
+    if (i < 0 || i >= bms.length) return;
+    bmIdx = i;
+    var mw = document.querySelector('.main-wrapper');
+    var pdf = document.getElementById('pdf');
+    if (mw && pdf) mw.scrollTo({ top: pdf.offsetTop + bms[i].top - mw.clientHeight / 2 + 13, behavior: 'smooth' });
+    bms.forEach(function(b, j) { b.tab.classList.toggle('cur', j === i); });
+    updBmNav();
+  }
+  function goBm(d) { if (!bms.length) return; var n = bmIdx + d; if (n >= 0 && n < bms.length) scrollBm(n); }
+  function updBmNav() {
+    var n = document.getElementById('bmNav');
+    if (!bms.length) { n.style.display = 'none'; return; }
+    n.style.display = 'flex';
+    document.getElementById('bmCt').textContent = (bmIdx + 1) + '/' + bms.length;
+    document.getElementById('bmPrev').disabled = bmIdx <= 0;
+    document.getElementById('bmNext').disabled = bmIdx >= bms.length - 1;
+  }
+
+  /* ══════════════════════════════════════════════════════
+     BOOKMARK OVERLAY
+  ══════════════════════════════════════════════════════ */
+  function togBookmarkOverlay() {
+    document.getElementById('bookmarkOverlay').classList.toggle('show');
+    updBmOverlay();
+  }
+  function updBmOverlay() {
+    var grid = document.getElementById('bmOverlayGrid');
+    if (!bms.length) { grid.innerHTML = '<div style="padding:40px;text-align:center;color:var(--sub);grid-column:1/-1;">북마크가 없습니다.</div>'; return; }
+    grid.innerHTML = bms.map(function(b, i) {
+      var pv = b.el.textContent.slice(0, 80).trim() + (b.el.textContent.length > 80 ? '…' : '');
+      return '<div class="bm-card" onclick="togBookmarkOverlay();scrollBm(' + i + ')"><div class="bm-card-top"><span class="bm-num">' + String(i+1).padStart(2,'0') + '</span><span class="bm-dot" style="background:' + b.color + ';width:45px;height:12px;border-radius:20px;"></span></div><h3 class="bm-title">' + esc(b.lbl) + '</h3><p class="bm-content">' + esc(pv) + '</p></div>';
+    }).join('');
+  }
+
+  function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+  /* ══════════════════════════════════════════════════════
+     EyeDID SDK — 시선 추적
+  ══════════════════════════════════════════════════════ */
+  var LICENSE_KEY = 'dev_figw9wf24kntvlm1kitwvabnthsh58be86ysqt8e';
+  var seeso = null;
+  var CALIB_POINTS = 6;
+
+  var gazeDot = document.getElementById('gaze-dot');
+  var trailCanvas = document.getElementById('trail-canvas');
+  var tCtx = trailCanvas ? trailCanvas.getContext('2d') : null;
+  var trail = [];
+
+  function resizeCanvas() {
+    if (!trailCanvas) return;
+    trailCanvas.width = window.innerWidth;
+    trailCanvas.height = window.innerHeight;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  /* ── 스무딩 상수 ── */
+  var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 80;
+  var WARMUP_FRAMES = 5;
+
+  function smoothGaze(rx, ry, isBlink) {
+    if (isBlink) { G.blinkFrames++; return {x:G.lastValidX||G.prevX, y:G.lastValidY||G.prevY}; }
+    if (G.prevX === 0 && G.prevY === 0) {
+      G.prevX = rx; G.prevY = ry;
+      G.lastValidX = rx; G.lastValidY = ry;
+      G.warmup = 0;
+      return {x:rx, y:ry};
+    }
+    var dy = ry - G.prevY;
+    if (Math.abs(dy) > BLINK_Y_JUMP && dy > 0) { G.blinkFrames++; return {x:G.lastValidX||G.prevX, y:G.lastValidY||G.prevY}; }
+    G.blinkFrames = 0;
+    G.warmup = (G.warmup || 0) + 1;
+    var alpha = (G.warmup < WARMUP_FRAMES) ? 0.6 : SMOOTH_A;
+    var ex = alpha * rx + (1 - alpha) * G.prevX;
+    var ey = alpha * ry + (1 - alpha) * G.prevY;
+    var dx2 = ex - G.prevX, dy2 = ey - G.prevY;
+    var vel = Math.sqrt(dx2*dx2 + dy2*dy2);
+    if (vel > VEL_MAX) { ex = G.prevX + dx2*VEL_DAMP; ey = G.prevY + dy2*VEL_DAMP; vel = VEL_MAX*VEL_DAMP; }
+    G.prevX = ex; G.prevY = ey; G.lastValidX = ex; G.lastValidY = ey;
+    G.stabBuf.push(vel);
+    if (G.stabBuf.length > 30) G.stabBuf.shift();
+    return {x:ex, y:ey};
+  }
+
+  /* ── 시선 콜백 ── */
+  function onGaze(gazeInfo) {
+    G.gazeCount++;
+    if (!gazeInfo) return;
+    var x = gazeInfo.x, y = gazeInfo.y;
+    var hasXY = (typeof x === 'number' && typeof y === 'number' && isFinite(x) && isFinite(y));
+    if (!hasXY) return;
+    G.gazeValid++;
+
+    var lo = gazeInfo.leftOpenness, ro = gazeInfo.rightOpenness;
+    var isBlink = false;
+    if (lo !== -1 && ro !== -1) { isBlink = (lo < 0.3 && ro < 0.3); }
+
+    var useX = x, useY = y;
+    if (gazeInfo.eyemovementState === 0 && gazeInfo.fixationX && gazeInfo.fixationY) {
+      useX = gazeInfo.fixationX; useY = gazeInfo.fixationY;
+    }
+
+    var raw = smoothGaze(useX, useY, isBlink);
+    G.gx = raw.x; G.gy = raw.y;
+
+    var isCalibrating = !G.calibDone && document.getElementById('calibScreen') &&
+                        document.getElementById('calibScreen').classList.contains('active');
+    if (!etOn && !isCalibrating) return;
+
+    if (isBlink || G.blinkFrames > 0) { gazeDot.classList.add('blink'); }
+    else { gazeDot.classList.remove('blink'); }
+    gazeDot.style.left = G.gx + 'px';
+    gazeDot.style.top  = G.gy + 'px';
+
+    if (!isBlink && G.blinkFrames === 0) {
+      trail.push({ x: G.gx, y: G.gy, t: Date.now() });
+      if (trail.length > 50) trail.shift();
+    }
+    drawTrail();
+
+    if (etOn && !isBlink && G.blinkFrames === 0) {
+      detectGazedWord(G.gx, G.gy);
+    }
+  }
+
+  function onDebug() {}
+
+  function drawTrail() {
+    if (!tCtx) return;
+    tCtx.clearRect(0,0,trailCanvas.width,trailCanvas.height);
+    if (trail.length < 2) return;
+    var now = Date.now();
+    for (var i = 1; i < trail.length; i++) {
+      var a = trail[i-1], b = trail[i];
+      var age = (now - b.t) / 700;
+      var alpha = Math.max(0, (1 - age) * 0.35);
+      tCtx.beginPath(); tCtx.moveTo(a.x, a.y); tCtx.lineTo(b.x, b.y);
+      tCtx.strokeStyle = 'rgba(59,130,246,' + alpha + ')';
+      tCtx.lineWidth = 2; tCtx.stroke();
+    }
+  }
+
+  function detectGazedWord(x, y) {
+    var dc = document.getElementById('dc');
+    if (dc && !dc.querySelector('.word')) wrapWordsInViewer();
+    var prev = document.querySelector('#dc .word.gazed');
+    if (prev) prev.classList.replace('gazed', 'visited');
+    var el = document.elementFromPoint(x, y);
+    if (el && el.classList.contains('word')) {
+      el.classList.add('gazed');
+      G.gazedWords.add(el.id);
+    }
+  }
+
+  function wrapWordsInViewer() {
+    var dc = document.getElementById('dc');
+    if (!dc) return;
+    var paragraphs = dc.querySelectorAll('p, li');
+    paragraphs.forEach(function(p, pi) {
+      if (p.querySelector('.word')) return;
+      var text = p.textContent;
+      var words = text.split(/(\s+)/);
+      var html = '', wi = 0;
+      words.forEach(function(w) {
+        if (/^\s+$/.test(w)) { html += w; return; }
+        if (!w) return;
+        html += '<span class="word" id="gw-' + pi + '-' + (wi++) + '">' + w + '</span> ';
+      });
+      p.innerHTML = html;
+    });
+    G.totalWords = dc.querySelectorAll('.word').length;
+    G.gazedWords = new Set();
+  }
+
+  /* ══════════════════════════════════════════════════════
+     캘리브레이션
+  ══════════════════════════════════════════════════════ */
+  function showCalibOverlay() {
+    document.getElementById('calibOverlay').classList.add('active');
+    document.getElementById('calibSetup').classList.add('active');
+    document.getElementById('calibScreen').classList.remove('active');
+    document.getElementById('calibDonePhase').classList.remove('active');
+    runCalibSetup();
+  }
+
+  function hideCalibOverlay() {
+    document.getElementById('calibOverlay').classList.remove('active');
+  }
+
+  async function runCalibSetup() {
+    var hasMD = !!navigator.mediaDevices;
+    setCalibChk('chkBrowser', hasMD, hasMD ? '브라우저 확인됨' : '카메라 API 미지원');
+
+    if (window._sdkLoaded) {
+      setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+    } else {
+      setCalibChk('chkSdk', false, 'EyeDID SDK 로딩 중...');
+      window.addEventListener('seeso-ready', function() {
+        setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+        tryEnableCalibBtn();
+      });
+    }
+
+    try {
+      var s = await navigator.mediaDevices.getUserMedia({video:true});
+      s.getTracks().forEach(function(t){ t.stop(); });
+      setCalibChk('chkCamera', true, '카메라 접근 허용됨');
+    } catch(e) {
+      setCalibChk('chkCamera', false, '카메라 접근 거부됨');
+    }
+    tryEnableCalibBtn();
+  }
+
+  function setCalibChk(id, ok, msg) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'calib-chk-item ' + (ok ? 'ok' : 'err');
+    el.querySelector('.calib-chk-icon').textContent = ok ? '✓' : '✗';
+    el.querySelector('span:last-child').textContent = msg;
+  }
+
+  function tryEnableCalibBtn() {
+    var btn = document.getElementById('btnStartCalib');
+    if (btn) btn.disabled = document.querySelectorAll('.calib-chk-item.ok').length < 3;
+  }
+
+  async function startCalibration() {
+    var EasySeesoClass = window.EasySeeSo;
+    if (!EasySeesoClass) { alert('SDK 미로드'); return; }
+
+    document.getElementById('calibSetup').classList.remove('active');
+    document.getElementById('calibScreen').classList.add('active');
+
+    seeso = new EasySeesoClass();
+    try {
+      await seeso.init(
+        LICENSE_KEY,
+        function() {
+          try {
+            seeso.setMonitorSize(15);
+            seeso.setFaceDistance(60);
+            seeso.setCameraPosition(window.innerWidth / 2, true);
+          } catch(e) { console.warn('설정 오류:', e); }
+          beginCalibPoints();
+        },
+        function() {
+          alert('EyeDID SDK 인증 실패. 라이선스 키를 확인하세요.');
+          document.getElementById('calibScreen').classList.remove('active');
+          document.getElementById('calibSetup').classList.add('active');
+        }
+      );
+    } catch(e) {
+      alert('SDK 오류: ' + e.message);
+      document.getElementById('calibScreen').classList.remove('active');
+      document.getElementById('calibSetup').classList.add('active');
+    }
+  }
+
+  async function beginCalibPoints() {
+    G.calibPointIdx = 0; G.calibDone = false;
+    G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+    G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+
+    var pipsEl = document.getElementById('calibPips');
+    pipsEl.innerHTML = '';
+    for (var i = 0; i < CALIB_POINTS; i++) pipsEl.innerHTML += '<div class="c-pip" id="cpip-' + i + '"></div>';
+    document.getElementById('calibProgTxt').textContent = '0 / ' + CALIB_POINTS;
+    document.querySelectorAll('.calib-dot').forEach(function(el){ el.remove(); });
+
+    var trackOk = await seeso.startTracking(onGaze, onDebug);
+    if (!trackOk) { alert('카메라 시작 실패'); return; }
+
+    await new Promise(function(r){ setTimeout(r, 800); });
+    gazeDot.classList.add('visible');
+    trailCanvas.classList.add('active');
+
+    seeso.startCalibration(
+      function(x, y) {
+        showCalibDot(x, y);
+        setTimeout(function(){ try { seeso.startCollectSamples(); } catch(e){} }, 2000);
+      },
+      function(progress) {
+        var ring = document.getElementById('cring-active');
+        if (ring) ring.style.strokeDashoffset = 106.8 * (1 - progress);
+      },
+      function(calibrationData) {
+        var lastPip = document.getElementById('cpip-' + (CALIB_POINTS - 1));
+        if (lastPip) { lastPip.classList.remove('active'); lastPip.classList.add('done'); }
+        document.querySelectorAll('.calib-dot').forEach(function(el) {
+          el.classList.remove('visible', 'sampling'); el.classList.add('done');
+        });
+        G.calibDone = true;
+        seeso.stopTracking();
+        gazeDot.classList.remove('visible');
+        trailCanvas.classList.remove('active');
+        if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+        trail.length = 0;
+        G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+        setTimeout(function() {
+          document.getElementById('calibScreen').classList.remove('active');
+          document.querySelectorAll('.calib-dot').forEach(function(el){ el.remove(); });
+          document.getElementById('calibDonePhase').classList.add('active');
+        }, 800);
+      },
+      CALIB_POINTS
+    );
+  }
+
+  function showCalibDot(x, y) {
+    var prev = document.getElementById('cdot-active');
+    if (prev) { prev.classList.remove('visible', 'sampling'); prev.classList.add('done'); prev.id = ''; }
+    if (G.calibPointIdx > 0) {
+      var pp = document.getElementById('cpip-' + (G.calibPointIdx - 1));
+      if (pp) { pp.classList.remove('active'); pp.classList.add('done'); }
+    }
+    var cp = document.getElementById('cpip-' + G.calibPointIdx);
+    if (cp) cp.classList.add('active');
+    G.calibPointIdx++;
+    document.getElementById('calibProgTxt').textContent = G.calibPointIdx + ' / ' + CALIB_POINTS;
+
+    var d = document.createElement('div');
+    d.className = 'calib-dot visible sampling'; d.id = 'cdot-active';
+    d.style.left = x + 'px'; d.style.top = y + 'px';
+    d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42" style="width:42px;height:42px;">'
+      + '<circle cx="21" cy="21" r="17" fill="none" stroke="rgba(59,130,246,.15)" stroke-width="2"/>'
+      + '<circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="var(--primary)" '
+      + 'stroke-width="2.5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" '
+      + 'transform="rotate(-90 21 21)"/></svg>'
+      + '<div class="calib-dot-inner"></div>';
+    document.body.appendChild(d);
+  }
+
+  /* ── 캘리브레이션 이벤트 바인딩 ── */
+  document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
+  document.getElementById('btnCalibDone').addEventListener('click', function() {
+    hideCalibOverlay();
+    activateET();
+  });
+
+  /* ══════════════════════════════════════════════════════
+     ET 패널 — 실제 시선 추적 토글
+  ══════════════════════════════════════════════════════ */
+  var etOn = false;
+
+  function etExpand() { document.getElementById('etP').classList.remove('min'); }
+  function etCollapse(e) { e.stopPropagation(); document.getElementById('etP').classList.add('min'); }
+
+  async function etToggle(e) {
+    e.stopPropagation();
+    if (!G.calibDone || !seeso) {
+      showCalibOverlay();
+      return;
+    }
+    if (etOn) { deactivateET(); } else { activateET(); }
+  }
+
+  async function activateET() {
+    if (!G.calibDone || !seeso) return;
+    etOn = true;
+    document.getElementById('etDot').className = 'et-dot g';
+    document.getElementById('etLbl').textContent = '아이트래킹 활성화';
+    document.getElementById('etTog').textContent = '비활성화';
+    document.getElementById('etTog').className = 'et-tog on';
+
+    var trackOk = await seeso.startTracking(onGaze, onDebug);
+    if (!trackOk) { alert('카메라 시작 실패'); etOn = false; return; }
+    gazeDot.classList.add('visible');
+    trailCanvas.classList.add('active');
+    wrapWordsInViewer();
+  }
+
+  function deactivateET() {
+    etOn = false;
+    document.getElementById('etDot').className = 'et-dot r';
+    document.getElementById('etLbl').textContent = '아이트래킹 비활성화';
+    document.getElementById('etTog').textContent = '활성화';
+    document.getElementById('etTog').className = 'et-tog off';
+
+    try { seeso.stopTracking(); } catch(ex){}
+    gazeDot.classList.remove('visible');
+    trailCanvas.classList.remove('active');
+    if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+    trail.length = 0;
+    G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+  }
+  </script>
+</body>
+
+</html>

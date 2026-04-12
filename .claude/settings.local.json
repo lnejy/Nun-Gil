@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c ':*)",
+      "Bash(node -e ':*)",
+      "Bash(node -e \"const fs=require\\('fs'\\); const data=fs.readFileSync\\(String.raw\\\\`C:\\\\Users\\\\lnejy\\\\.claude\\\\projects\\\\C--capstone-design-Nun-Gil-Eyedid\\\\c055a703-c1a3-4bd6-b2c1-743432061bcd.jsonl\\\\`,'utf8'\\); const lines=data.split\\('\\\\n'\\); for\\(const l of lines.slice\\(-100\\)\\){try{const o=JSON.parse\\(l\\); if\\(o.type==='summary'\\) console.log\\(o.summary?.substring\\(0,8000\\)||''\\);}catch\\(e\\){}}\")",
+      "Bash(node -e \"const fs=require\\('fs'\\); const data=fs.readFileSync\\(String.raw\\\\`C:\\\\Users\\\\lnejy\\\\.claude\\\\projects\\\\C--capstone-design-Nun-Gil-Eyedid\\\\c055a703-c1a3-4bd6-b2c1-743432061bcd.jsonl\\\\`,'utf8'\\); const lines=data.split\\('\\\\n'\\); let last=''; for\\(const l of lines\\){try{const o=JSON.parse\\(l\\); if\\(o.role==='assistant' && o.content\\) last=typeof o.content==='string'?o.content.substring\\(0,3000\\):JSON.stringify\\(o.content\\).substring\\(0,3000\\); if\\(o.role==='user' && o.content\\) last='USER:'+\\( typeof o.content==='string'?o.content.substring\\(0,1000\\):JSON.stringify\\(o.content\\).substring\\(0,1000\\)\\);}catch\\(e\\){}} console.log\\(last\\);\")"
+    ]
+  }
+}
