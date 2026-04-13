@@ -328,6 +328,7 @@
         <span class="et-lbl" id="etLbl">아이트래킹 비활성화</span>
         <div class="et-acts">
           <button class="et-tog off" id="etTog" onclick="etToggle(event)">활성화</button>
+          <button class="et-tog" id="etRecalib" onclick="recalibrate(event)" style="background:#f1f5f9;color:#64748b;">재보정</button>
           <button class="et-cx" onclick="etCollapse(event)">✕</button>
         </div>
       </div>
@@ -378,12 +379,13 @@
     showFolderLv(); 
     document.title = '눈길'; 
   }
-  function goViewer() { 
-    sp('page-viewer'); 
+  function goViewer() {
+    sp('page-viewer');
     document.title = '눈길 — 뷰어';
     if (!window._viewerInit) {
       origContent = document.getElementById('dc').innerHTML;
-      if (!G.calibDone) showCalibOverlay();
+      /* 최초 진입 시에만 캘리브레이션 */
+      showCalibOverlay();
       window._viewerInit = true;
       resizeCanvas();
     }
@@ -880,11 +882,42 @@
   }
 
   /* ── 캘리브레이션 이벤트 바인딩 ── */
+  var _isRecalib = false;
+
   document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
   document.getElementById('btnCalibDone').addEventListener('click', function() {
     hideCalibOverlay();
     activateET();
+    /* 재보정 후 버튼 텍스트 원복 */
+    if (_isRecalib) {
+      document.getElementById('btnCalibDone').textContent = '워크스페이스로 진입 →';
+      _isRecalib = false;
+    }
   });
+
+  /* ══════════════════════════════════════════════════════
+     재보정 (수동)
+  ══════════════════════════════════════════════════════ */
+  function recalibrate(e) {
+    if (e) e.stopPropagation();
+    _isRecalib = true;
+    /* 기존 추적 중지 */
+    if (etOn) {
+      etOn = false;
+      try { seeso.stopTracking(); } catch(ex){}
+      gazeDot.classList.remove('visible');
+      trailCanvas.classList.remove('active');
+      if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+      trail.length = 0;
+    }
+    G.calibDone = false;
+    seeso = null;
+    G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+    G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+    /* 완료 버튼 텍스트 변경 */
+    document.getElementById('btnCalibDone').textContent = '뷰어로 돌아가기 →';
+    showCalibOverlay();
+  }
 
   /* ══════════════════════════════════════════════════════
      ET 패널 — 실제 시선 추적 토글
