@@ -259,22 +259,3 @@ document.getElementById('bookmarkOverlay').addEventListener('click', function (e
         togBookmarkList();
     }
 });
-
-/* ── ET 패널 ── */
-let etOn = false;
-
-function etExpand() {
-    document.getElementById('etP').classList.remove('min');
-}
-function etCollapse(e) {
-    e.stopPropagation();
-    document.getElementById('etP').classList.add('min');
-}
-function etToggle(e) {
-    e.stopPropagation();
-    etOn = !etOn;
-    document.getElementById('etDot').className = 'et-dot ' + (etOn ? 'g' : 'r');
-    document.getElementById('etLbl').textContent = '아이트래킹 ' + (etOn ? '활성화' : '비활성화');
-    document.getElementById('etTog').textContent = etOn ? '비활성화' : '활성화';
-    document.getElementById('etTog').className = 'et-tog ' + (etOn ? 'on' : 'off');
-}
