@@ -12,7 +12,11 @@ const MIME = {
 
 http.createServer((req, res) => {
   let url = req.url.split('?')[0];
-  if (url === '/') url = '/viewer.html';
+  if (url === '/') {
+    res.writeHead(302, { 'Location': '/ui/start.html' });
+    res.end();
+    return;
+  }
   const fp = path.join(__dirname, url);
 
   fs.readFile(fp, (err, data) => {
