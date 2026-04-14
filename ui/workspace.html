@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>눈길 - 워크스페이스</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #7da9f2;
+      --primary-dark: #6a99eb;
+      --primary-light: #f3f8ff;
+      --bg: linear-gradient(180deg, #eef5ff 0%, #ffffff 55%, #ffffff 100%);
+      --white: #ffffff;
+      --text: #111827;
+      --sub: #6b7280;
+      --border: #e5e7eb;
+      --shadow-sm: 0 2px 10px rgba(0,0,0,.05);
+      --shadow-md: 0 12px 28px rgba(125, 169, 242, .16);
+      --transition: .2s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .page {
+      min-height: 100vh;
+      padding: 28px 32px 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 11px 17px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .btn-outline {
+      background: var(--white);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-outline:hover {
+      background: #f9fafb;
+    }
+
+    .btn-primary {
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      color: white;
+      box-shadow: 0 8px 20px rgba(125,169,242,.24);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 24px rgba(125,169,242,.30);
+    }
+
+    .section-header {
+      display: flex;
+      align-items: end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+    }
+
+    .section-sub {
+      font-size: 13px;
+      color: var(--sub);
+    }
+
+    .workspace-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 220px));
+      gap: 18px;
+      align-items: start;
+    }
+
+    .workspace-card {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  background: linear-gradient(180deg, #b7d0fb 0%, #8fb7f4 100%);
+  border-radius: 34px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform var(--transition), box-shadow var(--transition);
+  box-shadow: 0 10px 24px rgba(125, 169, 242, .14);
+}
+
+    .folder-shape {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #b7d0fb 0%, #8fb7f4 100%);
+  clip-path: polygon(0 20%, 48% 20%, 56% 0, 100% 0, 100% 100%, 0 100%);
+}
+
+    .workspace-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 16px 30px rgba(125, 169, 242, .24);
+    }
+
+    .workspace-card-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 38px;
+  background: linear-gradient(
+    90deg,
+    rgba(183, 208, 251, 0.55) 0%,
+    rgba(143, 183, 244, 0.35) 60%,
+    rgba(255,255,255,0.16) 100%
+  );
+  border-radius: 0 0 42% 0;
+  transform: translateY(-8px) scaleY(1);
+  z-index: 1;
+}
+
+    .workspace-card-header {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: calc(100% - 40px);
+  height: 84px;
+  background: #fbfbfc;
+  border-radius: 22px 22px 0 0;
+  padding: 18px 18px 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.04);
+  z-index: 2;
+  overflow: visible;
+}
+
+.workspace-card-header::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -22px;
+  width: 170px;
+  height: 22px;
+  background: #fbfbfc;
+  border-radius: 0 0 0 18px;
+}
+
+.workspace-card-header::after {
+  content: "";
+  position: absolute;
+  left: 168px;
+  bottom: -22px;
+  width: 42px;
+  height: 42px;
+  background: #fbfbfc;
+  border-radius: 0 0 18px 0;
+  transform: skewX(-30deg);
+  transform-origin: top left;
+}
+
+    .workspace-card-header-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #4b5563;
+      margin-bottom: 6px;
+      line-height: 1.3;
+      word-break: keep-all;
+    }
+
+    .workspace-card-header-meta {
+      font-size: 11px;
+      color: #98a2b3;
+      font-weight: 600;
+    }
+
+    .workspace-card-body {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 70%;
+      z-index: 3;
+    }
+
+    .workspace-card-text {
+      position: absolute;
+      inset: 0;
+      z-index: 4;
+      padding: 22px 20px 33px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      color: white;
+    }
+
+    .workspace-card-title {
+      font-size: 17px;
+      font-weight: 800;
+      line-height: 1.25;
+      margin-bottom: 7px;
+      word-break: keep-all;
+      letter-spacing: -0.02em;
+      text-shadow: 0 1px 1px rgba(0,0,0,.05);
+    }
+
+    .workspace-card-meta {
+      font-size: 11px;
+      font-weight: 600;
+      opacity: 0.96;
+    }
+
+    .workspace-add {
+      width: 100%;
+      height: 220px;
+      border: 1.5px dashed #cfe0f8;
+      background: var(--bg);
+      border-radius: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      color: #7b8794;
+      transition: var(--transition);
+    }
+
+    .workspace-add:hover {
+      background: #f6faff;
+    }
+
+    .workspace-add-icon {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .workspace-add-icon::before,
+    .workspace-add-icon::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      background: #7b8794;
+      transform: translate(-50%, -50%);
+      border-radius: 999px;
+    }
+
+    .workspace-add-icon::before {
+      width: 20px;
+      height: 1.5px;
+    }
+
+    .workspace-add-icon::after {
+      width: 1.5px;
+      height: 20px;
+    }
+
+    .workspace-add-text {
+  font-size: 14px;
+  font-weight: 200;
+  color: #7b8794;
+}
+
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.25);
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 1000;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .modal-box {
+      width: min(420px, 100%);
+      background: white;
+      border-radius: 22px;
+      padding: 28px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.15);
+    }
+
+    .modal-box h3 {
+      font-size: 20px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .modal-box p {
+      font-size: 13px;
+      color: var(--sub);
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+
+    .modal-input {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .modal-input:focus {
+      border-color: var(--primary);
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .modal-actions .btn {
+      flex: 1;
+    }
+
+    @media (max-width: 768px) {
+      .page {
+        padding: 20px;
+      }
+
+      .topbar,
+      .section-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .top-actions {
+        width: 100%;
+      }
+
+      .top-actions .btn {
+        flex: 1;
+      }
+
+      .workspace-grid {
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 14px;
+      }
+
+      .workspace-card,
+      .workspace-add {
+        height: 200px;
+      }
+
+      .workspace-card-title {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="topbar">
+      <div class="top-actions">
+        <button class="btn btn-primary" id="openCreateModalBtn">+ 새 워크스페이스</button>
+      </div>
+    </header>
+
+    <section>
+      <div class="section-header">
+        <div>
+          <div class="section-title">전체 워크스페이스</div>
+          <div class="section-sub">워크스페이스를 클릭하면 해당 워크스페이스 내부의 문서를 볼 수 있어요.</div>
+        </div>
+      </div>
+
+      <div class="workspace-grid" id="workspaceGrid"></div>
+    </section>
+  </div>
+
+  <div class="modal" id="createModal">
+    <div class="modal-box">
+      <h3>새 워크스페이스 만들기</h3>
+      <p>워크스페이스 이름을 입력해주세요.</p>
+      <input
+        type="text"
+        id="workspaceNameInput"
+        class="modal-input"
+        placeholder="예: 캡스톤 워크스페이스"
+        maxlength="30"
+      />
+      <div class="modal-actions">
+        <button class="btn btn-outline" id="closeCreateModalBtn">취소</button>
+        <button class="btn btn-primary" id="createWorkspaceBtn">생성하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const workspaces = [
+      { id: "capstone", name: "캡스톤 워크스페이스", fileCount: 2 },
+      { id: "os", name: "운영체제 워크스페이스", fileCount: 1 },
+      { id: "network", name: "네트워크 워크스페이스", fileCount: 1 }
+    ];
+
+    const workspaceGrid = document.getElementById("workspaceGrid");
+    const createModal = document.getElementById("createModal");
+    const workspaceNameInput = document.getElementById("workspaceNameInput");
+
+    function renderWorkspaceCards() {
+      workspaceGrid.innerHTML = "";
+
+      const addCard = document.createElement("div");
+      addCard.className = "workspace-add";
+      addCard.innerHTML = `
+        <div class="workspace-add-icon"></div>
+        <div class="workspace-add-text">새 워크스페이스</div>
+      `;
+      addCard.addEventListener("click", openCreateModal);
+      workspaceGrid.appendChild(addCard);
+
+      workspaces.forEach((workspace) => {
+        const card = document.createElement("div");
+        card.className = "workspace-card";
+        card.innerHTML = `
+          <div class="workspace-card-top"></div>
+          <div class="workspace-card-header">
+            <div class="workspace-card-header-title">${workspace.name}</div>
+            <div class="workspace-card-header-meta">${workspace.fileCount}개의 문서</div>
+          </div>
+          <div class="workspace-card-body">
+            <div class="folder-shape"></div>
+            <div class="workspace-card-text">
+              <div class="workspace-card-title">${workspace.name}</div>
+              <div class="workspace-card-meta">${workspace.fileCount}개의 문서</div>
+            </div>
+          </div>
+        `;
+
+        card.addEventListener("click", () => {
+          location.href = 'document.html';
+        });
+
+        workspaceGrid.appendChild(card);
+      });
+    }
+
+    function openCreateModal() {
+      createModal.classList.add("open");
+      workspaceNameInput.value = "";
+      workspaceNameInput.focus();
+    }
+
+    function closeCreateModal() {
+      createModal.classList.remove("open");
+    }
+
+    function createWorkspace() {
+      const name = workspaceNameInput.value.trim();
+      if (!name) return;
+
+      const newWorkspace = {
+        id: "ws-" + Date.now(),
+        name,
+        fileCount: 0
+      };
+
+      workspaces.unshift(newWorkspace);
+      renderWorkspaceCards();
+      closeCreateModal();
+    }
+
+    document.getElementById("openCreateModalBtn").addEventListener("click", openCreateModal);
+    document.getElementById("closeCreateModalBtn").addEventListener("click", closeCreateModal);
+    document.getElementById("createWorkspaceBtn").addEventListener("click", createWorkspace);
+
+    workspaceNameInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") createWorkspace();
+    });
+
+    createModal.addEventListener("click", (event) => {
+      if (event.target === createModal) closeCreateModal();
+    });
+
+    renderWorkspaceCards();
+  </script>
+</body>
+</html>

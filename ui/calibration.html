@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>눈길 - 캘리브레이션</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --primary-light: #eff6ff;
+            --bg: #f6f7f9;
+            --text: #2f3440;
+            --sub: #a0a6b0;
+            --border: #eceef2;
+            --sh-lg: 0 20px 40px rgba(0, 0, 0, 0.08);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Pretendard', sans-serif; }
+
+        body { min-height: 100vh; background: var(--bg); color: var(--text); }
+
+        /* ── 캘리브레이션 오버레이 ── */
+        .calib-overlay { position: fixed; inset: 0; z-index: 5000; background: var(--bg); display: none; flex-direction: column; align-items: center; justify-content: center; }
+        .calib-overlay.active { display: flex; }
+
+        .calib-card { width: min(660px,100%); background: #fff; border-radius: 24px; border: 1px solid var(--border); box-shadow: var(--sh-lg); padding: 48px 40px; text-align: center; }
+        .calib-card-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--primary-light); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
+        .calib-card-title { font-size: 26px; font-weight: 700; letter-spacing: -.03em; margin-bottom: 10px; }
+        .calib-card-desc { font-size: 13px; line-height: 1.85; color: #6b7280; margin-bottom: 28px; }
+
+        .calib-steps { border-radius: 16px; background: #f9fafb; border: 1px solid var(--border); padding: 20px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
+        .calib-step { text-align: left; font-size: 12px; line-height: 1.7; color: #6b7280; }
+        .calib-step strong { display: block; font-size: 13px; color: var(--text); margin-bottom: 2px; }
+
+        .calib-check { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+        .calib-chk-item { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--sub); }
+        .calib-chk-icon { font-size: 14px; width: 18px; text-align: center; }
+        .calib-chk-item.ok .calib-chk-icon { color: #10b981; }
+        .calib-chk-item.err .calib-chk-icon { color: #ef4444; }
+
+        .btn-dark { background: #111827; color: #fff; border: none; padding: 13px 32px; border-radius: 12px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: 'Pretendard', sans-serif; transition: transform .22s, box-shadow .22s; }
+        .btn-dark:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,.15); }
+        .btn-dark:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        /* ── 풀스크린 캘리브레이션 ── */
+        .calib-fullscreen { position: fixed; inset: 0; background: #0a0a0b; z-index: 9999; display: none; flex-direction: column; align-items: center; }
+        .calib-fullscreen.active { display: flex; }
+
+        .calib-hud { position: absolute; top: 0; left: 0; right: 0; display: flex; flex-direction: column; align-items: center; padding: 28px 20px 0; z-index: 30; pointer-events: none; }
+        .calib-phase-lbl { font-size: 11px; font-weight: 600; letter-spacing: .12em; color: rgba(255,255,255,.3); text-transform: uppercase; margin-bottom: 8px; }
+        .calib-title { font-size: 22px; font-weight: 600; color: #e8e6e1; margin-bottom: 6px; text-align: center; }
+        .calib-sub-text { font-size: 13px; color: rgba(255,255,255,.4); text-align: center; line-height: 1.7; max-width: 420px; }
+
+        .calib-bottom-bar { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 10px; z-index: 30; pointer-events: none; }
+        .calib-pips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; max-width: 220px; }
+        .c-pip { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,.15); transition: background .2s; }
+        .c-pip.active { background: #f59e0b; }
+        .c-pip.done { background: #10b981; }
+        .calib-prog-txt { font-size: 12px; color: rgba(255,255,255,.35); letter-spacing: .06em; }
+
+        /* ── 캘리브레이션 점 ── */
+        .calib-dot { position: fixed; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--primary); transform: translate(-50%,-50%); display: flex; align-items: center; justify-content: center; z-index: 10000; pointer-events: none; opacity: 0; transition: opacity .3s; }
+        .calib-dot.visible { opacity: 1; }
+        .calib-dot.done { border-color: rgba(255,255,255,.15); opacity: .15; }
+        .calib-dot-inner { width: 12px; height: 12px; border-radius: 50%; background: var(--primary); position: relative; z-index: 2; }
+        .calib-ring-svg { position: absolute; inset: -6px; pointer-events: none; }
+        @keyframes cpulse { 0%,100%{box-shadow:0 0 0 0 rgba(59,130,246,.5)} 50%{box-shadow:0 0 0 14px rgba(59,130,246,0)} }
+        .calib-dot.sampling { animation: cpulse .85s infinite; }
+
+        /* ── 완료 카드 ── */
+        .calib-done-card { text-align: center; }
+        .calib-done-icon { width: 72px; height: 72px; border-radius: 50%; background: #ecfdf5; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }
+
+        /* ── 시선 점 & 궤적 (캘리브레이션 중 표시) ── */
+        #gaze-dot { position: fixed; width: 16px; height: 16px; border-radius: 50%; background: rgba(59,130,246,.7); pointer-events: none; transform: translate(-50%,-50%); z-index: 99999; box-shadow: 0 0 12px rgba(59,130,246,.4); opacity: 0; transition: left .05s linear, top .05s linear, opacity .25s; }
+        #gaze-dot.visible { opacity: 1; }
+        #gaze-dot.blink { opacity: .15; transition: opacity .05s; }
+        #trail-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 9998; display: none; }
+        #trail-canvas.active { display: block; }
+
+        .calib-phase { display: none; }
+        .calib-phase.active { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+    <!-- 시선 궤적 캔버스 & 시선 점 (캘리브레이션 중 필요) -->
+    <canvas id="trail-canvas"></canvas>
+    <div id="gaze-dot"></div>
+
+    <!-- 캘리브레이션 오버레이 -->
+    <div id="calibOverlay" class="calib-overlay active">
+
+        <!-- 1단계: 환경 확인 -->
+        <div class="calib-phase active" id="calibSetup">
+            <div class="calib-card">
+                <div class="calib-card-icon">👁</div>
+                <h2 class="calib-card-title">시선 캘리브레이션</h2>
+                <p class="calib-card-desc">EyeDID SDK로 시선을 보정합니다.<br>화면에서 <strong>50–70cm</strong> 거리, 정면을 바라봐 주세요.</p>
+                <div class="calib-steps">
+                    <div class="calib-step"><strong>1. 환경 확인</strong><span>브라우저와 카메라 권한을 자동으로 확인합니다.</span></div>
+                    <div class="calib-step"><strong>2. 캘리브레이션</strong><span>화면에 나타나는 6개의 점을 순서대로 응시합니다.</span></div>
+                    <div class="calib-step"><strong>3. 완료 후 진입</strong><span>보정이 끝나면 시선 추적을 활용할 수 있습니다.</span></div>
+                </div>
+                <div class="calib-check">
+                    <div class="calib-chk-item" id="chkBrowser"><span class="calib-chk-icon">○</span><span>브라우저 확인 중...</span></div>
+                    <div class="calib-chk-item" id="chkCamera"><span class="calib-chk-icon">○</span><span>카메라 확인 중...</span></div>
+                    <div class="calib-chk-item" id="chkSdk"><span class="calib-chk-icon">○</span><span>EyeDID SDK 로딩 확인 중...</span></div>
+                </div>
+                <button class="btn-dark" id="btnStartCalib" disabled>캘리브레이션 시작</button>
+                <p style="font-size:11px;color:var(--sub);margin-top:14px;">카메라 데이터는 브라우저 내에서만 처리됩니다.</p>
+            </div>
+        </div>
+
+        <!-- 2단계: 풀스크린 점 응시 -->
+        <div class="calib-fullscreen" id="calibScreen">
+            <div class="calib-hud">
+                <div class="calib-phase-lbl">CALIBRATION</div>
+                <div class="calib-title" id="calibTitle">파란색 점을 바라봐 주세요</div>
+                <div class="calib-sub-text" id="calibSub">각 점이 나타나면 점을 정확히 응시하세요.<br>정밀도 향상을 위해 6개 점을 수집합니다.</div>
+            </div>
+            <div class="calib-bottom-bar">
+                <div class="calib-pips" id="calibPips"></div>
+                <div class="calib-prog-txt" id="calibProgTxt">0 / 6</div>
+            </div>
+        </div>
+
+        <!-- 3단계: 완료 -->
+        <div class="calib-phase" id="calibDonePhase">
+            <div class="calib-card calib-done-card">
+                <div class="calib-done-icon">&#10003;</div>
+                <h2 class="calib-card-title">캘리브레이션 완료!</h2>
+                <p class="calib-card-desc">시선 보정이 성공적으로 완료되었습니다.<br>이제 문서를 읽으며 시선 추적을 활용할 수 있습니다.</p>
+                <button class="btn-dark" id="btnCalibDone">뷰어로 진입 &rarr;</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- EyeDID: SDK 로드 -->
+    <script type="module">
+        import EasySeeSo from '../easy-seeso.js';
+        window.EasySeeSo = EasySeeSo;
+        window._sdkLoaded = true;
+        window.dispatchEvent(new Event('seeso-ready'));
+    </script>
+
+    <!-- 캘리브레이션 로직 -->
+    <script>
+    var G = {
+        prevX:0, prevY:0, stabBuf:[], gx:0, gy:0,
+        calibDone:false, calibPointIdx:0,
+        blinkFrames:0, lastValidX:0, lastValidY:0,
+        warmup:0
+    };
+
+    var LICENSE_KEY  = 'dev_figw9wf24kntvlm1kitwvabnthsh58be86ysqt8e';
+    var seeso        = null;
+    var CALIB_POINTS = 6;
+
+    var gazeDot     = document.getElementById('gaze-dot');
+    var trailCanvas = document.getElementById('trail-canvas');
+    var tCtx        = trailCanvas ? trailCanvas.getContext('2d') : null;
+    var trail       = [];
+
+    function resizeCanvas() {
+        if (!trailCanvas) return;
+        trailCanvas.width  = window.innerWidth;
+        trailCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    /* ── 스무딩 ── */
+    var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 80, WARMUP_FRAMES = 5;
+
+    function smoothGaze(rx, ry, isBlink) {
+        if (isBlink) { G.blinkFrames++; return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY }; }
+        if (G.prevX === 0 && G.prevY === 0) {
+            G.prevX = rx; G.prevY = ry; G.lastValidX = rx; G.lastValidY = ry; G.warmup = 0;
+            return { x: rx, y: ry };
+        }
+        var dy = ry - G.prevY;
+        if (Math.abs(dy) > BLINK_Y_JUMP && dy > 0) {
+            G.blinkFrames++;
+            return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY };
+        }
+        G.blinkFrames = 0;
+        G.warmup = (G.warmup || 0) + 1;
+        var alpha = G.warmup < WARMUP_FRAMES ? 0.6 : SMOOTH_A;
+        var ex = alpha * rx + (1 - alpha) * G.prevX;
+        var ey = alpha * ry + (1 - alpha) * G.prevY;
+        var dx2 = ex - G.prevX, dy2 = ey - G.prevY;
+        var vel = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        if (vel > VEL_MAX) { ex = G.prevX + dx2 * VEL_DAMP; ey = G.prevY + dy2 * VEL_DAMP; }
+        G.prevX = ex; G.prevY = ey; G.lastValidX = ex; G.lastValidY = ey;
+        G.stabBuf.push(vel);
+        if (G.stabBuf.length > 30) G.stabBuf.shift();
+        return { x: ex, y: ey };
+    }
+
+    /* ── 시선 콜백 ── */
+    function onGaze(gazeInfo) {
+        if (!gazeInfo) return;
+        var x = gazeInfo.x, y = gazeInfo.y;
+        if (typeof x !== 'number' || !isFinite(x) || typeof y !== 'number' || !isFinite(y)) return;
+
+        var lo = gazeInfo.leftOpenness, ro = gazeInfo.rightOpenness;
+        var isBlink = (lo !== -1 && ro !== -1) ? (lo < 0.3 && ro < 0.3) : false;
+
+        var useX = x, useY = y;
+        if (gazeInfo.eyemovementState === 0 && gazeInfo.fixationX && gazeInfo.fixationY) {
+            useX = gazeInfo.fixationX; useY = gazeInfo.fixationY;
+        }
+
+        var raw = smoothGaze(useX, useY, isBlink);
+        G.gx = raw.x; G.gy = raw.y;
+
+        if (isBlink || G.blinkFrames > 0) gazeDot.classList.add('blink');
+        else gazeDot.classList.remove('blink');
+        gazeDot.style.left = G.gx + 'px';
+        gazeDot.style.top  = G.gy + 'px';
+
+        if (!isBlink && G.blinkFrames === 0) {
+            trail.push({ x: G.gx, y: G.gy, t: Date.now() });
+            if (trail.length > 50) trail.shift();
+        }
+        drawTrail();
+    }
+
+    function onDebug() {}
+
+    function drawTrail() {
+        if (!tCtx) return;
+        tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+        if (trail.length < 2) return;
+        var now = Date.now();
+        for (var i = 1; i < trail.length; i++) {
+            var a = trail[i - 1], b = trail[i];
+            var alpha = Math.max(0, (1 - (now - b.t) / 700) * 0.35);
+            tCtx.beginPath(); tCtx.moveTo(a.x, a.y); tCtx.lineTo(b.x, b.y);
+            tCtx.strokeStyle = 'rgba(59,130,246,' + alpha + ')';
+            tCtx.lineWidth = 2; tCtx.stroke();
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       캘리브레이션 로직
+    ══════════════════════════════════════════════════════ */
+    function runCalibSetup() {
+        var hasMD = !!navigator.mediaDevices;
+        setCalibChk('chkBrowser', hasMD, hasMD ? '브라우저 확인됨' : '카메라 API 미지원');
+
+        if (window._sdkLoaded) {
+            setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+        } else {
+            setCalibChk('chkSdk', false, 'EyeDID SDK 로딩 중...');
+            window.addEventListener('seeso-ready', function() {
+                setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+                tryEnableCalibBtn();
+            });
+        }
+
+        navigator.mediaDevices.getUserMedia({ video: true }).then(function(s) {
+            s.getTracks().forEach(function(t) { t.stop(); });
+            setCalibChk('chkCamera', true, '카메라 접근 허용됨');
+            tryEnableCalibBtn();
+        }).catch(function() {
+            setCalibChk('chkCamera', false, '카메라 접근 거부됨');
+            tryEnableCalibBtn();
+        });
+    }
+
+    function setCalibChk(id, ok, msg) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.className = 'calib-chk-item ' + (ok ? 'ok' : 'err');
+        el.querySelector('.calib-chk-icon').textContent = ok ? '✓' : '✗';
+        el.querySelector('span:last-child').textContent = msg;
+    }
+
+    function tryEnableCalibBtn() {
+        var btn = document.getElementById('btnStartCalib');
+        if (btn) btn.disabled = document.querySelectorAll('.calib-chk-item.ok').length < 3;
+    }
+
+    async function startCalibration() {
+        var EasySeesoClass = window.EasySeeSo;
+        if (!EasySeesoClass) { alert('SDK 미로드'); return; }
+
+        document.getElementById('calibSetup').classList.remove('active');
+        document.getElementById('calibScreen').classList.add('active');
+
+        seeso = new EasySeesoClass();
+        try {
+            await seeso.init(LICENSE_KEY,
+                function() {
+                    try {
+                        seeso.setMonitorSize(15);
+                        seeso.setFaceDistance(60);
+                        seeso.setCameraPosition(window.innerWidth / 2, true);
+                    } catch(e) { console.warn('설정 오류:', e); }
+                    beginCalibPoints();
+                },
+                function() {
+                    alert('EyeDID SDK 인증 실패.');
+                    document.getElementById('calibScreen').classList.remove('active');
+                    document.getElementById('calibSetup').classList.add('active');
+                }
+            );
+        } catch(e) {
+            alert('SDK 오류: ' + e.message);
+            document.getElementById('calibScreen').classList.remove('active');
+            document.getElementById('calibSetup').classList.add('active');
+        }
+    }
+
+    async function beginCalibPoints() {
+        G.calibPointIdx = 0; G.calibDone = false;
+        G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+        G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+
+        var pipsEl = document.getElementById('calibPips');
+        pipsEl.innerHTML = '';
+        for (var i = 0; i < CALIB_POINTS; i++)
+            pipsEl.innerHTML += '<div class="c-pip" id="cpip-' + i + '"></div>';
+        document.getElementById('calibProgTxt').textContent = '0 / ' + CALIB_POINTS;
+        document.querySelectorAll('.calib-dot').forEach(function(el) { el.remove(); });
+
+        var trackOk = await seeso.startTracking(onGaze, onDebug);
+        if (!trackOk) { alert('카메라 시작 실패'); return; }
+
+        await new Promise(function(r) { setTimeout(r, 800); });
+        gazeDot.classList.add('visible');
+        trailCanvas.classList.add('active');
+
+        seeso.startCalibration(
+            function(x, y) {
+                showCalibDot(x, y);
+                setTimeout(function() { try { seeso.startCollectSamples(); } catch(e) {} }, 2000);
+            },
+            function(progress) {
+                var ring = document.getElementById('cring-active');
+                if (ring) ring.style.strokeDashoffset = 106.8 * (1 - progress);
+            },
+            function(calibrationData) {
+                var lastPip = document.getElementById('cpip-' + (CALIB_POINTS - 1));
+                if (lastPip) { lastPip.classList.remove('active'); lastPip.classList.add('done'); }
+                document.querySelectorAll('.calib-dot').forEach(function(el) {
+                    el.classList.remove('visible', 'sampling'); el.classList.add('done');
+                });
+                G.calibDone = true;
+
+                // 캘리브레이션 데이터를 sessionStorage에 저장
+                if (calibrationData) {
+                    try {
+                        sessionStorage.setItem('calibrationData', JSON.stringify(calibrationData));
+                    } catch(e) { console.warn('캘리브레이션 데이터 저장 실패:', e); }
+                }
+
+                seeso.stopTracking();
+                gazeDot.classList.remove('visible');
+                trailCanvas.classList.remove('active');
+                if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                trail.length = 0;
+
+                setTimeout(function() {
+                    document.getElementById('calibScreen').classList.remove('active');
+                    document.querySelectorAll('.calib-dot').forEach(function(el) { el.remove(); });
+                    document.getElementById('calibDonePhase').classList.add('active');
+                }, 800);
+            },
+            CALIB_POINTS
+        );
+    }
+
+    function showCalibDot(x, y) {
+        var prev = document.getElementById('cdot-active');
+        if (prev) { prev.classList.remove('visible', 'sampling'); prev.classList.add('done'); prev.id = ''; }
+        if (G.calibPointIdx > 0) {
+            var pp = document.getElementById('cpip-' + (G.calibPointIdx - 1));
+            if (pp) { pp.classList.remove('active'); pp.classList.add('done'); }
+        }
+        var cp = document.getElementById('cpip-' + G.calibPointIdx);
+        if (cp) cp.classList.add('active');
+        G.calibPointIdx++;
+        document.getElementById('calibProgTxt').textContent = G.calibPointIdx + ' / ' + CALIB_POINTS;
+
+        var d = document.createElement('div');
+        d.className = 'calib-dot visible sampling'; d.id = 'cdot-active';
+        d.style.left = x + 'px'; d.style.top = y + 'px';
+        d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42" style="width:42px;height:42px;">'
+            + '<circle cx="21" cy="21" r="17" fill="none" stroke="rgba(59,130,246,.15)" stroke-width="2"/>'
+            + '<circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="#3b82f6" '
+            + 'stroke-width="2.5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" '
+            + 'transform="rotate(-90 21 21)"/></svg>'
+            + '<div class="calib-dot-inner"></div>';
+        document.body.appendChild(d);
+    }
+
+    /* ── 버튼 바인딩 ── */
+    document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
+    document.getElementById('btnCalibDone').addEventListener('click', function() {
+        location.href = 'viewer.html';
+    });
+
+    /* ── 페이지 진입 시 자동 환경 확인 ── */
+    document.addEventListener('DOMContentLoaded', function() {
+        runCalibSetup();
+    });
+    </script>
+
+</body>
+</html>
