@@ -680,80 +680,17 @@
 
       <section class="sidebar-group">
         <div class="sidebar-section-label">최근 워크스페이스</div>
-        <div class="workspace-list">
-          <button class="workspace-item" onclick="location.href='document.html'">
-            <span class="sidebar-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
-              </svg>
-            </span>
-            <span class="workspace-content">
-              <span class="sidebar-text">캡스톤 워크스페이스</span>
-            </span>
-          </button>
-
-          <button class="workspace-item" onclick="location.href='document.html'">
-            <span class="sidebar-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
-              </svg>
-            </span>
-            <span class="workspace-content">
-              <span class="sidebar-text">운영체제 워크스페이스</span>
-            </span>
-          </button>
-
-          <button class="workspace-item" onclick="location.href='document.html'">
-            <span class="sidebar-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
-              </svg>
-            </span>
-            <span class="workspace-content">
-              <span class="sidebar-text">데이터통신 워크스페이스</span>
-            </span>
-          </button>
+        <!-- 동적 렌더링 -->
+        <div class="workspace-list" id="sidebarWorkspaceList">
+          <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
         </div>
       </section>
 
       <section class="sidebar-group">
         <div class="sidebar-section-label">최근 문서</div>
-        <div class="recent-list">
-          <button class="recent-item" onclick="location.href='viewer.html'">
-            <span class="sidebar-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <path d="M14 2v6h6"></path>
-              </svg>
-            </span>
-            <span class="recent-content">
-              <span class="sidebar-text">03_16 캡스톤 회의록.pdf</span>
-            </span>
-          </button>
-
-          <button class="recent-item" onclick="location.href='viewer.html'">
-            <span class="sidebar-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <path d="M14 2v6h6"></path>
-              </svg>
-            </span>
-            <span class="recent-content">
-              <span class="sidebar-text">기말 발표 자료.pptx</span>
-            </span>
-          </button>
-
-          <button class="recent-item" onclick="location.href='viewer.html'">
-            <span class="sidebar-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <path d="M14 2v6h6"></path>
-              </svg>
-            </span>
-            <span class="recent-content">
-              <span class="sidebar-text">운영체제 7장 정리.pdf</span>
-            </span>
-          </button>
+        <!-- 동적 렌더링 -->
+        <div class="recent-list" id="sidebarRecentList">
+          <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
         </div>
       </section>
 
@@ -773,8 +710,8 @@
           </svg>
         </div>
         <div class="sidebar-profile-info">
-          <div class="sidebar-profile-name">신영서</div>
-          <div class="sidebar-profile-email">nungil@workspace.ai</div>
+          <div class="sidebar-profile-name" id="profileName">...</div>
+          <div class="sidebar-profile-email" id="profileEmail">...</div>
         </div>
       </div>
     </div>
@@ -823,61 +760,143 @@
     </main>
   </div>
 
+  <!-- 사이드바 토글 (모듈 불필요) -->
   <script>
-    /* ── 파일 업로드 ── */
-    const fileInput = document.getElementById("fileUpload");
-    const uploadTitle = document.querySelector(".upload-title");
-    const uploadCard = document.querySelector(".upload-card");
-
-    fileInput.addEventListener("change", function () {
-      if (fileInput.files.length > 0) {
-        uploadTitle.textContent = fileInput.files[0].name;
-        setTimeout(() => { location.href = 'sidebar.html'; }, 600);
-      }
-    });
-
-    uploadCard.addEventListener("dragover", function (e) {
-      e.preventDefault();
-      uploadCard.style.borderColor = "#6fa3ef";
-    });
-
-    uploadCard.addEventListener("dragleave", function () {
-      uploadCard.style.borderColor = "rgba(111, 163, 239, 0.12)";
-    });
-
-    uploadCard.addEventListener("drop", function (e) {
-      e.preventDefault();
-      uploadCard.style.borderColor = "rgba(111, 163, 239, 0.12)";
-
-      if (e.dataTransfer.files.length > 0) {
-        fileInput.files = e.dataTransfer.files;
-        uploadTitle.textContent = e.dataTransfer.files[0].name;
-      }
-    });
-
-    /* ── 사이드바 ── */
-    const openSidebarButton = document.getElementById("openSidebarButton");
+    const openSidebarButton  = document.getElementById("openSidebarButton");
     const closeSidebarButton = document.getElementById("closeSidebarButton");
-    const sidebarOverlay = document.getElementById("sidebarOverlay");
-    const sidebar = document.getElementById("sidebar");
+    const sidebarOverlay     = document.getElementById("sidebarOverlay");
+    const sidebar            = document.getElementById("sidebar");
 
-    function openSidebar() {
-      sidebar.classList.add("is-open");
-      sidebarOverlay.classList.add("is-open");
-    }
-
-    function closeSidebar() {
-      sidebar.classList.remove("is-open");
-      sidebarOverlay.classList.remove("is-open");
-    }
+    function openSidebar()  { sidebar.classList.add("is-open");    sidebarOverlay.classList.add("is-open"); }
+    function closeSidebar() { sidebar.classList.remove("is-open"); sidebarOverlay.classList.remove("is-open"); }
 
     openSidebarButton.addEventListener("click", openSidebar);
     closeSidebarButton.addEventListener("click", closeSidebar);
     sidebarOverlay.addEventListener("click", closeSidebar);
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSidebar(); });
+  </script>
 
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") closeSidebar();
-    });
+  <!-- 데이터 로직 + 인증 가드 -->
+  <script type="module">
+    import { requireAuth, getCurrentUser, signOut } from '/src/lib/auth.js'
+    import { uploadDocument }                       from '/src/lib/storage.js'
+    import { createDocument }                       from '/src/lib/db/documents.js'
+    import { getWorkspaces }                        from '/src/lib/db/workspaces.js'
+    import { getRecentDocuments }                   from '/src/lib/db/documents.js'
+
+    // ── 인증 가드 ────────────────────────────────────────
+    const session = await requireAuth()
+    if (!session) throw new Error('unauthenticated')
+    const userId = session.user.id
+
+    // ── 프로필 표시 ──────────────────────────────────────
+    const user = await getCurrentUser()
+    document.getElementById('profileName').textContent  = user?.profile?.name ?? user?.email ?? '사용자'
+    document.getElementById('profileEmail').textContent = user?.email ?? ''
+
+    // ── 사이드바: 워크스페이스 목록 ──────────────────────
+    const workspaceSvg = `
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
+      </svg>`
+
+    const docSvg = `
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <path d="M14 2v6h6"></path>
+      </svg>`
+
+    async function renderSidebar() {
+      const wsList  = document.getElementById('sidebarWorkspaceList')
+      const recList = document.getElementById('sidebarRecentList')
+
+      // 워크스페이스
+      const workspaces = await getWorkspaces()
+      if (workspaces.length === 0) {
+        wsList.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">워크스페이스 없음</div>'
+      } else {
+        wsList.innerHTML = workspaces.slice(0, 5).map(ws => `
+          <button class="workspace-item" data-ws-id="${ws.id}">
+            <span class="sidebar-icon">${workspaceSvg}</span>
+            <span class="workspace-content">
+              <span class="sidebar-text">${ws.title}</span>
+            </span>
+          </button>`).join('')
+        wsList.querySelectorAll('.workspace-item').forEach(el => {
+          el.addEventListener('click', () => {
+            location.href = `document.html?workspace_id=${el.dataset.wsId}`
+          })
+        })
+      }
+
+      // 최근 문서
+      const recentDocs = await getRecentDocuments(5)
+      if (recentDocs.length === 0) {
+        recList.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
+      } else {
+        recList.innerHTML = recentDocs.map(doc => `
+          <button class="recent-item" data-doc-id="${doc.id}">
+            <span class="sidebar-icon">${docSvg}</span>
+            <span class="recent-content">
+              <span class="sidebar-text">${doc.file_name}</span>
+            </span>
+          </button>`).join('')
+        recList.querySelectorAll('.recent-item').forEach(el => {
+          el.addEventListener('click', () => {
+            location.href = `viewer.html?doc_id=${el.dataset.docId}`
+          })
+        })
+      }
+    }
+
+    // ── 홈 화면 파일 업로드 (빠른 업로드) ────────────────
+    const fileInput   = document.getElementById("fileUpload")
+    const uploadTitle = document.querySelector(".upload-title")
+    const uploadCard  = document.querySelector(".upload-card")
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0]
+      if (!file) return
+      uploadTitle.textContent = '업로드 중...'
+      try {
+        const { storagePath, fileType } = await uploadDocument(file, userId)
+        const doc = await createDocument({
+          userId,
+          workspaceId: null,   // 홈에서 업로드 → 워크스페이스 없음
+          fileName: file.name,
+          storagePath,
+          fileType,
+        })
+        location.href = `processing.html?doc_id=${doc.id}`
+      } catch (err) {
+        alert('업로드 실패: ' + err.message)
+        uploadTitle.textContent = '파일을 업로드해보세요'
+      }
+    })
+
+    uploadCard.addEventListener("dragover", (e) => {
+      e.preventDefault()
+      uploadCard.style.borderColor = "#6fa3ef"
+    })
+    uploadCard.addEventListener("dragleave", () => {
+      uploadCard.style.borderColor = "rgba(111, 163, 239, 0.12)"
+    })
+    uploadCard.addEventListener("drop", (e) => {
+      e.preventDefault()
+      uploadCard.style.borderColor = "rgba(111, 163, 239, 0.12)"
+      if (e.dataTransfer.files.length > 0) {
+        fileInput.files = e.dataTransfer.files
+        fileInput.dispatchEvent(new Event('change'))
+      }
+    })
+
+    // ── "새 문서 추가" 버튼 → 사이드바 addButton ─────────
+    document.querySelector('.sidebar-add-button').addEventListener('click', () => {
+      fileInput.click()
+    })
+
+    // ── 초기화 ────────────────────────────────────────────
+    renderSidebar()
   </script>
 </body>
 </html>

@@ -7,6 +7,38 @@
     <title>눈길</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
     <link rel="stylesheet" href="style.css">
+    <style>
+        .pdf-page-wrapper {
+            position: relative;
+            margin: 0 auto 20px;
+        }
+        .pdf-page {
+            display: block;
+            box-shadow: 0 2px 16px rgba(0,0,0,.13);
+            border-radius: 3px;
+            max-width: 100%;
+        }
+        .pdf-page-num {
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+            padding: 6px 0 2px;
+            letter-spacing: .03em;
+        }
+        .pdf-loading {
+            padding: 80px 40px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .pdf-no-content {
+            padding: 60px 40px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+    </style>
 </head>
 
 <body>
@@ -116,9 +148,8 @@
             </div>
             <div class="sidebar-scroll">
                 <div class="sb-label">프로젝트함 문서</div>
-                <div class="sb-list">
-                    <button class="sb-item active"><span class="sb-item-text">03/16 캡스톤 디자인 회의록</span></button>
-                    <button class="sb-item"><span class="sb-item-text">기말 발표 자료.pptx</span></button>
+                <div class="sb-list" id="sbDocList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
             </div>
             <div class="sb-profile">
@@ -130,8 +161,8 @@
                         </svg>
                     </div>
                     <div class="profile-info">
-                        <div class="profile-name">신영서</div>
-                        <div class="profile-email">nungil@workspace.ai</div>
+                        <div class="profile-name" id="sbProfileName">—</div>
+                        <div class="profile-email" id="sbProfileEmail">—</div>
                     </div>
                 </div>
             </div>
@@ -174,21 +205,9 @@
 
             <div class="content-container">
                 <div class="center-area">
-                    <article class="paper-canvas">
-                        <h1>03/16 캡스톤 디자인 회의록</h1>
-                        <p>상단 툴바의 너비를 다시 화면에 꽉 차도록 확장했습니다. 사이드바의 상태에 따라 왼쪽 여백이 부드럽게 조절됩니다.</p>
-                        <p>이 레이아웃은 넓은 화면을 효율적으로 활용하면서도, 시각적인 요소들이 떠 있는 듯한 세련된 느낌을 유지합니다.</p>
-                        <p>상단 툴바의 너비를 다시 화면에 꽉 차도록 확장했습니다. 사이드바의 상태에 따라 왼쪽 여백이 부드럽게 조절됩니다.</p>
-                        <p>이 레이아웃은 넓은 화면을 효율적으로 활용하면서도, 시각적인 요소들이 떠 있는 듯한 세련된 느낌을 유지합니다.</p>
-                        <p>상단 툴바의 너비를 다시 화면에 꽉 차도록 확장했습니다. 사이드바의 상태에 따라 왼쪽 여백이 부드럽게 조절됩니다.</p>
-                        <p>이 레이아웃은 넓은 화면을 효율적으로 활용하면서도, 시각적인 요소들이 떠 있는 듯한 세련된 느낌을 유지합니다.</p>
-                        <p>상단 툴바의 너비를 다시 화면에 꽉 차도록 확장했습니다. 사이드바의 상태에 따라 왼쪽 여백이 부드럽게 조절됩니다.</p>
-                        <p>이 레이아웃은 넓은 화면을 효율적으로 활용하면서도, 시각적인 요소들이 떠 있는 듯한 세련된 느낌을 유지합니다.</p>
-                        <p>상단 툴바의 너비를 다시 화면에 꽉 차도록 확장했습니다. 사이드바의 상태에 따라 왼쪽 여백이 부드럽게 조절됩니다.</p>
-                        <p>이 레이아웃은 넓은 화면을 효율적으로 활용하면서도, 시각적인 요소들이 떠 있는 듯한 세련된 느낌을 유지합니다.</p>
-                        <p>상단 툴바의 너비를 다시 화면에 꽉 차도록 확장했습니다. 사이드바의 상태에 따라 왼쪽 여백이 부드럽게 조절됩니다.</p>
-                        <p>이 레이아웃은 넓은 화면을 효율적으로 활용하면서도, 시각적인 요소들이 떠 있는 듯한 세련된 느낌을 유지합니다.</p>
-                    </article>
+                    <div class="paper-canvas" id="pdfContainer">
+                        <div class="pdf-loading">문서 로딩 중...</div>
+                    </div>
                 </div>
 
                 <div class="side-area">
@@ -231,6 +250,17 @@
 
     </div><!-- /#page-viewer -->
 
+    <!-- 페이지 초기 로딩 오버레이 (모듈 스크립트 완료 전 노출) -->
+    <div id="pageLoadOverlay" style="
+        position:fixed;inset:0;background:#f8faff;
+        display:flex;align-items:center;justify-content:center;
+        z-index:9999;flex-direction:column;gap:14px;">
+        <div style="font-size:36px;">👀</div>
+        <div style="font-size:14px;color:#94a3b8;font-family:sans-serif;">뷰어 로딩 중...</div>
+    </div>
+
+    <!-- pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
     <!-- EyeDID: SDK 로드 -->
     <script type="module">
@@ -256,12 +286,81 @@
 
     function goViewer() {
         showPage('page-viewer');
-        document.title = '눈길 — 뷰어';
         if (!window._viewerInit) {
-            showCalibOverlay();
             window._viewerInit = true;
             resizeCanvas();
+            // PDF 렌더링 (캘리브레이션과 병렬 진행)
+            if (window._pdfUrl) {
+                renderPdf(window._pdfUrl);
+            } else if (window._pdfConversionPending) {
+                var c = document.getElementById('pdfContainer');
+                if (c) c.innerHTML = '<div class="pdf-no-content">PPT 파일 변환 중입니다.<br>잠시 후 다시 시도해 주세요.</div>';
+            } else {
+                var c = document.getElementById('pdfContainer');
+                if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
+            }
+            if (window._cachedCalib) {
+                applyAndActivate(window._cachedCalib);
+            } else {
+                showCalibOverlay();
+            }
         }
+    }
+
+    /* ── PDF 렌더링 ── */
+    function renderPdf(url) {
+        var container = document.getElementById('pdfContainer');
+        if (!container || !url) return;
+
+        if (!window.pdfjsLib) {
+            container.innerHTML = '<div class="pdf-no-content">pdf.js 로딩 실패</div>';
+            return;
+        }
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        container.innerHTML = '<div class="pdf-loading">PDF 불러오는 중...</div>';
+
+        pdfjsLib.getDocument(url).promise.then(function(pdf) {
+            container.innerHTML = '';
+            var totalPages = pdf.numPages;
+
+            function renderPage(num) {
+                pdf.getPage(num).then(function(page) {
+                    var containerWidth = container.clientWidth - 48;
+                    var vp0 = page.getViewport({ scale: 1 });
+                    var scale = Math.min(Math.max(containerWidth / vp0.width, 0.5), 2);
+                    var viewport = page.getViewport({ scale: scale });
+
+                    var wrapper = document.createElement('div');
+                    wrapper.className = 'pdf-page-wrapper';
+                    wrapper.dataset.page = num;
+
+                    var canvas = document.createElement('canvas');
+                    canvas.className = 'pdf-page';
+                    canvas.width  = viewport.width;
+                    canvas.height = viewport.height;
+
+                    var label = document.createElement('div');
+                    label.className = 'pdf-page-num';
+                    label.textContent = num + ' / ' + totalPages;
+
+                    wrapper.appendChild(canvas);
+                    wrapper.appendChild(label);
+                    container.appendChild(wrapper);
+
+                    page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
+                        .promise.then(function() {
+                            if (num < totalPages) renderPage(num + 1);
+                        });
+                });
+            }
+            renderPage(1);
+        }).catch(function(e) {
+            container.innerHTML =
+                '<div class="pdf-no-content">PDF 로드 실패: ' + e.message + '</div>';
+        });
     }
 
     /*
@@ -531,6 +630,18 @@
                     el.classList.remove('visible', 'sampling'); el.classList.add('done');
                 });
                 G.calibDone = true;
+
+                // 워크스페이스 캘리브레이션 캐시 저장 (1시간 유효)
+                if (window._calibKey && calibrationData) {
+                    try {
+                        localStorage.setItem(window._calibKey, JSON.stringify({
+                            data: calibrationData,
+                            timestamp: Date.now(),
+                            workspaceId: window._workspaceId
+                        }));
+                    } catch(e) { console.warn('캘리브레이션 저장 실패:', e); }
+                }
+
                 seeso.stopTracking();
                 gazeDot.classList.remove('visible');
                 trailCanvas.classList.remove('active');
@@ -582,10 +693,15 @@
         }
     });
 
-    /* ── 진입점: DOMContentLoaded 시 goViewer() 호출 ── */
-    document.addEventListener('DOMContentLoaded', function() {
+    /* ── 진입점: 모듈 스크립트(하단)에서 goViewer() 호출 ── */
+    // DOMContentLoaded 제거 → viewer-init 커스텀 이벤트로 대체
+    window.addEventListener('viewer-init', function(e) {
+        window._cachedCalib  = e.detail.cachedCalib  ?? null;
+        window._workspaceId  = e.detail.workspaceId  ?? null;
+        window._calibKey     = e.detail.calibKey     ?? null;
+        document.getElementById('pageLoadOverlay')?.remove();
         goViewer();
-    });
+    }, { once: true });
 
     /* ══════════════════════════════════════════════════════
        재보정
@@ -606,6 +722,77 @@
         G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
         document.getElementById('btnCalibDone').textContent = '뷰어로 돌아가기 →';
         showCalibOverlay();
+    }
+
+    /* ══════════════════════════════════════════════════════
+       캘리브레이션 캐시 재적용
+       같은 워크스페이스 이전 캘리브레이션 데이터를 사용해
+       전체 캘리브레이션 과정 없이 트래킹 시작
+    ══════════════════════════════════════════════════════ */
+    async function applyAndActivate(calibDataStr) {
+        // 간단한 "재사용 중" 표시
+        var overlay = document.getElementById('calibOverlay');
+        overlay.classList.add('active');
+        var card = document.querySelector('#calibSetup .calib-card');
+        if (card) {
+            card.innerHTML = [
+                '<div class="calib-card-icon">✓</div>',
+                '<h2 class="calib-card-title">이전 캘리브레이션 적용 중</h2>',
+                '<p class="calib-card-desc">같은 워크스페이스에서 진행한 보정 설정을 불러옵니다.<br>잠시만 기다려 주세요.</p>',
+                '<div style="margin-top:20px;width:32px;height:32px;border:3px solid rgba(59,130,246,.3);',
+                'border-top-color:#3b82f6;border-radius:50%;animation:calibSpin .7s linear infinite;margin-left:auto;margin-right:auto;"></div>',
+                '<style>@keyframes calibSpin{to{transform:rotate(360deg)}}</style>'
+            ].join('');
+        }
+        document.getElementById('calibSetup').classList.add('active');
+
+        // SDK 로드 대기
+        if (!window._sdkLoaded) {
+            await new Promise(function(resolve) {
+                window.addEventListener('seeso-ready', resolve, { once: true });
+            });
+        }
+
+        var EasySeesoClass = window.EasySeeSo;
+        if (!EasySeesoClass) { showCalibOverlay(); return; }
+
+        seeso = new EasySeesoClass();
+        try {
+            await seeso.init(
+                LICENSE_KEY,
+                async function() {
+                    try {
+                        seeso.setMonitorSize(15);
+                        seeso.setFaceDistance(60);
+                        seeso.setCameraPosition(window.innerWidth / 2, true);
+                        await seeso.setCalibrationData(calibDataStr);  // 캐시 적용
+                    } catch(e) {
+                        console.warn('캘리브레이션 데이터 적용 오류:', e);
+                    }
+
+                    var trackOk = await seeso.startTracking(onGaze, onDebug);
+                    if (trackOk) {
+                        G.calibDone = true;
+                        hideCalibOverlay();
+                        activateET();
+                    } else {
+                        // 트래킹 실패 → 새 캘리브레이션으로 fallback
+                        console.warn('트래킹 시작 실패, 새 캘리브레이션으로 전환');
+                        seeso = null; G.calibDone = false;
+                        showCalibOverlay();
+                    }
+                },
+                function() {
+                    // SDK 인증 실패 → 새 캘리브레이션
+                    seeso = null;
+                    showCalibOverlay();
+                }
+            );
+        } catch(e) {
+            console.warn('SDK 초기화 오류:', e);
+            seeso = null;
+            showCalibOverlay();
+        }
     }
 
     /* ══════════════════════════════════════════════════════
@@ -651,6 +838,113 @@
 
     <!-- 북마크 / 메모장 등 뷰어 기능 -->
     <script src="script.js"></script>
+
+    <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
+    <script type="module">
+        import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
+        import { getDocument, getDocuments, getRecentDocuments } from '/src/lib/db/documents.js'
+        import { getSignedUrl } from '/src/lib/storage.js'
+
+        const CALIB_TTL = 60 * 60 * 1000  // 1시간
+
+        // ── 인증 가드 ─────────────────────────────────────
+        const session = await requireAuth()
+        if (!session) throw new Error('unauthenticated')
+
+        // ── URL 파라미터 ───────────────────────────────────
+        const params = new URLSearchParams(location.search)
+        const docId  = params.get('doc_id')
+
+        // ── 문서 조회 → PDF URL + workspace_id ────────────
+        let workspaceId = null
+        if (docId) {
+            try {
+                const doc = await getDocument(docId)
+                workspaceId = doc?.workspace_id ?? null
+
+                // 페이지 제목
+                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+
+                // PDF 경로 결정: PDF 파일이면 file_url, PPT면 converted_pdf_path
+                const pdfPath = doc?.file_type === 'PDF'
+                    ? doc.file_url
+                    : (doc?.converted_pdf_path ?? null)
+
+                if (pdfPath) {
+                    window._pdfUrl = await getSignedUrl(pdfPath)
+                } else if (doc?.file_type === 'PPT') {
+                    window._pdfConversionPending = true
+                }
+            } catch(e) {
+                console.warn('문서 조회 실패:', e.message)
+            }
+        }
+
+        // ── 캘리브레이션 캐시 확인 (workspace 있을 때만) ───
+        // standalone 문서(workspace_id=null)는 항상 새 캘리브레이션
+        let cachedCalib = null
+        let calibKey    = null
+
+        if (workspaceId) {
+            calibKey = `nungil_calib_${workspaceId}`
+            try {
+                const raw = localStorage.getItem(calibKey)
+                if (raw) {
+                    const parsed = JSON.parse(raw)
+                    if (Date.now() - parsed.timestamp < CALIB_TTL) {
+                        cachedCalib = parsed.data
+                    } else {
+                        localStorage.removeItem(calibKey)
+                    }
+                }
+            } catch(e) {
+                console.warn('캘리브레이션 캐시 읽기 실패:', e)
+            }
+        }
+
+        // ── 사이드바: 프로필 + 문서 목록 ────────────────────
+        try {
+            const { user, profile } = await getCurrentUser()
+            const nameEl  = document.getElementById('sbProfileName')
+            const emailEl = document.getElementById('sbProfileEmail')
+            if (nameEl)  nameEl.textContent  = profile?.name ?? user.email.split('@')[0]
+            if (emailEl) emailEl.textContent = user.email
+        } catch(e) {
+            console.warn('프로필 로드 실패:', e.message)
+        }
+
+        try {
+            const listEl = document.getElementById('sbDocList')
+            // workspace 있으면 해당 workspace 문서, 없으면 최근 5개
+            const docs = workspaceId
+                ? await getDocuments(workspaceId)
+                : await getRecentDocuments(5)
+
+            if (!docs.length) {
+                listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
+            } else {
+                listEl.innerHTML = docs.map(d => `
+                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                        <span class="sb-item-text">${d.file_name}</span>
+                    </button>
+                `).join('')
+
+                listEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id = el.dataset.docId
+                        if (id && id !== docId) location.href = `viewer.html?doc_id=${id}`
+                    })
+                })
+            }
+        } catch(e) {
+            console.warn('문서 목록 로드 실패:', e.message)
+        }
+
+        // ── viewer-init 이벤트 dispatch → goViewer() 실행 ─
+        window.dispatchEvent(new CustomEvent('viewer-init', {
+            detail: { cachedCalib, workspaceId, calibKey }
+        }))
+    </script>
 
 </body>
 </html>

@@ -427,93 +427,119 @@
     </div>
   </div>
 
-  <script>
-    const workspaces = [
-      { id: "capstone", name: "캡스톤 워크스페이스", fileCount: 2 },
-      { id: "os", name: "운영체제 워크스페이스", fileCount: 1 },
-      { id: "network", name: "네트워크 워크스페이스", fileCount: 1 }
-    ];
+  <script type="module">
+    import { requireAuth }                        from '/src/lib/auth.js'
+    import { getWorkspaces, createWorkspace }     from '/src/lib/db/workspaces.js'
+    import { getDocuments }                       from '/src/lib/db/documents.js'
 
-    const workspaceGrid = document.getElementById("workspaceGrid");
-    const createModal = document.getElementById("createModal");
-    const workspaceNameInput = document.getElementById("workspaceNameInput");
+    // ── 인증 가드 ───────────────────────────────────────────
+    const session = await requireAuth()
+    if (!session) throw new Error('unauthenticated')
 
-    function renderWorkspaceCards() {
-      workspaceGrid.innerHTML = "";
+    const workspaceGrid       = document.getElementById('workspaceGrid')
+    const createModal         = document.getElementById('createModal')
+    const workspaceNameInput  = document.getElementById('workspaceNameInput')
+    const createBtn           = document.getElementById('createWorkspaceBtn')
 
-      const addCard = document.createElement("div");
-      addCard.className = "workspace-add";
+    // ── 워크스페이스 카드 렌더링 ────────────────────────────
+    async function renderWorkspaceCards() {
+      workspaceGrid.innerHTML = '<div style="grid-column:1/-1;padding:20px;color:#b0b8c4;font-size:13px;">불러오는 중...</div>'
+
+      const workspaces = await getWorkspaces()
+
+      workspaceGrid.innerHTML = ''
+
+      // 새 워크스페이스 추가 카드
+      const addCard = document.createElement('div')
+      addCard.className = 'workspace-add'
       addCard.innerHTML = `
         <div class="workspace-add-icon"></div>
         <div class="workspace-add-text">새 워크스페이스</div>
-      `;
-      addCard.addEventListener("click", openCreateModal);
-      workspaceGrid.appendChild(addCard);
+      `
+      addCard.addEventListener('click', openCreateModal)
+      workspaceGrid.appendChild(addCard)
 
-      workspaces.forEach((workspace) => {
-        const card = document.createElement("div");
-        card.className = "workspace-card";
+      if (workspaces.length === 0) {
+        const empty = document.createElement('div')
+        empty.style.cssText = 'grid-column:1/-1;padding:20px;color:#b0b8c4;font-size:13px;'
+        empty.textContent = '아직 워크스페이스가 없어요. 새로 만들어보세요!'
+        workspaceGrid.appendChild(empty)
+        return
+      }
+
+      // 문서 수 일괄 조회
+      const docCounts = await Promise.all(
+        workspaces.map(ws =>
+          getDocuments(ws.id).then(docs => ({ id: ws.id, count: docs.length })).catch(() => ({ id: ws.id, count: 0 }))
+        )
+      )
+      const countMap = Object.fromEntries(docCounts.map(d => [d.id, d.count]))
+
+      workspaces.forEach(ws => {
+        const fileCount = countMap[ws.id] ?? 0
+        const card = document.createElement('div')
+        card.className = 'workspace-card'
+        card.dataset.wsId = ws.id
         card.innerHTML = `
           <div class="workspace-card-top"></div>
           <div class="workspace-card-header">
-            <div class="workspace-card-header-title">${workspace.name}</div>
-            <div class="workspace-card-header-meta">${workspace.fileCount}개의 문서</div>
+            <div class="workspace-card-header-title">${ws.title}</div>
+            <div class="workspace-card-header-meta">${fileCount}개의 문서</div>
           </div>
           <div class="workspace-card-body">
             <div class="folder-shape"></div>
             <div class="workspace-card-text">
-              <div class="workspace-card-title">${workspace.name}</div>
-              <div class="workspace-card-meta">${workspace.fileCount}개의 문서</div>
+              <div class="workspace-card-title">${ws.title}</div>
+              <div class="workspace-card-meta">${fileCount}개의 문서</div>
             </div>
           </div>
-        `;
-
-        card.addEventListener("click", () => {
-          location.href = 'document.html';
-        });
-
-        workspaceGrid.appendChild(card);
-      });
+        `
+        card.addEventListener('click', () => {
+          location.href = `document.html?workspace_id=${ws.id}`
+        })
+        workspaceGrid.appendChild(card)
+      })
     }
 
+    // ── 모달 열기/닫기 ──────────────────────────────────────
     function openCreateModal() {
-      createModal.classList.add("open");
-      workspaceNameInput.value = "";
-      workspaceNameInput.focus();
+      createModal.classList.add('open')
+      workspaceNameInput.value = ''
+      workspaceNameInput.focus()
     }
 
     function closeCreateModal() {
-      createModal.classList.remove("open");
+      createModal.classList.remove('open')
     }
 
-    function createWorkspace() {
-      const name = workspaceNameInput.value.trim();
-      if (!name) return;
+    // ── 워크스페이스 생성 ───────────────────────────────────
+    async function handleCreate() {
+      const title = workspaceNameInput.value.trim()
+      if (!title) return
 
-      const newWorkspace = {
-        id: "ws-" + Date.now(),
-        name,
-        fileCount: 0
-      };
-
-      workspaces.unshift(newWorkspace);
-      renderWorkspaceCards();
-      closeCreateModal();
+      createBtn.disabled = true
+      createBtn.textContent = '생성 중...'
+      try {
+        await createWorkspace(title)
+        closeCreateModal()
+        await renderWorkspaceCards()
+      } catch (e) {
+        alert('생성 실패: ' + e.message)
+      } finally {
+        createBtn.disabled = false
+        createBtn.textContent = '생성하기'
+      }
     }
 
-    document.getElementById("openCreateModalBtn").addEventListener("click", openCreateModal);
-    document.getElementById("closeCreateModalBtn").addEventListener("click", closeCreateModal);
-    document.getElementById("createWorkspaceBtn").addEventListener("click", createWorkspace);
+    // ── 이벤트 바인딩 ───────────────────────────────────────
+    document.getElementById('openCreateModalBtn').addEventListener('click', openCreateModal)
+    document.getElementById('closeCreateModalBtn').addEventListener('click', closeCreateModal)
+    createBtn.addEventListener('click', handleCreate)
+    workspaceNameInput.addEventListener('keydown', e => { if (e.key === 'Enter') handleCreate() })
+    createModal.addEventListener('click', e => { if (e.target === createModal) closeCreateModal() })
 
-    workspaceNameInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") createWorkspace();
-    });
-
-    createModal.addEventListener("click", (event) => {
-      if (event.target === createModal) closeCreateModal();
-    });
-
-    renderWorkspaceCards();
+    // ── 초기 렌더링 ─────────────────────────────────────────
+    await renderWorkspaceCards()
   </script>
 </body>
 </html>
