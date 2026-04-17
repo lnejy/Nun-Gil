@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus Tracker - Full Integrated Page</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --p: #78a3ea;
+            --outer-bg: #f6f7f9;
+            --inner-bg: rgba(255, 255, 255, 0.6);
+            --card-bg: #ffffff;
+            --text-dark: #2f3440;
+            --text-gray: #a0a6b0;
+            --border: #eceef2;
+            --success: #4caf50;
+            --danger: #ff5252;
+            --tr: .3s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, sans-serif;
+            /* 기존 몽환적인 그라데이션 배경 유지 */
+            background: radial-gradient(ellipse 75% 55% at 10% 0%, rgba(168, 200, 255, 0.4) 0%, transparent 60%),
+                    radial-gradient(ellipse 65% 50% at 90% 0%, rgba(147, 184, 250, 0.3) 0%, transparent 60%),
+                    #fbfcfd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 꽉 찬 페이지 컨테이너 */
+        .app-wrapper {
+            width: 95vw;
+            height: 90vh;
+            background-color: var(--inner-bg);
+            backdrop-filter: blur(10px);
+            border-radius: 40px;
+            display: flex;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        backdrop-filter: blur(30px) saturate(150%);
+        background-color: var(--inner-bg);
+        border: 1px solid rgba(255, 255, 255, 0.7);
+    }
+
+        /* 뒤로가기 버튼 스타일 */
+    .back-btn {
+        width: 40px;
+        height: 40px;
+        border-radius: 12px;
+        background: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: 1px solid var(--border);
+        color: var(--text-dark);
+        margin-bottom: 30px; /* 프로필 요약과의 간격 */
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+    }
+
+    .back-btn:hover {
+        background: #f8f9fa;
+        transform: translateX(-3px);
+    }
+
+        /* 왼쪽: 프로필 및 계정 설정 */
+        .left-panel {
+            width: 45%;
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            border-right: 1px solid var(--border); /* 사진 속 가운데 세로선 */
+            overflow-y: auto;
+        }
+
+        /* 오른쪽: 집중도 리포트 */
+        .right-panel {
+            flex: 1;
+            padding: 60px;
+            overflow-y: auto;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        /* 공통 헤더 스타일 */
+        .section-header {
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin: 0 0 10px 0;
+        }
+
+        /* 프로필 요약 (왼쪽 상단 작은 박스) */
+        .profile-summary {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 50px;
+            padding: 20px;
+            background: white;
+            border-radius: 20px;
+            width: fit-content;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        }
+
+        .profile-img {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #eee;
+        }
+
+        .profile-info p { margin: 0; }
+        .user-name-small { font-weight: 700; font-size: 16px; }
+        .user-meta-small { color: var(--text-gray); font-size: 12px; }
+
+        /* 폼 스타일 */
+        .form-group {
+            margin-bottom: 30px;
+            max-width: 500px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--text-gray);
+            font-weight: 600;
+            margin-bottom: 10px;
+        }
+
+        .input-container { position: relative; }
+        .input-container input {
+            width: 100%;
+            padding: 16px 20px;
+            border: 1px solid var(--border);
+            background: #fafbfc;
+            border-radius: 15px;
+            font-size: 15px;
+            transition: var(--tr);
+        }
+
+        /* 리포트 레이아웃 */
+        .report-header-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+        }
+
+        .main-score {
+            font-size: 64px;
+            font-weight: 900;
+            color: var(--p);
+            line-height: 1;
+        }
+
+        /* 지표 카드 그리드 */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+
+        .metric-card {
+            background: white;
+            padding: 30px 20px;
+            border-radius: 24px;
+            text-align: center;
+            border: 1px solid var(--border);
+            transition: var(--tr);
+        }
+
+        .metric-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+
+        .metric-label { font-size: 12px; color: var(--text-gray); margin-bottom: 10px; display: block; }
+        .metric-value { font-size: 24px; font-weight: 800; color: var(--text-dark); }
+        .metric-formula { font-size: 10px; color: var(--text-gray); margin-top: 8px; }
+
+        /* 세부 분석 그리드 */
+        .detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        /* 차트 영역 */
+        .chart-placeholder {
+            width: 100%;
+            height: 280px;
+            background: rgba(250, 251, 252, 0.8);
+            border: 2px dashed var(--border);
+            border-radius: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-gray);
+            font-size: 14px;
+        }
+
+        /* 버튼 스타일 */
+        .btn-save {
+            background: var(--p);
+            color: white;
+            padding: 16px 35px;
+            border-radius: 15px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 10px 20px rgba(120, 163, 234, 0.2);
+            transition: var(--tr);
+            width: fit-content;
+        }
+
+        .btn-save:hover { transform: translateY(-2px); opacity: 0.9; }
+
+        /* 수정 모드 효과 */
+        .edit-mode input:not([disabled]) {
+            background: #fff !important;
+            border-color: var(--p) !important;
+            box-shadow: 0 0 0 4px rgba(120, 163, 234, 0.1);
+        }
+
+        /* 스크롤바 숨기기 혹은 커스텀 */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
+    </style>
+</head>
+
+<body>
+
+    <div class="app-wrapper">
+        <aside class="left-panel" id="section-profile">
+            <div class="back-btn" onclick="history.back()" title="뒤로가기">
+                <i class="fa-solid fa-chevron-left"></i>
+            </div>
+            <div class="profile-summary">
+                <div class="profile-img"></div>
+                <div class="profile-info">
+                    <p class="user-name-small">서유진</p>
+                    <p class="user-meta-small">Web Engineering Track</p>
+                </div>
+            </div>
+
+            <div class="section-header">
+                <h1 class="section-title">계정 설정</h1>
+            </div>
+
+            <div class="form-group">
+                <label>Display Name</label>
+                <div class="input-container">
+                    <input type="text" id="input-name" value="서유진" readonly>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Email Address</label>
+                <div class="input-container">
+                    <input type="email" value="2371195@university.ac.kr" disabled>
+                    <span style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--p); font-weight: 600;">
+                        <i class="fa-solid fa-circle-check"></i> Verified
+                    </span>
+                </div>
+            </div>
+
+            <div style="margin: 20px 0; border-top: 1px solid var(--border); width: 100%; max-width: 500px;"></div>
+
+            <div class="section-header" style="margin-bottom: 25px;">
+                <h2 style="font-size: 18px; margin: 0;">Security Settings</h2>
+            </div>
+
+            <div class="form-group" id="pw-status-row">
+                <label>Password Status</label>
+                <div class="input-container">
+                    <input type="password" value="********" disabled>
+                </div>
+            </div>
+
+            <div id="password-change-fields" style="display: none; max-width: 500px; margin-bottom: 30px;">
+                <div style="display: flex; gap: 15px;">
+                    <div style="flex: 1;">
+                        <label>New Password</label>
+                        <input type="password" id="new-pw" placeholder="새 비밀번호" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>Confirm</label>
+                        <input type="password" id="confirm-pw" placeholder="비밀번호 확인" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border);">
+                    </div>
+                </div>
+            </div>
+
+            <button id="main-action-btn" class="btn-save" onclick="toggleEditMode()">프로필 수정하기</button>
+        </aside>
+
+        <main class="right-panel">
+            <div class="report-header-flex">
+                <div>
+                    <h1 class="section-title">집중도 리포트</h1>
+                    <p style="color: var(--text-gray); font-size: 14px; margin: 0;">실시간 가선 추적 및 알림 반응 지표</p>
+                </div>
+                <div class="main-score">88<span style="font-size: 24px; vertical-align: top; margin-left: 5px;">점</span></div>
+            </div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-label">분당 경고 횟수</span>
+                    <div class="metric-value">0.4회</div>
+                    <div class="metric-formula">alert_count / duration</div>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">평균 반응 시간</span>
+                    <div class="metric-value">1.2초</div>
+                    <div class="metric-formula">반응 합계 / alert_count</div>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">정상 응시 비율</span>
+                    <div class="metric-value">92%</div>
+                    <div class="metric-formula">정상 응시 / 총 측정 시간</div>
+                </div>
+            </div>
+
+            <div class="section-header" style="margin-bottom: 25px;">
+                <h2 style="font-size: 18px; margin: 0;">세부 시선 데이터 분석</h2>
+            </div>
+
+            <div class="detail-grid">
+                <div class="metric-card" style="text-align: left; display: flex; justify-content: space-between; align-items: center; padding: 25px 30px;">
+                    <span class="metric-label" style="margin: 0;">평균 응시 시간 (Fixation)</span>
+                    <span class="metric-value" style="font-size: 20px;">240ms</span>
+                </div>
+                <div class="metric-card" style="text-align: left; display: flex; justify-content: space-between; align-items: center; padding: 25px 30px;">
+                    <span class="metric-label" style="margin: 0;">재응시 횟수 (Regression)</span>
+                    <span class="metric-value" style="font-size: 20px;">2회</span>
+                </div>
+            </div>
+
+            <div class="chart-placeholder">
+                <i class="fa-solid fa-chart-area" style="font-size: 40px; margin-bottom: 15px; opacity: 0.3;"></i>
+                <p style="font-weight: 600;">Gaze Analytics Visualization Chart</p>
+                <p style="font-size: 12px; opacity: 0.7;">실시간 데이터를 기반으로 시각화된 시선 흐름도입니다.</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let isEditMode = false;
+
+        function toggleEditMode() {
+            const btn = document.getElementById('main-action-btn');
+            const nameInput = document.getElementById('input-name');
+            const pwFields = document.getElementById('password-change-fields');
+            const pwStatus = document.getElementById('pw-status-row');
+            const profileSection = document.getElementById('section-profile');
+
+            if (!isEditMode) {
+                // 수정 모드 진입
+                isEditMode = true;
+                profileSection.classList.add('edit-mode');
+                nameInput.readOnly = false;
+                nameInput.focus();
+                pwStatus.style.display = 'none';
+                pwFields.style.display = 'block';
+                btn.innerText = '변경사항 저장하기';
+                btn.style.background = '#333';
+            } else {
+                // 저장 로직
+                isEditMode = false;
+                profileSection.classList.remove('edit-mode');
+                nameInput.readOnly = true;
+                pwFields.style.display = 'none';
+                pwStatus.style.display = 'block';
+                btn.innerText = '프로필 수정하기';
+                btn.style.background = 'var(--p)';
+                
+                // 좌측 상단 요약 이름 동기화
+                document.querySelector('.user-name-small').innerText = nameInput.value;
+                alert("수정사항이 성공적으로 반영되었습니다.");
+            }
+        }
+    </script>
+</body>
+
+</html>
