@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>눈길 - 문서 목록</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: linear-gradient(180deg, #eef5ff 0%, #ffffff 55%, #ffffff 100%);
+      --white: #ffffff;
+      --primary: #6fa3ef;
+      --primary-dark: #5a8fde;
+      --primary-light: #eef4fd;
+      --border: #dbe4f0;
+      --text: #1e293b;
+      --text-sub: #64748b;
+      --shadow-sm: 0 2px 10px rgba(15, 23, 42, 0.04);
+      --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --transition: 0.2s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Noto Sans KR", sans-serif;
+    }
+
+    body {
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+    }
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+
+    .btn-back {
+      display: flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 16px;
+      font-size: 13px; font-weight: 600; color: var(--text-sub);
+      cursor: pointer; transition: var(--transition); flex-shrink: 0;
+    }
+    .btn-back:hover { background: #f1f5f9; color: var(--text); }
+
+    .section-header-group {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      margin-bottom: 4px;
+      color: #1e2b45;
+    }
+
+    .section-sub {
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-bottom: 0;
+    }
+
+    .new-doc-btn {
+      border: none;
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+      cursor: pointer;
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+
+    .new-doc-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .document-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .toolbar-left {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+    }
+
+    .sort-chip {
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-sub);
+      border-radius: 999px;
+      padding: 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .sort-chip.active {
+      background: #eef4ff;
+      color: var(--primary-dark);
+      border-color: #bfd3f6;
+    }
+
+    .sort-select {
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-sub);
+      border-radius: 999px;
+      padding: 9px 36px 9px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: var(--shadow-sm);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      background-size: 12px;
+    }
+
+    .file-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .file-item {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px 18px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .file-item:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .file-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, #eaf2ff 0%, #dfeafc 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+
+    .doc-icon-svg {
+      width: 24px;
+      height: 24px;
+      display: block;
+      color: var(--text-sub);
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .file-info {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .file-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e2b45;
+      margin-bottom: 3px;
+    }
+
+    .file-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      font-size: 12px;
+      color: #7f8ea8;
+      font-weight: 300;
+    }
+
+    .file-arrow {
+      font-size: 18px;
+      color: #94a3b8;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .fav-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; color: #cbd5e1; flex-shrink: 0;
+      padding: 4px 6px; border-radius: 6px; transition: 0.15s;
+      line-height: 1;
+    }
+    .fav-btn:hover { color: #f59e0b; }
+    .fav-btn.active { color: #f59e0b; }
+
+    .import-doc-btn {
+      background: #f1f5f9; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 8px 14px;
+      font-size: 13px; font-weight: 600; color: #4b525d;
+      cursor: pointer; transition: 0.15s; white-space: nowrap;
+    }
+    .import-doc-btn:hover { background: #e2e8f0; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.18);
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 72px 24px 24px;
+      z-index: 1000;
+    }
+
+    .modal.open {
+      display: flex;
+    }
+
+    .upload-card {
+  width: 100%;
+  max-width: 900px;
+  min-height: 260px;
+  background: rgba(255, 255, 255, 0.584);
+  border: 1px solid rgba(111, 163, 239, 0.12);
+  border-radius: 28px;
+  padding: 32px 24px;
+  box-shadow: 0 14px 34px rgba(117, 154, 214, 0.05);
+  backdrop-filter: blur(14px);
+  transition: 0.25s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  margin-top: 20px;
+  position: relative;
+}
+
+.upload-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(111, 163, 239, 0.1);
+}
+
+.upload-card-inner {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  text-align: center;
+}
+
+    .upload-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #22345e;
+      letter-spacing: -0.3px;
+      margin: 0 0 2px 0;
+    }
+
+    .upload-sub {
+      max-width: 500px;
+      font-size: 13px;
+      color: #8b96ac;
+      line-height: 1.7;
+      font-weight: 400;
+      margin: 0 0 6px 0;
+    }
+
+    .upload-dropzone {
+  width: 100%;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(111, 163, 239, 0.12);
+  border-radius: 22px;
+  padding: 28px 20px;
+  transition: 0.2s ease;
+}
+
+.upload-dropzone:hover {
+  background: rgba(255, 255, 255, 0.38);
+  border-color: rgba(111, 163, 239, 0.32);
+}
+
+    .upload-drop-icon {
+      width: 49px;
+      height: 42px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #6fa3ef;
+    }
+
+    .upload-drop-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .upload-drop-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #22345e;
+      letter-spacing: -0.3px;
+      margin: 0 0 2px 0;
+    }
+
+    .upload-drop-sub {
+      max-width: 500px;
+      font-size: 12px;
+      color: #8b96ac;
+      line-height: 1.7;
+      font-weight: 400;
+      margin: 0 0 6px 0;
+    }
+
+    .upload-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.upload-btn {
+  min-width: 120px;
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.2s ease;
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.upload-btn-light {
+  border: 1px solid var(--border);
+  background: var(--white);
+  color: var(--text-sub);
+}
+
+.upload-btn-primary {
+  border: none;
+  background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+  color: white;
+  box-shadow: 0 10px 18px rgba(111, 163, 239, 0.18);
+}
+
+    .modal-close {
+      position: absolute;
+      top: 14px;
+      right: 16px;
+      border: none;
+      background: transparent;
+      font-size: 26px;
+      line-height: 1;
+      color: #7f8ea8;
+      cursor: pointer;
+    }
+
+    input[type="file"] {
+      display: none;
+    }
+
+    @media (max-width: 900px) {
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .new-doc-btn {
+        align-self: flex-end;
+      }
+
+      .upload-card {
+        min-height: 280px;
+        padding: 24px 18px;
+      }
+
+      .file-item {
+        padding: 22px 20px;
+        gap: 18px;
+      }
+
+      .file-icon {
+        width: 72px;
+        height: 72px;
+        border-radius: 22px;
+      }
+
+      .file-name {
+        font-size: 20px;
+      }
+
+      .file-meta {
+        font-size: 14px;
+      }
+    }
+
+    @media (max-width: 600px) {
+      .upload-card {
+        min-height: 250px;
+        padding: 22px 16px;
+      }
+
+      .upload-title,
+      .upload-drop-title {
+        font-size: 17px;
+      }
+
+      .upload-sub,
+      .upload-drop-sub {
+        font-size: 11px;
+      }
+
+      .upload-btn {
+        font-size: 13px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <button class="btn-back" id="backBtn">← 뒤로</button>
+      <div class="section-header-group">
+        <div class="section-title">캡스톤 워크스페이스</div>
+        <div class="section-sub">선택한 워크스페이스의 문서 목록입니다.</div>
+      </div>
+    </div>
+
+    <button class="new-doc-btn" id="openUploadModalBtn">+ 새 문서</button>
+  </div>
+
+  <div class="document-toolbar">
+    <div class="toolbar-left">
+      <div class="sort-chip active" id="tabAll">전체 문서</div>
+      <div class="sort-chip" id="tabFav">즐겨찾기</div>
+    </div>
+
+    <div class="toolbar-right" style="display:flex;gap:10px;align-items:center;">
+      <button class="import-doc-btn" id="openImportModalBtn" style="display:none;">+ 기존 문서 가져오기</button>
+      <select class="sort-select">
+        <option selected disabled>날짜순</option>
+        <option>날짜순</option>
+        <option>이름순</option>
+        <option>유형순</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 기존 문서 가져오기 모달 -->
+  <div class="modal" id="importModal">
+    <div class="upload-card" style="max-height:80vh;overflow-y:auto;">
+      <button class="modal-close" id="closeImportModalBtn" aria-label="닫기">×</button>
+      <div class="upload-card-inner">
+        <div class="upload-title">기존 문서 가져오기</div>
+        <div class="upload-sub">워크스페이스에 넣을 문서를 선택하세요.</div>
+        <div id="importDocList" style="margin-top:16px;display:flex;flex-direction:column;gap:10px;"></div>
+        <div class="upload-actions" style="margin-top:20px;">
+          <button class="upload-btn upload-btn-light" id="closeImportModalBtn2">취소</button>
+          <button class="upload-btn upload-btn-primary" id="submitImportBtn">가져오기</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 동적으로 렌더링됨 -->
+  <div class="file-list" id="fileList">
+    <div class="file-list-loading" style="padding:40px 0;text-align:center;color:#94a3b8;font-size:14px;">
+      문서를 불러오는 중...
+    </div>
+  </div>
+
+  <div class="modal" id="uploadModal">
+  <div class="upload-card">
+    <button class="modal-close" id="closeUploadModalBtn" aria-label="닫기">×</button>
+
+    <div class="upload-card-inner">
+      <div class="upload-title">새 문서 추가</div>
+      <div class="upload-sub">문서를 업로드하면 눈길이 학습에 집중할 수 있도록 도와드릴게요 :)</div>
+
+      <label for="fileUploadModal" class="upload-dropzone">
+        <div class="upload-drop-icon">
+          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M32 44V14" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <div class="upload-drop-title">파일을 업로드해보세요</div>
+        <!-- <div class="upload-btn upload-btn-primary">파일 선택하기</div> -->
+        <div class="upload-drop-sub">
+          PDF, PPT 파일을 드래그해서 올리거나 버튼을 눌러 문서를 선택할 수 있어요.
+        </div>
+      </label>
+
+      <input type="file" id="fileUploadModal" accept=".pdf,.ppt,.pptx" />
+
+      <div class="upload-actions">
+        <button class="upload-btn upload-btn-light" id="closeUploadModalBtn2">취소</button>
+        <button class="upload-btn upload-btn-primary" id="submitUploadBtn">추가하기</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+  <!-- UI 인터랙션 (모달 열기/닫기, 드래그앤드롭) -->
+  <script>
+    const uploadModal     = document.getElementById("uploadModal");
+    const fileInputModal  = document.getElementById("fileUploadModal");
+    const uploadDropTitle = document.querySelector(".upload-drop-title");
+    const uploadCard      = document.querySelector(".upload-card");
+
+    document.getElementById("openUploadModalBtn").addEventListener("click", () => {
+      uploadModal.classList.add("open");
+    });
+    document.getElementById("closeUploadModalBtn").addEventListener("click", () => {
+      uploadModal.classList.remove("open");
+    });
+    document.getElementById("closeUploadModalBtn2").addEventListener("click", () => {
+      uploadModal.classList.remove("open");
+    });
+    uploadModal.addEventListener("click", (e) => {
+      if (e.target === uploadModal) uploadModal.classList.remove("open");
+    });
+
+    fileInputModal.addEventListener("change", () => {
+      if (fileInputModal.files.length > 0)
+        uploadDropTitle.textContent = fileInputModal.files[0].name;
+    });
+    uploadCard.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      uploadCard.style.borderColor = "#6fa3ef";
+    });
+    uploadCard.addEventListener("dragleave", () => {
+      uploadCard.style.borderColor = "rgba(111, 163, 239, 0.12)";
+    });
+    uploadCard.addEventListener("drop", (e) => {
+      e.preventDefault();
+      uploadCard.style.borderColor = "rgba(111, 163, 239, 0.12)";
+      if (e.dataTransfer.files.length > 0) {
+        fileInputModal.files = e.dataTransfer.files;
+        uploadDropTitle.textContent = e.dataTransfer.files[0].name;
+      }
+    });
+  </script>
+
+  <!-- 데이터 로직 (Supabase 연동) -->
+  <script type="module">
+    import { requireAuth }                 from '/src/lib/auth.js'
+    import { uploadDocument }              from '/src/lib/storage.js'
+    import { getDocuments, createDocument, deleteDocument, toggleFavorite, updateDocumentWorkspace, getFavoriteDocuments } from '/src/lib/db/documents.js'
+    import { getWorkspaces }               from '/src/lib/db/workspaces.js'
+
+    // ── URL 파라미터 파싱 ──────────────────────────────────
+    const params      = new URLSearchParams(location.search)
+    const workspaceId = params.get('workspace_id') ?? undefined   // undefined = 전체
+
+    // ── 뒤로가기 버튼 ─────────────────────────────────────
+    document.getElementById('backBtn').addEventListener('click', () => history.back())
+
+    // ── 인증 가드 ─────────────────────────────────────────
+    const session = await requireAuth()
+    if (!session) throw new Error('unauthenticated')
+    const userId = session.user.id
+
+    // ── 워크스페이스 이름 표시 ────────────────────────────
+    async function initHeader() {
+      const titleEl = document.querySelector('.section-title')
+      const subEl   = document.querySelector('.section-sub')
+      if (workspaceId) {
+        const workspaces = await getWorkspaces()
+        const ws = workspaces.find(w => w.id === workspaceId)
+        if (ws) {
+          titleEl.textContent = ws.title
+          subEl.textContent   = '워크스페이스의 문서 목록입니다.'
+        }
+      } else {
+        titleEl.textContent = '전체 문서'
+        subEl.textContent   = '업로드한 모든 문서 목록입니다.'
+      }
+    }
+
+    // ── 날짜 포맷 ─────────────────────────────────────────
+    function fmtDate(iso) {
+      const d = new Date(iso)
+      return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`
+    }
+
+    // ── 문서 목록 렌더링 ─────────────────────────────────
+    async function renderDocumentList(docs) {
+      const list = document.getElementById('fileList')
+
+      if (!docs || docs.length === 0) {
+        list.innerHTML = `
+          <div style="padding:60px 0;text-align:center;color:#94a3b8;font-size:14px;line-height:2;">
+            아직 업로드된 문서가 없어요.<br>
+            <span style="font-size:12px;">+ 새 문서 버튼을 눌러 첫 번째 문서를 추가해보세요.</span>
+          </div>`
+        return
+      }
+
+      list.innerHTML = docs.map(doc => `
+        <div class="file-item" data-id="${doc.id}" data-type="${doc.file_type}" data-fav="${doc.is_favorite}">
+          <div class="file-icon">
+            <svg class="doc-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+          </div>
+          <div class="file-info">
+            <div class="file-name">${doc.file_name}</div>
+            <div class="file-meta">
+              <span>유형: ${doc.file_type}</span>
+              <span>업로드: ${fmtDate(doc.uploaded_at)}</span>
+              ${doc.file_type === 'PPT' && !doc.converted_pdf_path
+                ? '<span style="color:#f59e0b;">변환 대기 중</span>'
+                : ''}
+            </div>
+          </div>
+          <button class="fav-btn ${doc.is_favorite ? 'active' : ''}" data-id="${doc.id}" data-fav="${doc.is_favorite}" title="즐겨찾기">
+            ${doc.is_favorite ? '★' : '☆'}
+          </button>
+          <div class="file-arrow">›</div>
+        </div>
+      `).join('')
+
+      // 별 클릭 → 즐겨찾기 토글
+      list.querySelectorAll('.fav-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          const id  = btn.dataset.id
+          const cur = btn.dataset.fav === 'true'
+          const next = !cur
+          btn.dataset.fav = next
+          btn.textContent = next ? '★' : '☆'
+          btn.classList.toggle('active', next)
+          btn.closest('.file-item').dataset.fav = next
+          await toggleFavorite(id, next)
+        })
+      })
+
+      // 행 클릭 → viewer
+      list.querySelectorAll('.file-item').forEach(el => {
+        el.addEventListener('click', () => {
+          location.href = `viewer.html?doc_id=${el.dataset.id}${workspaceId ? '&workspace_id=' + workspaceId : ''}`
+        })
+      })
+    }
+
+    // ── 탭 전환 ───────────────────────────────────────────
+    let currentTab = 'all'
+    async function renderDocumentsByTab() {
+      const list = document.getElementById('fileList')
+      list.innerHTML = '<div style="padding:40px 0;text-align:center;color:#94a3b8;font-size:14px;">문서를 불러오는 중...</div>'
+      let docs
+      try {
+        if (currentTab === 'fav') {
+          docs = await getFavoriteDocuments()
+          if (workspaceId) docs = docs.filter(d => d.workspace_id === workspaceId)
+        } else {
+          docs = await getDocuments(workspaceId)
+        }
+      } catch (e) {
+        list.innerHTML = `<div style="padding:40px 0;text-align:center;color:#ef4444;">문서를 불러오지 못했습니다.<br>${e.message}</div>`
+        return
+      }
+      await renderDocumentList(docs)
+    }
+
+    document.getElementById('tabAll').addEventListener('click', () => {
+      currentTab = 'all'
+      document.getElementById('tabAll').classList.add('active')
+      document.getElementById('tabFav').classList.remove('active')
+      renderDocumentsByTab()
+    })
+    document.getElementById('tabFav').addEventListener('click', () => {
+      currentTab = 'fav'
+      document.getElementById('tabFav').classList.add('active')
+      document.getElementById('tabAll').classList.remove('active')
+      renderDocumentsByTab()
+    })
+
+    // ── 파일 업로드 처리 ──────────────────────────────────
+    const submitBtn   = document.getElementById('submitUploadBtn')
+    const uploadingIndicator = `<span style="opacity:.7">업로드 중...</span>`
+
+    submitBtn.addEventListener('click', async () => {
+      const file = document.getElementById('fileUploadModal').files[0]
+      if (!file) { alert('먼저 파일을 선택해 주세요.'); return }
+
+      submitBtn.disabled = true
+      submitBtn.innerHTML = uploadingIndicator
+
+      try {
+        // 1. Storage 업로드
+        const { storagePath, fileType } = await uploadDocument(file, userId)
+
+        // 2. DB 레코드 생성
+        const doc = await createDocument({
+          userId,
+          workspaceId: workspaceId ?? null,
+          fileName: file.name,
+          storagePath,
+          fileType,
+        })
+
+        // 3. processing 페이지로 이동 (AI 분석 후 뷰어 진입)
+        location.href = `processing.html?doc_id=${doc.id}`
+      } catch (err) {
+        alert('업로드 실패: ' + err.message)
+      } finally {
+        submitBtn.disabled = false
+        submitBtn.innerHTML = '추가하기'
+      }
+    })
+
+    // ── 기존 문서 가져오기 모달 ───────────────────────────
+    if (workspaceId) {
+      document.getElementById('openImportModalBtn').style.display = 'block'
+    }
+
+    const importModal = document.getElementById('importModal')
+    document.getElementById('openImportModalBtn').addEventListener('click', async () => {
+      const listEl = document.getElementById('importDocList')
+      listEl.innerHTML = '<div style="color:#94a3b8;font-size:13px;">불러오는 중...</div>'
+      importModal.classList.add('open')
+
+      const unassigned = await getDocuments(null) // workspace_id = null 인 문서만
+      if (unassigned.length === 0) {
+        listEl.innerHTML = '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">가져올 수 있는 문서가 없어요.</div>'
+        return
+      }
+      listEl.innerHTML = unassigned.map(d => `
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" data-id="${d.id}" style="width:16px;height:16px;">
+          <span style="font-size:14px;font-weight:500;">${d.file_name}</span>
+          <span style="font-size:12px;color:#94a3b8;margin-left:auto;">${fmtDate(d.uploaded_at)}</span>
+        </label>
+      `).join('')
+    })
+
+    document.getElementById('closeImportModalBtn').addEventListener('click', () => importModal.classList.remove('open'))
+    document.getElementById('closeImportModalBtn2').addEventListener('click', () => importModal.classList.remove('open'))
+    importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.classList.remove('open') })
+
+    document.getElementById('submitImportBtn').addEventListener('click', async () => {
+      const checked = [...document.querySelectorAll('#importDocList input[type=checkbox]:checked')]
+      if (checked.length === 0) { alert('문서를 선택해 주세요.'); return }
+      for (const cb of checked) {
+        await updateDocumentWorkspace(cb.dataset.id, workspaceId)
+      }
+      importModal.classList.remove('open')
+      renderDocumentsByTab()
+    })
+
+    // ── 초기화 ────────────────────────────────────────────
+    await initHeader()
+    await renderDocumentsByTab()
+  </script>
+</body>
+</html>
