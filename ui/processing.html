@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>눈길 - 준비 중</title>
+  <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Pretendard", "Noto Sans KR", sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+        radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+        #f8faff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .logo {
+      position: absolute;
+      top: 28px;
+      left: 36px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1e3a8a;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 480px;
+      background: rgba(255, 255, 255, 0.94);
+      border-radius: 28px;
+      padding: 36px 32px 32px;
+      box-shadow: 0 20px 60px rgba(104, 146, 219, .18);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(216, 228, 248, .9);
+    }
+
+    /* ── 파일 정보 ── */
+    .file-info {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      background: #f1f5fd;
+      border-radius: 14px;
+      margin-bottom: 28px;
+    }
+
+    .file-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .file-icon svg { width: 22px; height: 22px; stroke: #3b82f6; }
+
+    .file-meta { min-width: 0; }
+    .file-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+    .file-type { font-size: 12px; color: #64748b; }
+
+    /* ── 헤더 ── */
+    .card-title {
+      font-size: 22px;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -.03em;
+      margin-bottom: 6px;
+    }
+    .card-sub {
+      font-size: 13px;
+      color: #64748b;
+      margin-bottom: 28px;
+      line-height: 1.6;
+    }
+
+    /* ── 단계 목록 ── */
+    .steps { display: flex; flex-direction: column; gap: 14px; margin-bottom: 32px; }
+
+    .step {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: opacity .4s ease, transform .4s ease;
+    }
+    .step.visible { opacity: 1; transform: translateY(0); }
+
+    .step-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      font-size: 15px;
+      transition: background .3s ease;
+    }
+
+    /* 상태별 스타일 */
+    .step.pending   .step-icon { background: #f1f5f9; color: #94a3b8; }
+    .step.running   .step-icon { background: #eff6ff; color: #3b82f6; }
+    .step.done      .step-icon { background: #f0fdf4; color: #16a34a; }
+
+    .step-text { flex: 1; }
+    .step-label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #1e293b;
+      margin-bottom: 2px;
+    }
+    .step-desc { font-size: 12px; color: #94a3b8; }
+
+    /* 진행 중 점 애니메이션 */
+    .dot-anim::after {
+      content: '';
+      animation: dots 1.2s steps(3, end) infinite;
+    }
+    @keyframes dots {
+      0%   { content: ''; }
+      33%  { content: '.'; }
+      66%  { content: '..'; }
+      100% { content: '...'; }
+    }
+
+    /* 스피너 */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(59,130,246,.3);
+      border-top-color: #3b82f6;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CTA 버튼 ── */
+    .enter-btn {
+      width: 100%;
+      height: 52px;
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      color: white;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(115, 162, 240, .25);
+      transition: .2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(6px);
+    }
+    .enter-btn.ready {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+      transition: opacity .5s ease, transform .5s ease, background .2s ease;
+    }
+    .enter-btn.ready:hover { transform: translateY(-1px); box-shadow: 0 14px 24px rgba(115, 162, 240, .35); }
+
+    /* ── 에러 메시지 ── */
+    .error-msg {
+      display: none;
+      padding: 10px 14px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 10px;
+      font-size: 13px;
+      color: #dc2626;
+      margin-top: 12px;
+      text-align: center;
+    }
+    .error-msg.show { display: block; }
+  </style>
+</head>
+<body>
+  <div class="logo">눈길</div>
+
+  <div class="card">
+    <!-- 파일 정보 -->
+    <div class="file-info">
+      <div class="file-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+        </svg>
+      </div>
+      <div class="file-meta">
+        <div class="file-name" id="fileName">문서 불러오는 중...</div>
+        <div class="file-type" id="fileType">—</div>
+      </div>
+    </div>
+
+    <h2 class="card-title">문서를 준비하고 있어요</h2>
+    <p class="card-sub" id="cardSub">문서를 분석해서 뷰어에서 바로 읽을 수 있도록 준비합니다.<br>잠시만 기다려 주세요.</p>
+
+    <!-- 단계 목록 -->
+    <div class="steps">
+      <div class="step pending" id="step-upload">
+        <div class="step-icon">📄</div>
+        <div class="step-text">
+          <div class="step-label">문서 업로드 완료</div>
+          <div class="step-desc">Storage에 안전하게 저장되었습니다</div>
+        </div>
+      </div>
+
+      <!-- PPT 파일일 때만 표시 -->
+      <div class="step pending" id="step-convert" style="display:none">
+        <div class="step-icon">🔄</div>
+        <div class="step-text">
+          <div class="step-label" id="step-convert-label">PDF 변환 대기 중</div>
+          <div class="step-desc">뷰어에서 열 수 있도록 PDF로 변환합니다</div>
+        </div>
+      </div>
+
+      <div class="step pending" id="step-analyze">
+        <div class="step-icon">🔍</div>
+        <div class="step-text">
+          <div class="step-label" id="step-analyze-label">문서 분석 대기 중</div>
+          <div class="step-desc">AI가 문서 내용을 파악합니다</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 진입 버튼 -->
+    <button class="enter-btn" id="enterBtn" onclick="enterViewer()">
+      뷰어로 진입하기 &rarr;
+    </button>
+
+    <div class="error-msg" id="errorMsg"></div>
+  </div>
+
+  <script type="module">
+    import { requireAuth } from '/src/lib/auth.js'
+    import { getDocument } from '/src/lib/db/documents.js'
+    import { SUPABASE_URL } from '/src/lib/supabase.js'
+
+    const delay = ms => new Promise(r => setTimeout(r, ms))
+
+    // ── 인증 가드 ─────────────────────────────────────────
+    const session = await requireAuth()
+    if (!session) throw new Error('unauthenticated')
+
+    // ── URL 파라미터 ─────────────────────────────────────
+    const params = new URLSearchParams(location.search)
+    const docId  = params.get('doc_id')
+    if (!docId) { location.href = 'mainpage.html'; throw new Error('no doc_id') }
+
+    window._docId = docId
+
+    // ── 단계 상태 제어 ────────────────────────────────────
+    function setStep(id, state, labelOverride) {
+      const el    = document.getElementById(id)
+      const label = document.getElementById(id + '-label')
+      if (!el) return
+      el.classList.remove('pending', 'running', 'done')
+      el.classList.add(state, 'visible')
+      const icon = el.querySelector('.step-icon')
+
+      if (state === 'running') {
+        icon.innerHTML = '<div class="spinner"></div>'
+        if (label) label.innerHTML = (labelOverride ?? label.textContent.replace(' 대기 중', '')) + ' <span class="dot-anim">진행 중</span>'
+      } else if (state === 'done') {
+        icon.textContent = '✓'
+        if (label) label.textContent = labelOverride ?? label.textContent.replace(' 대기 중', '') + ' 완료'
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('errorMsg')
+      el.textContent = msg
+      el.classList.add('show')
+    }
+
+    // ── 문서 정보 표시 ────────────────────────────────────
+    let doc
+    try {
+      doc = await getDocument(docId)
+      document.getElementById('fileName').textContent = doc.file_name
+      document.getElementById('fileType').textContent =
+        doc.file_type === 'PDF' ? 'PDF 문서' : 'PPT 프레젠테이션'
+    } catch(e) {
+      showError('문서 정보를 불러올 수 없습니다: ' + e.message)
+    }
+
+    // ── step 1: 업로드 완료 ───────────────────────────────
+    setStep('step-upload', 'done', '문서 업로드 완료')
+
+    // ── step 2: PPT → PDF 변환 (PPT 파일일 때만) ─────────
+    if (doc?.file_type === 'PPT') {
+      const convertEl = document.getElementById('step-convert')
+      convertEl.style.display = ''
+
+      await delay(400)
+      setStep('step-convert', 'running', 'PDF 변환')
+
+      try {
+        const res = await fetch(`${SUPABASE_URL}/functions/v1/convert-ppt`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ document_id: docId }),
+        })
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          throw new Error(err.error ?? 'PPT 변환 실패')
+        }
+
+        setStep('step-convert', 'done', 'PDF 변환 완료')
+      } catch(e) {
+        setStep('step-convert', 'done', 'PDF 변환 실패')
+        showError('PPT 변환 중 오류가 발생했습니다: ' + e.message)
+      }
+    }
+
+    // ── step 3: 문서 분석 (Claude API 준비 후 실제 구현) ──
+    await delay(400)
+    setStep('step-analyze', 'running', '문서 분석')
+    // TODO: Claude API 키 준비 후 실제 텍스트 추출 & 분석 Edge Function 호출
+    await delay(800)
+    setStep('step-analyze', 'done', '문서 분석 완료')
+
+    // ── 완료 ─────────────────────────────────────────────
+    document.getElementById('cardSub').textContent = '준비가 완료됐어요. 이제 문서를 읽어볼까요?'
+    document.getElementById('enterBtn').classList.add('ready')
+  </script>
+
+  <script>
+    function enterViewer() {
+      if (!window._docId) return
+      location.href = 'viewer.html?doc_id=' + window._docId
+    }
+  </script>
+</body>
+</html>

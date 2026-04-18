@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>눈길</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .pdf-page-wrapper {
+            position: relative;
+            margin: 0 auto 20px;
+        }
+        .pdf-page {
+            display: block;
+            box-shadow: 0 2px 16px rgba(0,0,0,.13);
+            border-radius: 3px;
+        }
+        .pdf-page-num {
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+            padding: 6px 0 2px;
+            letter-spacing: .03em;
+        }
+        .pdf-loading {
+            padding: 80px 40px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+        .pdf-no-content {
+            padding: 60px 40px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+            line-height: 1.7;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ──────────────────────────────────────────────
+         SPA 구조: 페이지 추가 시 여기에 나란히 붙이면 됨
+         <div id="page-home"  class="page"> ... </div>
+         <div id="page-files" class="page"> ... </div>
+    ─────────────────────────────────────────────── -->
+
+    <div id="page-viewer" class="page active">
+
+        <!-- EyeDID: 시선 궤적 캔버스 & 시선 점 -->
+        <canvas id="trail-canvas"></canvas>
+        <div id="gaze-dot"></div>
+
+        <!-- EyeDID: 캘리브레이션 오버레이 -->
+        <div id="calibOverlay" class="calib-overlay">
+
+            <!-- 1단계: 환경 확인 -->
+            <div class="calib-phase active" id="calibSetup">
+                <div class="calib-card">
+                    <div class="calib-card-icon">👁</div>
+                    <h2 class="calib-card-title">시선 캘리브레이션</h2>
+                    <p class="calib-card-desc">EyeDID SDK로 시선을 보정합니다.<br>화면에서 <strong>50–70cm</strong> 거리, 정면을 바라봐 주세요.</p>
+                    <div class="calib-steps">
+                        <div class="calib-step"><strong>1. 환경 확인</strong><span>브라우저와 카메라 권한을 자동으로 확인합니다.</span></div>
+                        <div class="calib-step"><strong>2. 캘리브레이션</strong><span>화면에 나타나는 6개의 점을 순서대로 응시합니다.</span></div>
+                        <div class="calib-step"><strong>3. 완료 후 진입</strong><span>보정이 끝나면 시선 추적을 활용할 수 있습니다.</span></div>
+                    </div>
+                    <div class="calib-check">
+                        <div class="calib-chk-item" id="chkBrowser"><span class="calib-chk-icon">○</span><span>브라우저 확인 중...</span></div>
+                        <div class="calib-chk-item" id="chkCamera"><span class="calib-chk-icon">○</span><span>카메라 확인 중...</span></div>
+                        <div class="calib-chk-item" id="chkSdk"><span class="calib-chk-icon">○</span><span>EyeDID SDK 로딩 확인 중...</span></div>
+                    </div>
+                    <button class="btn-dark" id="btnStartCalib" disabled>캘리브레이션 시작</button>
+                    <p style="font-size:11px;color:var(--sub);margin-top:14px;">카메라 데이터는 브라우저 내에서만 처리됩니다.</p>
+                </div>
+            </div>
+
+            <!-- 2단계: 풀스크린 점 응시 -->
+            <div class="calib-fullscreen" id="calibScreen">
+                <div class="calib-hud">
+                    <div class="calib-phase-lbl">CALIBRATION</div>
+                    <div class="calib-title" id="calibTitle">파란색 점을 바라봐 주세요</div>
+                    <div class="calib-sub-text" id="calibSub">각 점이 나타나면 점을 정확히 응시하세요.<br>정밀도 향상을 위해 6개 점을 수집합니다.</div>
+                </div>
+                <div class="calib-bottom-bar">
+                    <div class="calib-pips" id="calibPips"></div>
+                    <div class="calib-prog-txt" id="calibProgTxt">0 / 6</div>
+                </div>
+            </div>
+
+            <!-- 3단계: 완료 -->
+            <div class="calib-phase" id="calibDonePhase">
+                <div class="calib-card calib-done-card">
+                    <div class="calib-done-icon">&#10003;</div>
+                    <h2 class="calib-card-title">캘리브레이션 완료!</h2>
+                    <p class="calib-card-desc">시선 보정이 성공적으로 완료되었습니다.<br>이제 문서를 읽으며 시선 추적을 활용할 수 있습니다.</p>
+                    <button class="btn-dark" id="btnCalibDone">워크스페이스로 진입 &rarr;</button>
+                </div>
+            </div>
+
+        </div><!-- /#calibOverlay -->
+
+        <!-- 사이드바 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sb-brand" onclick="location.href='mainpage.html'" style="cursor:pointer;">&#128064; <span class="sb-name">눈길</span></div>
+                <button class="sb-toggle-btn" id="sidebarToggle">&#10216;</button>
+            </div>
+            <div class="sb-add-section">
+                <button class="sb-add-btn"><span>새 문서 추가</span></button>
+            </div>
+            <div class="sb-tool-section">
+                <div class="sb-tool-grid">
+                    <button class="sb-tool-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                        </svg>
+                        <span>원본</span>
+                    </button>
+                    <button class="sb-tool-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <polyline points="9 11 12 14 22 4"/>
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        <span>요약</span>
+                    </button>
+                    <button class="sb-tool-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        <span>마인드맵</span>
+                    </button>
+                    <button class="sb-tool-item">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                        <span>퀴즈</span>
+                    </button>
+                </div>
+            </div>
+            <div class="sidebar-scroll">
+                <div class="sb-label" id="sbWorkspaceLabel">문서</div>
+                <div class="sb-list" id="sbDocList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                </div>
+                <div class="sb-label" style="margin-top:16px;">★ 즐겨찾기</div>
+                <div class="sb-list" id="sbFavList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                </div>
+            </div>
+            <div class="sb-profile">
+                <div class="profile-card" onclick="location.href='profile.html'" style="cursor:pointer;" title="프로필 설정">
+                    <div class="avatar">
+                        <svg viewBox="0 0 64 64" fill="currentColor" width="24">
+                            <circle cx="32" cy="24" r="10"/>
+                            <path d="M18 46C18 38.268 24.268 32 32 32C39.732 32 46 38.268 46 46V48H18V46Z"/>
+                        </svg>
+                    </div>
+                    <div class="profile-info">
+                        <div class="profile-name" id="sbProfileName">—</div>
+                        <div class="profile-email" id="sbProfileEmail">—</div>
+                    </div>
+                </div>
+            </div>
+        </aside><!-- /.sidebar -->
+
+        <!-- 메인 콘텐츠 -->
+        <main class="main-wrapper">
+            <div class="toolbar-wrapper">
+                <header class="floating-toolbar">
+                    <div class="group-left">
+                        <div class="font-island">
+                            <span>Pretendard</span>
+                            <span class="divider">|</span>
+                            <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
+                            <span id="zoomLevel">100%</span>
+                            <button class="zoom-btn" onclick="zoomIn()">&#43;</button>
+                        </div>
+                    </div>
+                    <div class="group-right">
+                        <button class="tool-btn-main" id="noteBtn" onclick="togNote()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            <span>메모장</span>
+                        </button>
+                        <button class="tool-btn-main" id="bookmarkBtn" onclick="toggleBookmarkMode()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span>북마크</span>
+                        </button>
+                        <button class="tool-btn-main" id="bookmarkListBtn" onclick="togBookmarkList()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                            </svg>
+                            <span>북마크함</span>
+                        </button>
+                    </div>
+                </header>
+            </div>
+
+            <div class="content-container">
+                <div class="center-area">
+                    <div class="paper-canvas" id="pdfContainer">
+                        <div class="pdf-loading">문서 로딩 중...</div>
+                    </div>
+                </div>
+
+                <div class="side-area">
+                    <aside class="note-sb" id="noteSb">
+                        <div class="note-box">
+                            <div class="note-h">메모장</div>
+                            <textarea class="note-ta" placeholder="여기에 실시간 메모를 작성하세요..."></textarea>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- 북마크 오버레이 -->
+            <div class="bookmark-overlay" id="bookmarkOverlay">
+                <div class="bookmark-modal">
+                    <div class="bm-modal-header">
+                        <h2>저장된 북마크</h2>
+                        <button class="bm-close-btn" onclick="togBookmarkList()">&#10005;</button>
+                    </div>
+                    <div class="bm-modal-grid">
+                        <!-- script.js가 동적으로 채움 -->
+                    </div>
+                </div>
+            </div>
+
+        </main><!-- /.main-wrapper -->
+
+        <!-- EyeDID: ET 패널 -->
+        <div class="et min" id="etP" onclick="etExpand()">
+            <div class="et-dot r" id="etDot"></div>
+            <div class="et-c" id="etC">
+                <span class="et-lbl" id="etLbl">아이트래킹 비활성화</span>
+                <div class="et-acts">
+                    <button class="et-tog off" id="etTog" onclick="etToggle(event)">활성화</button>
+                    <button class="et-tog" id="etRecalib" onclick="recalibrate(event)" style="background:#f1f5f9;color:#64748b;">재보정</button>
+                    <button class="et-cx" onclick="etCollapse(event)">&#10005;</button>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /#page-viewer -->
+
+    <!-- 페이지 초기 로딩 오버레이 (모듈 스크립트 완료 전 노출) -->
+    <div id="pageLoadOverlay" style="
+        position:fixed;inset:0;background:#f8faff;
+        display:flex;align-items:center;justify-content:center;
+        z-index:9999;flex-direction:column;gap:14px;">
+        <div style="font-size:36px;">👀</div>
+        <div style="font-size:14px;color:#94a3b8;font-family:sans-serif;">뷰어 로딩 중...</div>
+    </div>
+
+    <!-- pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- EyeDID: SDK 로드 -->
+    <script type="module">
+        import EasySeeSo from '../easy-seeso.js';
+        window.EasySeeSo = EasySeeSo;
+        window._sdkLoaded = true;
+        window.dispatchEvent(new Event('seeso-ready'));
+    </script>
+
+    <!-- EyeDID: 시선 추적 로직 -->
+    <script>
+    /* ══════════════════════════════════════════════════════
+       SPA 라우터
+       - 현재: page-viewer 하나만 존재
+       - 추가 시: goHome(), goFiles() 주석 해제 후 html에 div 추가
+    ══════════════════════════════════════════════════════ */
+    function showPage(id) {
+        document.querySelectorAll('.page').forEach(function(p) {
+            p.classList.remove('active');
+        });
+        document.getElementById(id).classList.add('active');
+    }
+
+    function goViewer() {
+        showPage('page-viewer');
+        if (!window._viewerInit) {
+            window._viewerInit = true;
+            resizeCanvas();
+            // PDF 렌더링 (캘리브레이션과 병렬 진행)
+            if (window._pdfUrl) {
+                renderPdf(window._pdfUrl);
+            } else if (window._pdfConversionPending) {
+                var c = document.getElementById('pdfContainer');
+                if (c) c.innerHTML = '<div class="pdf-no-content">PPT 파일 변환 중입니다.<br>잠시 후 다시 시도해 주세요.</div>';
+            } else {
+                var c = document.getElementById('pdfContainer');
+                if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
+            }
+            if (window._cachedCalib) {
+                applyAndActivate(window._cachedCalib);
+            } else {
+                showCalibOverlay();
+            }
+        }
+    }
+
+    /* ── PDF 렌더링 ── */
+    window._pdfDoc       = null;
+    window._pdfBaseScale = 1;
+    window._zoomFactor   = 1.0;
+
+    function renderPdf(url) {
+        var container = document.getElementById('pdfContainer');
+        if (!container || !url) return;
+
+        if (!window.pdfjsLib) {
+            container.innerHTML = '<div class="pdf-no-content">pdf.js 로딩 실패</div>';
+            return;
+        }
+
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+            'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        container.innerHTML = '<div class="pdf-loading">PDF 불러오는 중...</div>';
+
+        pdfjsLib.getDocument(url).promise.then(function(pdf) {
+            window._pdfDoc = pdf;
+            // 첫 페이지로 기준 스케일 계산 (fit-to-width)
+            pdf.getPage(1).then(function(page) {
+                var vp0 = page.getViewport({ scale: 1 });
+                var containerWidth = container.clientWidth - 48;
+                window._pdfBaseScale = Math.min(Math.max(containerWidth / vp0.width, 0.5), 2);
+                window._zoomFactor = 1.0;
+                document.getElementById('zoomLevel').textContent = '100%';
+                renderPages(pdf, container, window._pdfBaseScale * window._zoomFactor);
+            });
+        }).catch(function(e) {
+            container.innerHTML =
+                '<div class="pdf-no-content">PDF 로드 실패: ' + e.message + '</div>';
+        });
+    }
+
+    function renderPages(pdf, container, scale) {
+        container.innerHTML = '';
+        var totalPages = pdf.numPages;
+
+        function renderPage(num) {
+            pdf.getPage(num).then(function(page) {
+                var viewport = page.getViewport({ scale: scale });
+
+                var wrapper = document.createElement('div');
+                wrapper.className = 'pdf-page-wrapper';
+                wrapper.dataset.page = num;
+
+                var canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page';
+                canvas.width  = viewport.width;
+                canvas.height = viewport.height;
+
+                var label = document.createElement('div');
+                label.className = 'pdf-page-num';
+                label.textContent = num + ' / ' + totalPages;
+
+                wrapper.appendChild(canvas);
+                wrapper.appendChild(label);
+                container.appendChild(wrapper);
+
+                page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
+                    .promise.then(function() {
+                        if (num < totalPages) renderPage(num + 1);
+                    });
+            });
+        }
+        renderPage(1);
+    }
+
+    function reRenderPdf() {
+        var container = document.getElementById('pdfContainer');
+        if (!window._pdfDoc || !container) return;
+        renderPages(window._pdfDoc, container, window._pdfBaseScale * window._zoomFactor);
+    }
+
+    function zoomIn() {
+        if (window._zoomFactor >= 2.5) return;
+        window._zoomFactor = Math.round((window._zoomFactor + 0.1) * 10) / 10;
+        document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
+        reRenderPdf();
+    }
+
+    function zoomOut() {
+        if (window._zoomFactor <= 0.5) return;
+        window._zoomFactor = Math.round((window._zoomFactor - 0.1) * 10) / 10;
+        document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
+        reRenderPdf();
+    }
+
+    /*
+    function goHome() {
+        showPage('page-home');
+        document.title = '눈길';
+    }
+    function goFiles() {
+        showPage('page-files');
+        document.title = '눈길 — 파일';
+    }
+    */
+
+    /* ══════════════════════════════════════════════════════
+       EyeDID 전역 상태
+    ══════════════════════════════════════════════════════ */
+    var G = {
+        prevX:0, prevY:0, stabBuf:[], gx:0, gy:0,
+        calibDone:false, calibPointIdx:0,
+        blinkFrames:0, lastValidX:0, lastValidY:0,
+        gazeCount:0, gazeValid:0,
+        gazedWords: new Set(), totalWords:0,
+        warmup:0
+    };
+
+    var LICENSE_KEY  = 'dev_figw9wf24kntvlm1kitwvabnthsh58be86ysqt8e';
+    var seeso        = null;
+    var CALIB_POINTS = 6;
+    var etOn         = false;
+    var _isRecalib   = false;
+
+    var gazeDot     = document.getElementById('gaze-dot');
+    var trailCanvas = document.getElementById('trail-canvas');
+    var tCtx        = trailCanvas ? trailCanvas.getContext('2d') : null;
+    var trail       = [];
+
+    function resizeCanvas() {
+        if (!trailCanvas) return;
+        trailCanvas.width  = window.innerWidth;
+        trailCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    /* ── 스무딩 ── */
+    var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 80, WARMUP_FRAMES = 5;
+
+    function smoothGaze(rx, ry, isBlink) {
+        if (isBlink) { G.blinkFrames++; return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY }; }
+        if (G.prevX === 0 && G.prevY === 0) {
+            G.prevX = rx; G.prevY = ry; G.lastValidX = rx; G.lastValidY = ry; G.warmup = 0;
+            return { x: rx, y: ry };
+        }
+        var dy = ry - G.prevY;
+        if (Math.abs(dy) > BLINK_Y_JUMP && dy > 0) {
+            G.blinkFrames++;
+            return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY };
+        }
+        G.blinkFrames = 0;
+        G.warmup = (G.warmup || 0) + 1;
+        var alpha = G.warmup < WARMUP_FRAMES ? 0.6 : SMOOTH_A;
+        var ex = alpha * rx + (1 - alpha) * G.prevX;
+        var ey = alpha * ry + (1 - alpha) * G.prevY;
+        var dx2 = ex - G.prevX, dy2 = ey - G.prevY;
+        var vel = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+        if (vel > VEL_MAX) { ex = G.prevX + dx2 * VEL_DAMP; ey = G.prevY + dy2 * VEL_DAMP; }
+        G.prevX = ex; G.prevY = ey; G.lastValidX = ex; G.lastValidY = ey;
+        G.stabBuf.push(vel);
+        if (G.stabBuf.length > 30) G.stabBuf.shift();
+        return { x: ex, y: ey };
+    }
+
+    /* ── 시선 콜백 ── */
+    function onGaze(gazeInfo) {
+        G.gazeCount++;
+        if (!gazeInfo) return;
+        var x = gazeInfo.x, y = gazeInfo.y;
+        if (typeof x !== 'number' || !isFinite(x) || typeof y !== 'number' || !isFinite(y)) return;
+        G.gazeValid++;
+
+        var lo = gazeInfo.leftOpenness, ro = gazeInfo.rightOpenness;
+        var isBlink = (lo !== -1 && ro !== -1) ? (lo < 0.3 && ro < 0.3) : false;
+
+        var useX = x, useY = y;
+        if (gazeInfo.eyemovementState === 0 && gazeInfo.fixationX && gazeInfo.fixationY) {
+            useX = gazeInfo.fixationX; useY = gazeInfo.fixationY;
+        }
+
+        var raw = smoothGaze(useX, useY, isBlink);
+        G.gx = raw.x; G.gy = raw.y;
+
+        var isCalibrating = !G.calibDone
+            && document.getElementById('calibScreen')
+            && document.getElementById('calibScreen').classList.contains('active');
+        if (!etOn && !isCalibrating) return;
+
+        if (isBlink || G.blinkFrames > 0) gazeDot.classList.add('blink');
+        else gazeDot.classList.remove('blink');
+        gazeDot.style.left = G.gx + 'px';
+        gazeDot.style.top  = G.gy + 'px';
+
+        if (!isBlink && G.blinkFrames === 0) {
+            trail.push({ x: G.gx, y: G.gy, t: Date.now() });
+            if (trail.length > 50) trail.shift();
+        }
+        drawTrail();
+
+        if (etOn && !isBlink && G.blinkFrames === 0) detectGazedWord(G.gx, G.gy);
+    }
+
+    function onDebug() {}
+
+    function drawTrail() {
+        if (!tCtx) return;
+        tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+        if (trail.length < 2) return;
+        var now = Date.now();
+        for (var i = 1; i < trail.length; i++) {
+            var a = trail[i - 1], b = trail[i];
+            var alpha = Math.max(0, (1 - (now - b.t) / 700) * 0.35);
+            tCtx.beginPath(); tCtx.moveTo(a.x, a.y); tCtx.lineTo(b.x, b.y);
+            tCtx.strokeStyle = 'rgba(59,130,246,' + alpha + ')';
+            tCtx.lineWidth = 2; tCtx.stroke();
+        }
+    }
+
+    function detectGazedWord(x, y) {
+        var canvas = document.querySelector('.paper-canvas');
+        if (canvas && !canvas.querySelector('.word')) wrapWordsInViewer();
+        var prev = document.querySelector('.paper-canvas .word.gazed');
+        if (prev) prev.classList.replace('gazed', 'visited');
+        var el = document.elementFromPoint(x, y);
+        if (el && el.classList.contains('word')) { el.classList.add('gazed'); G.gazedWords.add(el.id); }
+    }
+
+    function wrapWordsInViewer() {
+        var canvas = document.querySelector('.paper-canvas');
+        if (!canvas) return;
+        canvas.querySelectorAll('p, li').forEach(function(p, pi) {
+            if (p.querySelector('.word')) return;
+            var html = '', wi = 0;
+            p.textContent.split(/(\s+)/).forEach(function(w) {
+                if (/^\s+$/.test(w)) { html += w; return; }
+                if (!w) return;
+                html += '<span class="word" id="gw-' + pi + '-' + (wi++) + '">' + w + '</span> ';
+            });
+            p.innerHTML = html;
+        });
+        G.totalWords = canvas.querySelectorAll('.word').length;
+        G.gazedWords = new Set();
+    }
+
+    /* ══════════════════════════════════════════════════════
+       캘리브레이션
+    ══════════════════════════════════════════════════════ */
+    function showCalibOverlay() {
+        document.getElementById('calibOverlay').classList.add('active');
+        document.getElementById('calibSetup').classList.add('active');
+        document.getElementById('calibScreen').classList.remove('active');
+        document.getElementById('calibDonePhase').classList.remove('active');
+        runCalibSetup();
+    }
+
+    function hideCalibOverlay() {
+        document.getElementById('calibOverlay').classList.remove('active');
+    }
+
+    async function runCalibSetup() {
+        var hasMD = !!navigator.mediaDevices;
+        setCalibChk('chkBrowser', hasMD, hasMD ? '브라우저 확인됨' : '카메라 API 미지원');
+
+        if (window._sdkLoaded) {
+            setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+        } else {
+            setCalibChk('chkSdk', false, 'EyeDID SDK 로딩 중...');
+            window.addEventListener('seeso-ready', function() {
+                setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+                tryEnableCalibBtn();
+            });
+        }
+
+        try {
+            var s = await navigator.mediaDevices.getUserMedia({ video: true });
+            s.getTracks().forEach(function(t) { t.stop(); });
+            setCalibChk('chkCamera', true, '카메라 접근 허용됨');
+        } catch(e) {
+            setCalibChk('chkCamera', false, '카메라 접근 거부됨');
+        }
+        tryEnableCalibBtn();
+    }
+
+    function setCalibChk(id, ok, msg) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        el.className = 'calib-chk-item ' + (ok ? 'ok' : 'err');
+        el.querySelector('.calib-chk-icon').textContent = ok ? '✓' : '✗';
+        el.querySelector('span:last-child').textContent = msg;
+    }
+
+    function tryEnableCalibBtn() {
+        var btn = document.getElementById('btnStartCalib');
+        if (btn) btn.disabled = document.querySelectorAll('.calib-chk-item.ok').length < 3;
+    }
+
+    async function startCalibration() {
+        var EasySeesoClass = window.EasySeeSo;
+        if (!EasySeesoClass) { alert('SDK 미로드'); return; }
+
+        document.getElementById('calibSetup').classList.remove('active');
+        document.getElementById('calibScreen').classList.add('active');
+
+        seeso = new EasySeesoClass();
+        try {
+            await seeso.init(LICENSE_KEY,
+                function() {
+                    try {
+                        seeso.setMonitorSize(15);
+                        seeso.setFaceDistance(60);
+                        seeso.setCameraPosition(window.innerWidth / 2, true);
+                    } catch(e) { console.warn('설정 오류:', e); }
+                    beginCalibPoints();
+                },
+                function() {
+                    alert('EyeDID SDK 인증 실패.');
+                    document.getElementById('calibScreen').classList.remove('active');
+                    document.getElementById('calibSetup').classList.add('active');
+                }
+            );
+        } catch(e) {
+            alert('SDK 오류: ' + e.message);
+            document.getElementById('calibScreen').classList.remove('active');
+            document.getElementById('calibSetup').classList.add('active');
+        }
+    }
+
+    async function beginCalibPoints() {
+        G.calibPointIdx = 0; G.calibDone = false;
+        G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+        G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+
+        var pipsEl = document.getElementById('calibPips');
+        pipsEl.innerHTML = '';
+        for (var i = 0; i < CALIB_POINTS; i++)
+            pipsEl.innerHTML += '<div class="c-pip" id="cpip-' + i + '"></div>';
+        document.getElementById('calibProgTxt').textContent = '0 / ' + CALIB_POINTS;
+        document.querySelectorAll('.calib-dot').forEach(function(el) { el.remove(); });
+
+        var trackOk = await seeso.startTracking(onGaze, onDebug);
+        if (!trackOk) { alert('카메라 시작 실패'); return; }
+
+        await new Promise(function(r) { setTimeout(r, 800); });
+        gazeDot.classList.add('visible');
+        trailCanvas.classList.add('active');
+
+        seeso.startCalibration(
+            function(x, y) {
+                showCalibDot(x, y);
+                setTimeout(function() { try { seeso.startCollectSamples(); } catch(e) {} }, 2000);
+            },
+            function(progress) {
+                var ring = document.getElementById('cring-active');
+                if (ring) ring.style.strokeDashoffset = 106.8 * (1 - progress);
+            },
+            function(calibrationData) {
+                var lastPip = document.getElementById('cpip-' + (CALIB_POINTS - 1));
+                if (lastPip) { lastPip.classList.remove('active'); lastPip.classList.add('done'); }
+                document.querySelectorAll('.calib-dot').forEach(function(el) {
+                    el.classList.remove('visible', 'sampling'); el.classList.add('done');
+                });
+                G.calibDone = true;
+
+                // 워크스페이스 캘리브레이션 캐시 저장 (1시간 유효)
+                if (window._calibKey && calibrationData) {
+                    try {
+                        localStorage.setItem(window._calibKey, JSON.stringify({
+                            data: calibrationData,
+                            timestamp: Date.now(),
+                            workspaceId: window._workspaceId
+                        }));
+                    } catch(e) { console.warn('캘리브레이션 저장 실패:', e); }
+                }
+
+                seeso.stopTracking();
+                gazeDot.classList.remove('visible');
+                trailCanvas.classList.remove('active');
+                if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                trail.length = 0;
+                G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+                setTimeout(function() {
+                    document.getElementById('calibScreen').classList.remove('active');
+                    document.querySelectorAll('.calib-dot').forEach(function(el) { el.remove(); });
+                    document.getElementById('calibDonePhase').classList.add('active');
+                }, 800);
+            },
+            CALIB_POINTS
+        );
+    }
+
+    function showCalibDot(x, y) {
+        var prev = document.getElementById('cdot-active');
+        if (prev) { prev.classList.remove('visible', 'sampling'); prev.classList.add('done'); prev.id = ''; }
+        if (G.calibPointIdx > 0) {
+            var pp = document.getElementById('cpip-' + (G.calibPointIdx - 1));
+            if (pp) { pp.classList.remove('active'); pp.classList.add('done'); }
+        }
+        var cp = document.getElementById('cpip-' + G.calibPointIdx);
+        if (cp) cp.classList.add('active');
+        G.calibPointIdx++;
+        document.getElementById('calibProgTxt').textContent = G.calibPointIdx + ' / ' + CALIB_POINTS;
+
+        var d = document.createElement('div');
+        d.className = 'calib-dot visible sampling'; d.id = 'cdot-active';
+        d.style.left = x + 'px'; d.style.top = y + 'px';
+        d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42" style="width:42px;height:42px;">'
+            + '<circle cx="21" cy="21" r="17" fill="none" stroke="rgba(59,130,246,.15)" stroke-width="2"/>'
+            + '<circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="#3b82f6" '
+            + 'stroke-width="2.5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" '
+            + 'transform="rotate(-90 21 21)"/></svg>'
+            + '<div class="calib-dot-inner"></div>';
+        document.body.appendChild(d);
+    }
+
+    /* ── 버튼 바인딩 ── */
+    document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
+    document.getElementById('btnCalibDone').addEventListener('click', function() {
+        hideCalibOverlay();
+        activateET();
+        if (_isRecalib) {
+            document.getElementById('btnCalibDone').textContent = '워크스페이스로 진입 →';
+            _isRecalib = false;
+        }
+    });
+
+    /* ── 진입점: 모듈 스크립트(하단)에서 goViewer() 호출 ── */
+    // DOMContentLoaded 제거 → viewer-init 커스텀 이벤트로 대체
+    window.addEventListener('viewer-init', function(e) {
+        window._cachedCalib  = e.detail.cachedCalib  ?? null;
+        window._workspaceId  = e.detail.workspaceId  ?? null;
+        window._calibKey     = e.detail.calibKey     ?? null;
+        document.getElementById('pageLoadOverlay')?.remove();
+        goViewer();
+    }, { once: true });
+
+    /* ══════════════════════════════════════════════════════
+       재보정
+    ══════════════════════════════════════════════════════ */
+    function recalibrate(e) {
+        if (e) e.stopPropagation();
+        _isRecalib = true;
+        if (etOn) {
+            etOn = false;
+            try { seeso.stopTracking(); } catch(ex) {}
+            gazeDot.classList.remove('visible');
+            trailCanvas.classList.remove('active');
+            if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+            trail.length = 0;
+        }
+        G.calibDone = false; seeso = null;
+        G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+        G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+        document.getElementById('btnCalibDone').textContent = '뷰어로 돌아가기 →';
+        showCalibOverlay();
+    }
+
+    /* ══════════════════════════════════════════════════════
+       캘리브레이션 캐시 재적용
+       같은 워크스페이스 이전 캘리브레이션 데이터를 사용해
+       전체 캘리브레이션 과정 없이 트래킹 시작
+    ══════════════════════════════════════════════════════ */
+    async function applyAndActivate(calibDataStr) {
+        // 간단한 "재사용 중" 표시
+        var overlay = document.getElementById('calibOverlay');
+        overlay.classList.add('active');
+        var card = document.querySelector('#calibSetup .calib-card');
+        if (card) {
+            card.innerHTML = [
+                '<div class="calib-card-icon">✓</div>',
+                '<h2 class="calib-card-title">이전 캘리브레이션 적용 중</h2>',
+                '<p class="calib-card-desc">같은 워크스페이스에서 진행한 보정 설정을 불러옵니다.<br>잠시만 기다려 주세요.</p>',
+                '<div style="margin-top:20px;width:32px;height:32px;border:3px solid rgba(59,130,246,.3);',
+                'border-top-color:#3b82f6;border-radius:50%;animation:calibSpin .7s linear infinite;margin-left:auto;margin-right:auto;"></div>',
+                '<style>@keyframes calibSpin{to{transform:rotate(360deg)}}</style>'
+            ].join('');
+        }
+        document.getElementById('calibSetup').classList.add('active');
+
+        // SDK 로드 대기
+        if (!window._sdkLoaded) {
+            await new Promise(function(resolve) {
+                window.addEventListener('seeso-ready', resolve, { once: true });
+            });
+        }
+
+        var EasySeesoClass = window.EasySeeSo;
+        if (!EasySeesoClass) { showCalibOverlay(); return; }
+
+        seeso = new EasySeesoClass();
+        try {
+            await seeso.init(
+                LICENSE_KEY,
+                async function() {
+                    try {
+                        seeso.setMonitorSize(15);
+                        seeso.setFaceDistance(60);
+                        seeso.setCameraPosition(window.innerWidth / 2, true);
+                        await seeso.setCalibrationData(calibDataStr);  // 캐시 적용
+                    } catch(e) {
+                        console.warn('캘리브레이션 데이터 적용 오류:', e);
+                    }
+
+                    var trackOk = await seeso.startTracking(onGaze, onDebug);
+                    if (trackOk) {
+                        G.calibDone = true;
+                        hideCalibOverlay();
+                        activateET();
+                    } else {
+                        // 트래킹 실패 → 새 캘리브레이션으로 fallback
+                        console.warn('트래킹 시작 실패, 새 캘리브레이션으로 전환');
+                        seeso = null; G.calibDone = false;
+                        showCalibOverlay();
+                    }
+                },
+                function() {
+                    // SDK 인증 실패 → 새 캘리브레이션
+                    seeso = null;
+                    showCalibOverlay();
+                }
+            );
+        } catch(e) {
+            console.warn('SDK 초기화 오류:', e);
+            seeso = null;
+            showCalibOverlay();
+        }
+    }
+
+    /* ══════════════════════════════════════════════════════
+       ET 패널
+    ══════════════════════════════════════════════════════ */
+    function etExpand()    { document.getElementById('etP').classList.remove('min'); }
+    function etCollapse(e) { e.stopPropagation(); document.getElementById('etP').classList.add('min'); }
+
+    async function etToggle(e) {
+        e.stopPropagation();
+        if (!G.calibDone || !seeso) { showCalibOverlay(); return; }
+        if (etOn) deactivateET(); else activateET();
+    }
+
+    async function activateET() {
+        if (!G.calibDone || !seeso) return;
+        etOn = true;
+        document.getElementById('etDot').className = 'et-dot g';
+        document.getElementById('etLbl').textContent = '아이트래킹 활성화';
+        document.getElementById('etTog').textContent = '비활성화';
+        document.getElementById('etTog').className = 'et-tog on';
+        var trackOk = await seeso.startTracking(onGaze, onDebug);
+        if (!trackOk) { alert('카메라 시작 실패'); etOn = false; return; }
+        gazeDot.classList.add('visible');
+        trailCanvas.classList.add('active');
+        wrapWordsInViewer();
+    }
+
+    function deactivateET() {
+        etOn = false;
+        document.getElementById('etDot').className = 'et-dot r';
+        document.getElementById('etLbl').textContent = '아이트래킹 비활성화';
+        document.getElementById('etTog').textContent = '활성화';
+        document.getElementById('etTog').className = 'et-tog off';
+        try { seeso.stopTracking(); } catch(ex) {}
+        gazeDot.classList.remove('visible');
+        trailCanvas.classList.remove('active');
+        if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+        trail.length = 0;
+        G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+    }
+    </script>
+
+    <!-- 북마크 / 메모장 등 뷰어 기능 -->
+    <script src="script.js"></script>
+
+    <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
+    <script type="module">
+        import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
+        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments } from '/src/lib/db/documents.js'
+        import { getWorkspaces } from '/src/lib/db/workspaces.js'
+        import { getSignedUrl } from '/src/lib/storage.js'
+
+        const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
+
+        // ── 인증 가드 ─────────────────────────────────────
+        const session = await requireAuth()
+        if (!session) throw new Error('unauthenticated')
+
+        // ── URL 파라미터 ───────────────────────────────────
+        const params = new URLSearchParams(location.search)
+        const docId  = params.get('doc_id')
+        // URL에 workspace_id가 있으면 우선 사용 (document.html에서 넘겨줌)
+        let workspaceId = params.get('workspace_id') ?? null
+
+        // ── 문서 조회 → PDF URL + workspace_id ────────────
+        if (docId) {
+            try {
+                const doc = await getDocument(docId)
+                // URL에 없으면 DB에서 가져온 값으로 보완
+                if (!workspaceId) workspaceId = doc?.workspace_id ?? null
+
+                // 페이지 제목
+                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+
+                // PDF 경로 결정: PDF 파일이면 file_url, PPT면 converted_pdf_path
+                const pdfPath = doc?.file_type === 'PDF'
+                    ? doc.file_url
+                    : (doc?.converted_pdf_path ?? null)
+
+                if (pdfPath) {
+                    window._pdfUrl = await getSignedUrl(pdfPath)
+                } else if (doc?.file_type === 'PPT') {
+                    window._pdfConversionPending = true
+                }
+            } catch(e) {
+                console.warn('문서 조회 실패:', e.message)
+            }
+        }
+
+        // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
+        const userId    = session.user.id
+        const calibKey  = `nungil_calib_${userId}`
+        let cachedCalib = null
+
+        try {
+            const raw = localStorage.getItem(calibKey)
+            if (raw) {
+                const parsed = JSON.parse(raw)
+                if (Date.now() - parsed.timestamp < CALIB_TTL) {
+                    cachedCalib = parsed.data
+                } else {
+                    localStorage.removeItem(calibKey)
+                }
+            }
+        } catch(e) {
+            console.warn('캘리브레이션 캐시 읽기 실패:', e)
+        }
+
+        // ── 사이드바: 프로필 + 문서 목록 ────────────────────
+        try {
+            const result  = await getCurrentUser()
+            const nameEl  = document.getElementById('sbProfileName')
+            const emailEl = document.getElementById('sbProfileEmail')
+            if (nameEl)  nameEl.textContent  = result?.profile?.name ?? result?.email?.split('@')[0] ?? '—'
+            if (emailEl) emailEl.textContent = result?.email ?? '—'
+        } catch(e) {
+            console.warn('프로필 로드 실패:', e.message)
+        }
+
+        try {
+            const listEl   = document.getElementById('sbDocList')
+            const labelEl  = document.getElementById('sbWorkspaceLabel')
+
+            // workspace 있으면 이름 조회 후 표시, 없으면 최근 문서
+            let docs = []
+            if (workspaceId) {
+                const workspaces = await getWorkspaces()
+                const ws = workspaces.find(w => w.id === workspaceId)
+                if (labelEl) labelEl.textContent = ws?.title ?? '워크스페이스 문서'
+                docs = await getDocuments(workspaceId)
+            } else {
+                if (labelEl) labelEl.textContent = '최근 문서'
+                docs = await getRecentDocuments(5)
+            }
+
+            if (!docs.length) {
+                listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
+            } else {
+                listEl.innerHTML = docs.map(d => `
+                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                        <span class="sb-item-text">${d.file_name}</span>
+                    </button>
+                `).join('')
+
+                listEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id = el.dataset.docId
+                        if (id && id !== docId) {
+                            const dest = workspaceId
+                                ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
+                                : `viewer.html?doc_id=${id}`
+                            location.href = dest
+                        }
+                    })
+                })
+            }
+        } catch(e) {
+            console.warn('문서 목록 로드 실패:', e.message)
+        }
+
+        try {
+            const favEl  = document.getElementById('sbFavList')
+            const favDocs = await getFavoriteDocuments()
+            if (!favDocs.length) {
+                favEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">즐겨찾기 없음</div>'
+            } else {
+                favEl.innerHTML = favDocs.map(d => `
+                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}" data-ws-id="${d.workspace_id ?? ''}">
+                        <span class="sb-item-text">${d.file_name}</span>
+                    </button>
+                `).join('')
+                favEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id   = el.dataset.docId
+                        const wsId = el.dataset.wsId
+                        if (id && id !== docId) {
+                            const dest = wsId
+                                ? `viewer.html?doc_id=${id}&workspace_id=${wsId}`
+                                : `viewer.html?doc_id=${id}`
+                            location.href = dest
+                        }
+                    })
+                })
+            }
+        } catch(e) {
+            console.warn('즐겨찾기 로드 실패:', e.message)
+        }
+
+        // ── viewer-init 이벤트 dispatch → goViewer() 실행 ─
+        window.dispatchEvent(new CustomEvent('viewer-init', {
+            detail: { cachedCalib, workspaceId, calibKey }
+        }))
+    </script>
+
+</body>
+</html>
