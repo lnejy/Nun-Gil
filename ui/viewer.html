@@ -146,7 +146,7 @@
                 </div>
             </div>
             <div class="sidebar-scroll">
-                <div class="sb-label">프로젝트함 문서</div>
+                <div class="sb-label" id="sbWorkspaceLabel">문서</div>
                 <div class="sb-list" id="sbDocList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
@@ -156,7 +156,7 @@
                 </div>
             </div>
             <div class="sb-profile">
-                <div class="profile-card">
+                <div class="profile-card" onclick="location.href='profile.html'" style="cursor:pointer;" title="프로필 설정">
                     <div class="avatar">
                         <svg viewBox="0 0 64 64" fill="currentColor" width="24">
                             <circle cx="32" cy="24" r="10"/>
@@ -882,9 +882,10 @@
     <script type="module">
         import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
         import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments } from '/src/lib/db/documents.js'
+        import { getWorkspaces } from '/src/lib/db/workspaces.js'
         import { getSignedUrl } from '/src/lib/storage.js'
 
-        const CALIB_TTL = 60 * 60 * 1000  // 1시간
+        const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
         // ── 인증 가드 ─────────────────────────────────────
         const session = await requireAuth()
@@ -893,13 +894,15 @@
         // ── URL 파라미터 ───────────────────────────────────
         const params = new URLSearchParams(location.search)
         const docId  = params.get('doc_id')
+        // URL에 workspace_id가 있으면 우선 사용 (document.html에서 넘겨줌)
+        let workspaceId = params.get('workspace_id') ?? null
 
         // ── 문서 조회 → PDF URL + workspace_id ────────────
-        let workspaceId = null
         if (docId) {
             try {
                 const doc = await getDocument(docId)
-                workspaceId = doc?.workspace_id ?? null
+                // URL에 없으면 DB에서 가져온 값으로 보완
+                if (!workspaceId) workspaceId = doc?.workspace_id ?? null
 
                 // 페이지 제목
                 if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
@@ -919,26 +922,23 @@
             }
         }
 
-        // ── 캘리브레이션 캐시 확인 (workspace 있을 때만) ───
-        // standalone 문서(workspace_id=null)는 항상 새 캘리브레이션
+        // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
+        const userId    = session.user.id
+        const calibKey  = `nungil_calib_${userId}`
         let cachedCalib = null
-        let calibKey    = null
 
-        if (workspaceId) {
-            calibKey = `nungil_calib_${workspaceId}`
-            try {
-                const raw = localStorage.getItem(calibKey)
-                if (raw) {
-                    const parsed = JSON.parse(raw)
-                    if (Date.now() - parsed.timestamp < CALIB_TTL) {
-                        cachedCalib = parsed.data
-                    } else {
-                        localStorage.removeItem(calibKey)
-                    }
+        try {
+            const raw = localStorage.getItem(calibKey)
+            if (raw) {
+                const parsed = JSON.parse(raw)
+                if (Date.now() - parsed.timestamp < CALIB_TTL) {
+                    cachedCalib = parsed.data
+                } else {
+                    localStorage.removeItem(calibKey)
                 }
-            } catch(e) {
-                console.warn('캘리브레이션 캐시 읽기 실패:', e)
             }
+        } catch(e) {
+            console.warn('캘리브레이션 캐시 읽기 실패:', e)
         }
 
         // ── 사이드바: 프로필 + 문서 목록 ────────────────────
@@ -953,11 +953,20 @@
         }
 
         try {
-            const listEl = document.getElementById('sbDocList')
-            // workspace 있으면 해당 workspace 문서, 없으면 최근 5개
-            const docs = workspaceId
-                ? await getDocuments(workspaceId)
-                : await getRecentDocuments(5)
+            const listEl   = document.getElementById('sbDocList')
+            const labelEl  = document.getElementById('sbWorkspaceLabel')
+
+            // workspace 있으면 이름 조회 후 표시, 없으면 최근 문서
+            let docs = []
+            if (workspaceId) {
+                const workspaces = await getWorkspaces()
+                const ws = workspaces.find(w => w.id === workspaceId)
+                if (labelEl) labelEl.textContent = ws?.title ?? '워크스페이스 문서'
+                docs = await getDocuments(workspaceId)
+            } else {
+                if (labelEl) labelEl.textContent = '최근 문서'
+                docs = await getRecentDocuments(5)
+            }
 
             if (!docs.length) {
                 listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
@@ -971,7 +980,12 @@
                 listEl.querySelectorAll('.sb-item').forEach(el => {
                     el.addEventListener('click', () => {
                         const id = el.dataset.docId
-                        if (id && id !== docId) location.href = `viewer.html?doc_id=${id}`
+                        if (id && id !== docId) {
+                            const dest = workspaceId
+                                ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
+                                : `viewer.html?doc_id=${id}`
+                            location.href = dest
+                        }
                     })
                 })
             }
@@ -986,14 +1000,20 @@
                 favEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">즐겨찾기 없음</div>'
             } else {
                 favEl.innerHTML = favDocs.map(d => `
-                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}" data-ws-id="${d.workspace_id ?? ''}">
                         <span class="sb-item-text">${d.file_name}</span>
                     </button>
                 `).join('')
                 favEl.querySelectorAll('.sb-item').forEach(el => {
                     el.addEventListener('click', () => {
-                        const id = el.dataset.docId
-                        if (id && id !== docId) location.href = `viewer.html?doc_id=${id}`
+                        const id   = el.dataset.docId
+                        const wsId = el.dataset.wsId
+                        if (id && id !== docId) {
+                            const dest = wsId
+                                ? `viewer.html?doc_id=${id}&workspace_id=${wsId}`
+                                : `viewer.html?doc_id=${id}`
+                            location.href = dest
+                        }
                     })
                 })
             }

@@ -692,7 +692,7 @@
       // 행 클릭 → viewer
       list.querySelectorAll('.file-item').forEach(el => {
         el.addEventListener('click', () => {
-          location.href = `viewer.html?doc_id=${el.dataset.id}`
+          location.href = `viewer.html?doc_id=${el.dataset.id}${workspaceId ? '&workspace_id=' + workspaceId : ''}`
         })
       })
     }
