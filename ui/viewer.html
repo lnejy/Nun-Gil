@@ -16,7 +16,6 @@
             display: block;
             box-shadow: 0 2px 16px rgba(0,0,0,.13);
             border-radius: 3px;
-            max-width: 100%;
         }
         .pdf-page-num {
             text-align: center;
@@ -107,7 +106,7 @@
         <!-- 사이드바 -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="sb-brand">&#128064; <span class="sb-name">눈길</span></div>
+                <div class="sb-brand" onclick="location.href='mainpage.html'" style="cursor:pointer;">&#128064; <span class="sb-name">눈길</span></div>
                 <button class="sb-toggle-btn" id="sidebarToggle">&#10216;</button>
             </div>
             <div class="sb-add-section">
@@ -151,6 +150,10 @@
                 <div class="sb-list" id="sbDocList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
+                <div class="sb-label" style="margin-top:16px;">★ 즐겨찾기</div>
+                <div class="sb-list" id="sbFavList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                </div>
             </div>
             <div class="sb-profile">
                 <div class="profile-card">
@@ -176,7 +179,9 @@
                         <div class="font-island">
                             <span>Pretendard</span>
                             <span class="divider">|</span>
-                            <span class="zoom-controls">&#65293; 100% &#65291;</span>
+                            <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
+                            <span id="zoomLevel">100%</span>
+                            <button class="zoom-btn" onclick="zoomIn()">&#43;</button>
                         </div>
                     </div>
                     <div class="group-right">
@@ -308,6 +313,10 @@
     }
 
     /* ── PDF 렌더링 ── */
+    window._pdfDoc       = null;
+    window._pdfBaseScale = 1;
+    window._zoomFactor   = 1.0;
+
     function renderPdf(url) {
         var container = document.getElementById('pdfContainer');
         if (!container || !url) return;
@@ -323,44 +332,74 @@
         container.innerHTML = '<div class="pdf-loading">PDF 불러오는 중...</div>';
 
         pdfjsLib.getDocument(url).promise.then(function(pdf) {
-            container.innerHTML = '';
-            var totalPages = pdf.numPages;
-
-            function renderPage(num) {
-                pdf.getPage(num).then(function(page) {
-                    var containerWidth = container.clientWidth - 48;
-                    var vp0 = page.getViewport({ scale: 1 });
-                    var scale = Math.min(Math.max(containerWidth / vp0.width, 0.5), 2);
-                    var viewport = page.getViewport({ scale: scale });
-
-                    var wrapper = document.createElement('div');
-                    wrapper.className = 'pdf-page-wrapper';
-                    wrapper.dataset.page = num;
-
-                    var canvas = document.createElement('canvas');
-                    canvas.className = 'pdf-page';
-                    canvas.width  = viewport.width;
-                    canvas.height = viewport.height;
-
-                    var label = document.createElement('div');
-                    label.className = 'pdf-page-num';
-                    label.textContent = num + ' / ' + totalPages;
-
-                    wrapper.appendChild(canvas);
-                    wrapper.appendChild(label);
-                    container.appendChild(wrapper);
-
-                    page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
-                        .promise.then(function() {
-                            if (num < totalPages) renderPage(num + 1);
-                        });
-                });
-            }
-            renderPage(1);
+            window._pdfDoc = pdf;
+            // 첫 페이지로 기준 스케일 계산 (fit-to-width)
+            pdf.getPage(1).then(function(page) {
+                var vp0 = page.getViewport({ scale: 1 });
+                var containerWidth = container.clientWidth - 48;
+                window._pdfBaseScale = Math.min(Math.max(containerWidth / vp0.width, 0.5), 2);
+                window._zoomFactor = 1.0;
+                document.getElementById('zoomLevel').textContent = '100%';
+                renderPages(pdf, container, window._pdfBaseScale * window._zoomFactor);
+            });
         }).catch(function(e) {
             container.innerHTML =
                 '<div class="pdf-no-content">PDF 로드 실패: ' + e.message + '</div>';
         });
+    }
+
+    function renderPages(pdf, container, scale) {
+        container.innerHTML = '';
+        var totalPages = pdf.numPages;
+
+        function renderPage(num) {
+            pdf.getPage(num).then(function(page) {
+                var viewport = page.getViewport({ scale: scale });
+
+                var wrapper = document.createElement('div');
+                wrapper.className = 'pdf-page-wrapper';
+                wrapper.dataset.page = num;
+
+                var canvas = document.createElement('canvas');
+                canvas.className = 'pdf-page';
+                canvas.width  = viewport.width;
+                canvas.height = viewport.height;
+
+                var label = document.createElement('div');
+                label.className = 'pdf-page-num';
+                label.textContent = num + ' / ' + totalPages;
+
+                wrapper.appendChild(canvas);
+                wrapper.appendChild(label);
+                container.appendChild(wrapper);
+
+                page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
+                    .promise.then(function() {
+                        if (num < totalPages) renderPage(num + 1);
+                    });
+            });
+        }
+        renderPage(1);
+    }
+
+    function reRenderPdf() {
+        var container = document.getElementById('pdfContainer');
+        if (!window._pdfDoc || !container) return;
+        renderPages(window._pdfDoc, container, window._pdfBaseScale * window._zoomFactor);
+    }
+
+    function zoomIn() {
+        if (window._zoomFactor >= 2.5) return;
+        window._zoomFactor = Math.round((window._zoomFactor + 0.1) * 10) / 10;
+        document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
+        reRenderPdf();
+    }
+
+    function zoomOut() {
+        if (window._zoomFactor <= 0.5) return;
+        window._zoomFactor = Math.round((window._zoomFactor - 0.1) * 10) / 10;
+        document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
+        reRenderPdf();
     }
 
     /*
@@ -842,7 +881,7 @@
     <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
     <script type="module">
         import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
-        import { getDocument, getDocuments, getRecentDocuments } from '/src/lib/db/documents.js'
+        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments } from '/src/lib/db/documents.js'
         import { getSignedUrl } from '/src/lib/storage.js'
 
         const CALIB_TTL = 60 * 60 * 1000  // 1시간
@@ -904,11 +943,11 @@
 
         // ── 사이드바: 프로필 + 문서 목록 ────────────────────
         try {
-            const { user, profile } = await getCurrentUser()
+            const result  = await getCurrentUser()
             const nameEl  = document.getElementById('sbProfileName')
             const emailEl = document.getElementById('sbProfileEmail')
-            if (nameEl)  nameEl.textContent  = profile?.name ?? user.email.split('@')[0]
-            if (emailEl) emailEl.textContent = user.email
+            if (nameEl)  nameEl.textContent  = result?.profile?.name ?? result?.email?.split('@')[0] ?? '—'
+            if (emailEl) emailEl.textContent = result?.email ?? '—'
         } catch(e) {
             console.warn('프로필 로드 실패:', e.message)
         }
@@ -938,6 +977,28 @@
             }
         } catch(e) {
             console.warn('문서 목록 로드 실패:', e.message)
+        }
+
+        try {
+            const favEl  = document.getElementById('sbFavList')
+            const favDocs = await getFavoriteDocuments()
+            if (!favDocs.length) {
+                favEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">즐겨찾기 없음</div>'
+            } else {
+                favEl.innerHTML = favDocs.map(d => `
+                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                        <span class="sb-item-text">${d.file_name}</span>
+                    </button>
+                `).join('')
+                favEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id = el.dataset.docId
+                        if (id && id !== docId) location.href = `viewer.html?doc_id=${id}`
+                    })
+                })
+            }
+        } catch(e) {
+            console.warn('즐겨찾기 로드 실패:', e.message)
         }
 
         // ── viewer-init 이벤트 dispatch → goViewer() 실행 ─
