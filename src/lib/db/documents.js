@@ -11,7 +11,7 @@ import { deleteFile } from '../storage.js'
 export async function getDocuments(workspaceId) {
   let query = sb
     .from('documents')
-    .select('id, file_name, file_url, file_type, page_count, uploaded_at, workspace_id, converted_pdf_path')
+    .select('id, file_name, file_url, file_type, page_count, uploaded_at, workspace_id, converted_pdf_path, is_favorite')
     .order('uploaded_at', { ascending: false })
 
   if (workspaceId === null) {
@@ -104,6 +104,45 @@ export async function updateConvertedPdfPath(id, convertedPdfPath) {
 
   if (error) throw error
   return data
+}
+
+/**
+ * 즐겨찾기 토글
+ * @param {string} id
+ * @param {boolean} value
+ */
+export async function toggleFavorite(id, value) {
+  const { error } = await sb
+    .from('documents')
+    .update({ is_favorite: value })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/**
+ * 문서의 워크스페이스 변경
+ * @param {string} id
+ * @param {string|null} workspaceId
+ */
+export async function updateDocumentWorkspace(id, workspaceId) {
+  const { error } = await sb
+    .from('documents')
+    .update({ workspace_id: workspaceId })
+    .eq('id', id)
+  if (error) throw error
+}
+
+/**
+ * 즐겨찾기 문서 목록 조회
+ */
+export async function getFavoriteDocuments() {
+  const { data, error } = await sb
+    .from('documents')
+    .select('id, file_name, file_type, uploaded_at, workspace_id, is_favorite')
+    .eq('is_favorite', true)
+    .order('uploaded_at', { ascending: false })
+  if (error) throw error
+  return data ?? []
 }
 
 /**

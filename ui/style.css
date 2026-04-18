@@ -94,6 +94,11 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 .profile-name { font-size: 14px; font-weight: 600; }
 .profile-email { font-size: 11px; color: var(--sub); }
 .sidebar.collapsed .profile-info { display: none; }
+.sidebar.collapsed .sidebar-scroll { display: none; }
+.sidebar.collapsed .sb-add-section { display: flex; justify-content: center; }
+.sidebar.collapsed .sb-add-btn { width: 48px; height: 48px; }
+.sidebar.collapsed .sb-profile { margin-top: auto; }
+.sidebar.collapsed .profile-card { justify-content: center; }
 
 
 /* ═══════════════════════════════════════════════════════
@@ -124,6 +129,15 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 .tool-btn-main svg { width: 18px; height: 18px; }
 .tool-btn-main span { font-size: 13px; font-weight: 700; }
 .font-island { background: #f1f3f5; padding: 10px 20px; border-radius: 14px; display: flex; align-items: center; gap: 16px; font-weight: 700; }
+.zoom-btn {
+    background: transparent; border: none; cursor: pointer;
+    width: 28px; height: 28px; border-radius: 8px;
+    font-size: 18px; font-weight: 700; color: #4b525d;
+    display: flex; align-items: center; justify-content: center;
+    transition: 0.15s;
+}
+.zoom-btn:hover { background: #e9ecef; color: var(--p); }
+#zoomLevel { font-size: 13px; font-weight: 700; color: #4b525d; min-width: 40px; text-align: center; }
 
 
 /* ═══════════════════════════════════════════════════════

@@ -42,6 +42,15 @@
       margin-bottom: 24px;
     }
 
+    .btn-back {
+      display: flex; align-items: center; gap: 6px;
+      background: transparent; border: 1px solid var(--border);
+      border-radius: 10px; padding: 9px 16px;
+      font-size: 13px; font-weight: 600; color: var(--text-sub);
+      cursor: pointer; transition: var(--transition); flex-shrink: 0;
+    }
+    .btn-back:hover { background: #f1f5f9; color: var(--text); }
+
     .section-header-group {
       display: flex;
       flex-direction: column;
@@ -210,6 +219,23 @@
       flex-shrink: 0;
       line-height: 1;
     }
+
+    .fav-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 18px; color: #cbd5e1; flex-shrink: 0;
+      padding: 4px 6px; border-radius: 6px; transition: 0.15s;
+      line-height: 1;
+    }
+    .fav-btn:hover { color: #f59e0b; }
+    .fav-btn.active { color: #f59e0b; }
+
+    .import-doc-btn {
+      background: #f1f5f9; border: 1px solid #e2e8f0;
+      border-radius: 10px; padding: 8px 14px;
+      font-size: 13px; font-weight: 600; color: #4b525d;
+      cursor: pointer; transition: 0.15s; white-space: nowrap;
+    }
+    .import-doc-btn:hover { background: #e2e8f0; }
 
     .modal {
       position: fixed;
@@ -442,9 +468,12 @@
 </head>
 <body>
   <div class="page-header">
-    <div class="section-header-group">
-      <div class="section-title">캡스톤 워크스페이스</div>
-      <div class="section-sub">선택한 워크스페이스의 문서 목록입니다.</div>
+    <div style="display:flex;align-items:center;gap:16px;">
+      <button class="btn-back" id="backBtn">← 뒤로</button>
+      <div class="section-header-group">
+        <div class="section-title">캡스톤 워크스페이스</div>
+        <div class="section-sub">선택한 워크스페이스의 문서 목록입니다.</div>
+      </div>
     </div>
 
     <button class="new-doc-btn" id="openUploadModalBtn">+ 새 문서</button>
@@ -452,17 +481,34 @@
 
   <div class="document-toolbar">
     <div class="toolbar-left">
-      <div class="sort-chip active">전체 문서</div>
-      <div class="sort-chip">즐겨찾기</div>
+      <div class="sort-chip active" id="tabAll">전체 문서</div>
+      <div class="sort-chip" id="tabFav">즐겨찾기</div>
     </div>
 
-    <div class="toolbar-right">
+    <div class="toolbar-right" style="display:flex;gap:10px;align-items:center;">
+      <button class="import-doc-btn" id="openImportModalBtn" style="display:none;">+ 기존 문서 가져오기</button>
       <select class="sort-select">
         <option selected disabled>날짜순</option>
         <option>날짜순</option>
         <option>이름순</option>
         <option>유형순</option>
       </select>
+    </div>
+  </div>
+
+  <!-- 기존 문서 가져오기 모달 -->
+  <div class="modal" id="importModal">
+    <div class="upload-card" style="max-height:80vh;overflow-y:auto;">
+      <button class="modal-close" id="closeImportModalBtn" aria-label="닫기">×</button>
+      <div class="upload-card-inner">
+        <div class="upload-title">기존 문서 가져오기</div>
+        <div class="upload-sub">워크스페이스에 넣을 문서를 선택하세요.</div>
+        <div id="importDocList" style="margin-top:16px;display:flex;flex-direction:column;gap:10px;"></div>
+        <div class="upload-actions" style="margin-top:20px;">
+          <button class="upload-btn upload-btn-light" id="closeImportModalBtn2">취소</button>
+          <button class="upload-btn upload-btn-primary" id="submitImportBtn">가져오기</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -497,7 +543,7 @@
         </div>
       </label>
 
-      <input type="file" id="fileUploadModal" />
+      <input type="file" id="fileUploadModal" accept=".pdf,.ppt,.pptx" />
 
       <div class="upload-actions">
         <button class="upload-btn upload-btn-light" id="closeUploadModalBtn2">취소</button>
@@ -550,14 +596,17 @@
 
   <!-- 데이터 로직 (Supabase 연동) -->
   <script type="module">
-    import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
+    import { requireAuth }                 from '/src/lib/auth.js'
     import { uploadDocument }              from '/src/lib/storage.js'
-    import { getDocuments, createDocument, deleteDocument } from '/src/lib/db/documents.js'
+    import { getDocuments, createDocument, deleteDocument, toggleFavorite, updateDocumentWorkspace, getFavoriteDocuments } from '/src/lib/db/documents.js'
     import { getWorkspaces }               from '/src/lib/db/workspaces.js'
 
     // ── URL 파라미터 파싱 ──────────────────────────────────
     const params      = new URLSearchParams(location.search)
     const workspaceId = params.get('workspace_id') ?? undefined   // undefined = 전체
+
+    // ── 뒤로가기 버튼 ─────────────────────────────────────
+    document.getElementById('backBtn').addEventListener('click', () => history.back())
 
     // ── 인증 가드 ─────────────────────────────────────────
     const session = await requireAuth()
@@ -588,19 +637,10 @@
     }
 
     // ── 문서 목록 렌더링 ─────────────────────────────────
-    async function renderDocuments() {
+    async function renderDocumentList(docs) {
       const list = document.getElementById('fileList')
-      list.innerHTML = '<div style="padding:40px 0;text-align:center;color:#94a3b8;font-size:14px;">문서를 불러오는 중...</div>'
 
-      let docs
-      try {
-        docs = await getDocuments(workspaceId)
-      } catch (e) {
-        list.innerHTML = `<div style="padding:40px 0;text-align:center;color:#ef4444;font-size:14px;">문서를 불러오지 못했습니다.<br>${e.message}</div>`
-        return
-      }
-
-      if (docs.length === 0) {
+      if (!docs || docs.length === 0) {
         list.innerHTML = `
           <div style="padding:60px 0;text-align:center;color:#94a3b8;font-size:14px;line-height:2;">
             아직 업로드된 문서가 없어요.<br>
@@ -610,7 +650,7 @@
       }
 
       list.innerHTML = docs.map(doc => `
-        <div class="file-item" data-id="${doc.id}" data-type="${doc.file_type}">
+        <div class="file-item" data-id="${doc.id}" data-type="${doc.file_type}" data-fav="${doc.is_favorite}">
           <div class="file-icon">
             <svg class="doc-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -627,17 +667,68 @@
                 : ''}
             </div>
           </div>
+          <button class="fav-btn ${doc.is_favorite ? 'active' : ''}" data-id="${doc.id}" data-fav="${doc.is_favorite}" title="즐겨찾기">
+            ${doc.is_favorite ? '★' : '☆'}
+          </button>
           <div class="file-arrow">›</div>
         </div>
       `).join('')
 
-      // 클릭 → viewer
+      // 별 클릭 → 즐겨찾기 토글
+      list.querySelectorAll('.fav-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          const id  = btn.dataset.id
+          const cur = btn.dataset.fav === 'true'
+          const next = !cur
+          btn.dataset.fav = next
+          btn.textContent = next ? '★' : '☆'
+          btn.classList.toggle('active', next)
+          btn.closest('.file-item').dataset.fav = next
+          await toggleFavorite(id, next)
+        })
+      })
+
+      // 행 클릭 → viewer
       list.querySelectorAll('.file-item').forEach(el => {
         el.addEventListener('click', () => {
           location.href = `viewer.html?doc_id=${el.dataset.id}`
         })
       })
     }
+
+    // ── 탭 전환 ───────────────────────────────────────────
+    let currentTab = 'all'
+    async function renderDocumentsByTab() {
+      const list = document.getElementById('fileList')
+      list.innerHTML = '<div style="padding:40px 0;text-align:center;color:#94a3b8;font-size:14px;">문서를 불러오는 중...</div>'
+      let docs
+      try {
+        if (currentTab === 'fav') {
+          docs = await getFavoriteDocuments()
+          if (workspaceId) docs = docs.filter(d => d.workspace_id === workspaceId)
+        } else {
+          docs = await getDocuments(workspaceId)
+        }
+      } catch (e) {
+        list.innerHTML = `<div style="padding:40px 0;text-align:center;color:#ef4444;">문서를 불러오지 못했습니다.<br>${e.message}</div>`
+        return
+      }
+      await renderDocumentList(docs)
+    }
+
+    document.getElementById('tabAll').addEventListener('click', () => {
+      currentTab = 'all'
+      document.getElementById('tabAll').classList.add('active')
+      document.getElementById('tabFav').classList.remove('active')
+      renderDocumentsByTab()
+    })
+    document.getElementById('tabFav').addEventListener('click', () => {
+      currentTab = 'fav'
+      document.getElementById('tabFav').classList.add('active')
+      document.getElementById('tabAll').classList.remove('active')
+      renderDocumentsByTab()
+    })
 
     // ── 파일 업로드 처리 ──────────────────────────────────
     const submitBtn   = document.getElementById('submitUploadBtn')
@@ -673,9 +764,48 @@
       }
     })
 
+    // ── 기존 문서 가져오기 모달 ───────────────────────────
+    if (workspaceId) {
+      document.getElementById('openImportModalBtn').style.display = 'block'
+    }
+
+    const importModal = document.getElementById('importModal')
+    document.getElementById('openImportModalBtn').addEventListener('click', async () => {
+      const listEl = document.getElementById('importDocList')
+      listEl.innerHTML = '<div style="color:#94a3b8;font-size:13px;">불러오는 중...</div>'
+      importModal.classList.add('open')
+
+      const unassigned = await getDocuments(null) // workspace_id = null 인 문서만
+      if (unassigned.length === 0) {
+        listEl.innerHTML = '<div style="color:#94a3b8;font-size:13px;text-align:center;padding:20px 0;">가져올 수 있는 문서가 없어요.</div>'
+        return
+      }
+      listEl.innerHTML = unassigned.map(d => `
+        <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;cursor:pointer;">
+          <input type="checkbox" data-id="${d.id}" style="width:16px;height:16px;">
+          <span style="font-size:14px;font-weight:500;">${d.file_name}</span>
+          <span style="font-size:12px;color:#94a3b8;margin-left:auto;">${fmtDate(d.uploaded_at)}</span>
+        </label>
+      `).join('')
+    })
+
+    document.getElementById('closeImportModalBtn').addEventListener('click', () => importModal.classList.remove('open'))
+    document.getElementById('closeImportModalBtn2').addEventListener('click', () => importModal.classList.remove('open'))
+    importModal.addEventListener('click', (e) => { if (e.target === importModal) importModal.classList.remove('open') })
+
+    document.getElementById('submitImportBtn').addEventListener('click', async () => {
+      const checked = [...document.querySelectorAll('#importDocList input[type=checkbox]:checked')]
+      if (checked.length === 0) { alert('문서를 선택해 주세요.'); return }
+      for (const cb of checked) {
+        await updateDocumentWorkspace(cb.dataset.id, workspaceId)
+      }
+      importModal.classList.remove('open')
+      renderDocumentsByTab()
+    })
+
     // ── 초기화 ────────────────────────────────────────────
     await initHeader()
-    await renderDocuments()
+    await renderDocumentsByTab()
   </script>
 </body>
 </html>
