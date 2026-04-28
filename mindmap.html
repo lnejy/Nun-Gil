@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>마인드맵</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <style>
+    :root {
+      --p: #6fa3ef;
+      --bg: #ffffff;
+      --tx: #0f172a;
+      --sub: #475569;
+      --card: rgba(255, 255, 255, .96);
+      --line: #c7d7f5;
+      --tr: .18s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Noto Sans KR', sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      overflow: hidden;
+      color: var(--tx);
+      background: #ffffff;
+    }
+
+    .app {
+      height: 100vh;
+      display: flex;
+    }
+
+    .map-area {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #ffffff;
+    }
+
+    .logo {
+      position: absolute;
+      top: 24px;
+      left: 30px;
+      z-index: 20;
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e3a8a;
+    }
+
+    .toolbar {
+      position: absolute;
+      top: 62px;
+      left: 28px;
+      z-index: 20;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      max-width: 560px;
+    }
+
+    button {
+      width: 38px;
+      height: 38px;
+      border: 1px solid rgba(216, 228, 248, .95);
+      background: rgba(255, 255, 255, .88);
+      color: #334155;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 700;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 18px rgba(100, 130, 190, .08);
+      transition: var(--tr);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      background: #f0f6ff;
+      box-shadow: 0 12px 22px rgba(120, 163, 234, .2);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .link {
+      fill: none;
+      stroke: var(--line);
+      stroke-width: 2.4px;
+      opacity: .9;
+    }
+
+    .node-card {
+      fill: var(--card);
+      stroke: #d8e4f8;
+      stroke-width: 1.4px;
+      rx: 18;
+      ry: 18;
+      cursor: pointer;
+      filter: drop-shadow(0 10px 18px rgba(74, 102, 155, .12));
+    }
+
+    .selected .node-card {
+      fill: #e8f0ff;
+      stroke: #6fa3ef;
+      stroke-width: 3px;
+    }
+
+    .node text {
+      font-size: 13px;
+      font-weight: 700;
+      fill: #0f172a;
+      pointer-events: none;
+    }
+
+    .arrow-text {
+      font-size: 22px !important;
+      font-weight: 800 !important;
+      fill: #6fa3ef !important;
+    }
+
+    .detail-panel {
+      width: 360px;
+      height: 100vh;
+      padding: 28px;
+      background: rgba(245, 249, 255, .58);
+      backdrop-filter: blur(12px);
+      box-shadow: -20px 0 48px rgba(80, 112, 176, .10);
+      border-left: 1px solid rgba(216, 228, 248, .9);
+      overflow-y: auto;
+    }
+
+    .detail-card {
+      background: rgba(255, 255, 255, .97);
+      border: 1px solid rgba(216, 228, 248, .9);
+      border-radius: 26px;
+      padding: 24px;
+      box-shadow: 0 18px 45px rgba(74, 102, 155, .12);
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, .72);
+      border: 1px solid rgba(59, 130, 246, .22);
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 18px;
+    }
+
+    h2 {
+      font-size: 24px;
+      letter-spacing: -.04em;
+      margin-bottom: 12px;
+    }
+
+    p {
+      color: #475569;
+      line-height: 1.75;
+      font-size: 14px;
+      margin-bottom: 14px;
+    }
+
+    ul {
+      margin-left: 18px;
+      color: #334155;
+      line-height: 1.8;
+      font-size: 14px;
+    }
+
+    .hint {
+      margin-top: 18px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <main class="map-area">
+      <div class="logo">눈길 · D3 마인드맵</div>
+
+      <div class="toolbar">
+        <button onclick="zoomIn()" title="확대">＋</button>
+        <button onclick="zoomOut()" title="축소">－</button>
+        <button onclick="toggleAll()" id="toggleAllBtn" title="전체 펼치기">⤢</button>
+      </div>
+    </main>
+
+    <aside class="detail-panel">
+      <div class="detail-card" id="detailCard">
+        <div class="pill">👀 세부 설명</div>
+        <h2>마인드맵 탐색</h2>
+        <p>네모 카드를 클릭하면 상세 설명이 보이고, 하위 개념이 있으면 부드럽게 펼치거나 접힙니다.</p>
+        <p class="hint">휠로 확대/축소, 드래그로 화면 이동이 가능합니다.</p>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const mindmapData = {
+      name: "기사 필기시험 안내",
+      detail: "2026년도 정기 기사 제2회 필기시험과 관련된 주요 안내사항입니다.",
+      children: [
+        {
+          name: "시험 일정",
+          detail: "원서접수, 시험 시행일, 합격자 발표 일정 등을 확인해야 합니다.",
+          children: [
+            { name: "원서접수", detail: "지역별로 원서접수 시작 시간이 다릅니다." },
+            { name: "시험일", detail: "시험일은 종목별로 다를 수 있으므로 반드시 본인의 종목 일정을 확인해야 합니다." },
+            { name: "합격자 발표", detail: "합격자 발표 일정도 시험 회차별로 다르므로 공지문의 일정표를 확인해야 합니다." }
+          ]
+        },
+        {
+          name: "시험 방식",
+          detail: "기사, 산업기사, 서비스 분야 필기시험은 CBT 방식으로 시행됩니다.",
+          children: [
+            { name: "CBT", detail: "CBT는 Computer Based Test의 약자로, 컴퓨터로 보는 시험입니다." },
+            { name: "종목별 차이", detail: "종목에 따라 시험일과 접수 가능 시간이 다를 수 있습니다." }
+          ]
+        },
+        {
+          name: "주의사항",
+          detail: "접수 시간, 응시 자격, 준비물, 고사장 위치 등을 사전에 확인해야 합니다.",
+          children: [
+            { name: "지역별 차이", detail: "지역에 따라 접수 가능 시간이나 시험장이 다를 수 있습니다." },
+            { name: "공식 자료 확인", detail: "최종 안내사항은 공식 공지 자료를 기준으로 확인해야 합니다." }
+          ]
+        }
+      ]
+    };
+
+    const nodeWidth = 164;
+    const nodeHeight = 50;
+    const duration = 720;
+    const ease = d3.easeCubicInOut;
+
+    let allExpanded = false;
+
+    const svgRoot = d3.select(".map-area").append("svg");
+    const container = svgRoot.append("g");
+
+    const zoom = d3.zoom()
+      .scaleExtent([0.35, 2.6])
+      .on("zoom", event => container.attr("transform", event.transform));
+
+    svgRoot.call(zoom);
+
+    const root = d3.hierarchy(mindmapData);
+    root.x0 = 360;
+    root.y0 = 120;
+
+    root.children?.forEach(collapse);
+
+    function collapse(d) {
+      if (d.children) {
+        d._children = d.children;
+        d._children.forEach(collapse);
+        d.children = null;
+      }
+    }
+
+    function expand(d) {
+      if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
+      if (d.children) d.children.forEach(expand);
+    }
+
+    function toggle(d) {
+      if (d.children) {
+        d._children = d.children;
+        d.children = null;
+      } else if (d._children) {
+        d.children = d._children;
+        d._children = null;
+      }
+    }
+
+    function update(source) {
+      const treeLayout = d3.tree().nodeSize([92, 245]);
+      treeLayout(root);
+
+      const nodes = root.descendants();
+      const links = root.links();
+
+      nodes.forEach(d => d.y = d.depth * 245);
+
+      const transition = d3.transition()
+        .duration(duration)
+        .ease(ease);
+
+      const link = container.selectAll("path.link")
+        .data(links, d => d.target.data.name);
+
+      link.enter()
+        .append("path")
+        .attr("class", "link")
+        .attr("opacity", 0)
+        .attr("d", () => {
+          const o = { x: source.x0, y: source.y0 };
+          return diagonal({ source: o, target: o });
+        })
+        .transition(transition)
+        .attr("opacity", 1)
+        .attr("d", diagonal);
+
+      link.transition(transition)
+        .attr("d", diagonal)
+        .attr("opacity", 1);
+
+      link.exit()
+        .transition(transition)
+        .attr("opacity", 0)
+        .attr("d", () => {
+          const o = { x: source.x, y: source.y };
+          return diagonal({ source: o, target: o });
+        })
+        .remove();
+
+      const node = container.selectAll("g.node")
+        .data(nodes, d => d.data.name);
+
+      const nodeEnter = node.enter()
+        .append("g")
+        .attr("class", "node")
+        .attr("transform", () => `translate(${source.y0 + 120},${source.x0 + 330}) scale(0.72)`)
+        .style("opacity", 0)
+        .on("click", function (event, d) {
+          event.stopPropagation();
+
+          d3.selectAll(".node").classed("selected", false);
+          d3.select(this).classed("selected", true);
+
+          showDetail(d);
+          pulse(d3.select(this));
+
+          if (d.children || d._children) {
+            toggle(d);
+            update(d);
+          }
+        })
+        .on("mouseover", function () {
+          d3.select(this).raise();
+          d3.select(this).select("rect")
+            .transition()
+            .duration(220)
+            .ease(d3.easeCubicOut)
+            .attr("x", -nodeWidth / 2 - 7)
+            .attr("y", -nodeHeight / 2 - 4)
+            .attr("width", nodeWidth + 14)
+            .attr("height", nodeHeight + 8);
+        })
+        .on("mouseout", function () {
+          d3.select(this).select("rect")
+            .transition()
+            .duration(220)
+            .ease(d3.easeCubicOut)
+            .attr("x", -nodeWidth / 2)
+            .attr("y", -nodeHeight / 2)
+            .attr("width", nodeWidth)
+            .attr("height", nodeHeight);
+        });
+
+      nodeEnter.append("rect")
+        .attr("class", "node-card")
+        .attr("x", -nodeWidth / 2)
+        .attr("y", -nodeHeight / 2)
+        .attr("width", nodeWidth)
+        .attr("height", nodeHeight);
+
+      nodeEnter.append("text")
+        .attr("class", "node-label")
+        .attr("text-anchor", "middle")
+        .attr("dy", 5)
+        .text(d => shorten(d.data.name));
+
+      nodeEnter.append("text")
+        .attr("class", "arrow-text")
+        .attr("text-anchor", "middle")
+        .attr("x", nodeWidth / 2 - 18)
+        .attr("dy", 5)
+        .style("display", d => d._children ? "block" : "none")
+        .text("›");
+
+      const nodeUpdate = nodeEnter.merge(node);
+
+      nodeUpdate.transition(transition)
+        .attr("transform", d => `translate(${d.y + 120},${d.x + 330}) scale(1)`)
+        .style("opacity", 1);
+
+      nodeUpdate.select(".arrow-text")
+        .style("display", d => d._children ? "block" : "none")
+        .text("›");
+
+      node.exit()
+        .transition(transition)
+        .attr("transform", () => `translate(${source.y + 120},${source.x + 330}) scale(0.72)`)
+        .style("opacity", 0)
+        .remove();
+
+      container.selectAll("path.link").lower();
+      container.selectAll("g.node").raise();
+
+      fitToVisibleNodes();
+
+      nodes.forEach(d => {
+        d.x0 = d.x;
+        d.y0 = d.y;
+      });
+    }
+
+    function diagonal(d) {
+      const sx = d.source.x + 330;
+      const sy = d.source.y + 120;
+      const tx = d.target.x + 330;
+      const ty = d.target.y + 120;
+
+      return `M ${sy} ${sx}
+              C ${(sy + ty) / 2} ${sx},
+                ${(sy + ty) / 2} ${tx},
+                ${ty} ${tx}`;
+    }
+
+    function pulse(selection) {
+      selection.select("rect")
+        .transition()
+        .duration(140)
+        .ease(d3.easeCubicOut)
+        .attr("x", -nodeWidth / 2 - 10)
+        .attr("y", -nodeHeight / 2 - 6)
+        .attr("width", nodeWidth + 20)
+        .attr("height", nodeHeight + 12)
+        .transition()
+        .duration(260)
+        .ease(d3.easeCubicOut)
+        .attr("x", -nodeWidth / 2)
+        .attr("y", -nodeHeight / 2)
+        .attr("width", nodeWidth)
+        .attr("height", nodeHeight);
+    }
+
+    function showDetail(d) {
+      const childNames = [...(d.children || []), ...(d._children || [])]
+        .map(child => `<li>${child.data.name}</li>`)
+        .join("");
+
+      document.getElementById("detailCard").innerHTML = `
+        <div class="pill">👀 세부 설명</div>
+        <h2>${d.data.name}</h2>
+        <p>${d.data.detail || "세부 설명이 없습니다."}</p>
+        <hr style="border:0;border-top:1px solid #dde7f5;margin:18px 0;" />
+        <p><strong>하위 개념</strong></p>
+        <ul>${childNames || "<li>하위 개념 없음</li>"}</ul>
+        <p class="hint">네모 카드를 누르면 상세 보기와 하위 개념 펼치기/접기가 함께 작동합니다.</p>
+      `;
+    }
+
+    function shorten(text) {
+      return text.length > 12 ? text.slice(0, 12) + "…" : text;
+    }
+
+    function zoomIn() {
+      svgRoot.transition()
+        .duration(520)
+        .ease(ease)
+        .call(zoom.scaleBy, 1.2);
+    }
+
+    function zoomOut() {
+      svgRoot.transition()
+        .duration(520)
+        .ease(ease)
+        .call(zoom.scaleBy, 0.8);
+    }
+
+    function toggleAll() {
+      const btn = document.getElementById("toggleAllBtn");
+
+      if (allExpanded) {
+        root.children?.forEach(collapse);
+        allExpanded = false;
+        btn.title = "전체 펼치기";
+        btn.innerHTML = "⤢";
+      } else {
+        expand(root);
+        allExpanded = true;
+        btn.title = "전체 접기";
+        btn.innerHTML = "⤡";
+      }
+
+      update(root);
+    }
+
+    function fitToVisibleNodes() {
+      const nodes = root.descendants();
+
+      const minX = d3.min(nodes, d => d.x + 330 - nodeHeight);
+      const maxX = d3.max(nodes, d => d.x + 330 + nodeHeight);
+      const minY = d3.min(nodes, d => d.y + 120 - nodeWidth);
+      const maxY = d3.max(nodes, d => d.y + 120 + nodeWidth);
+
+      const width = maxY - minY;
+      const height = maxX - minX;
+
+      const area = document.querySelector(".map-area");
+      const areaWidth = area.clientWidth;
+      const areaHeight = area.clientHeight;
+
+      const scale = Math.min(
+        areaWidth / (width + 260),
+        areaHeight / (height + 260),
+        1.35
+      );
+
+      const translateX = areaWidth / 2 - ((minY + maxY) / 2) * scale;
+      const translateY = areaHeight / 2 - ((minX + maxX) / 2) * scale;
+
+      svgRoot.transition()
+        .duration(620)
+        .ease(ease)
+        .call(
+          zoom.transform,
+          d3.zoomIdentity.translate(translateX, translateY).scale(scale)
+        );
+    }
+
+    update(root);
+  </script>
+</body>
+
+</html>
