@@ -32,8 +32,7 @@
   display: flex;
   justify-content: center;
 }
-
-    .container {
+.container {
   width: 100%;
   max-width: 1100px;
   min-height: 100vh;
@@ -42,6 +41,13 @@
 
   display: flex;
   flex-direction: column;
+
+  transition:
+  width 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+  max-width 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+  margin-left 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+  margin-right 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+will-change: width, max-width, margin-left;
 }
 
     .navbar {
@@ -97,6 +103,7 @@
   text-align: center;
   padding-top: 0;
   padding-bottom: 24px;
+  will-change: transform;
 }
 
     .hero-badge {
@@ -251,15 +258,37 @@
 
     /* ── 사이드바 ── */
     .menu-button {
-      width: 44px;
-      height: 44px;
-      border: none;
-      background: transparent;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-    }
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+
+  position: fixed;
+  top: 18px;
+  left: 12px;
+  z-index: 30;
+
+  opacity: 1;
+  transform: translateX(0);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+    body.sidebar-open .menu-button {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+}
+
+    body.sidebar-open .container {
+  width: calc(100% - 260px);
+  max-width: calc(100% - 260px);
+  margin-left: 260px;
+  margin-right: 0;
+}
 
     .menu-icon {
       width: 24px;
@@ -286,13 +315,7 @@
     }
 
     .sidebar-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(17, 24, 39, 0.14);
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.22s ease;
-      z-index: 40;
+      display: none;
     }
 
     .sidebar-overlay.is-open {
@@ -310,7 +333,7 @@
       border-right: 1px solid #eceef2;
       box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
       transform: translateX(-100%);
-      transition: transform 0.24s ease;
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
       z-index: 50;
       display: flex;
       flex-direction: column;
@@ -564,6 +587,7 @@
       text-overflow: ellipsis;
     }
 
+
     @media (max-width: 900px) {
       .navbar {
         margin-bottom: 36px;
@@ -645,12 +669,12 @@
     }
   </style>
 </head>
-<body>
+<body class="sidebar-open">
   <!-- 사이드바 오버레이 -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
   <!-- 사이드바 -->
-  <aside class="sidebar" id="sidebar">
+  <aside class="sidebar is-open" id="sidebar">
     <div class="sidebar-header">
       <div class="sidebar-brand">👀</div>
       <button class="sidebar-close" id="closeSidebarButton" aria-label="사이드바 닫기">×</button>
@@ -760,21 +784,58 @@
     </main>
   </div>
 
-  <!-- 사이드바 토글 (모듈 불필요) -->
-  <script>
-    const openSidebarButton  = document.getElementById("openSidebarButton");
-    const closeSidebarButton = document.getElementById("closeSidebarButton");
-    const sidebarOverlay     = document.getElementById("sidebarOverlay");
-    const sidebar            = document.getElementById("sidebar");
+   <script>
+  const openSidebarButton  = document.getElementById("openSidebarButton");
+  const closeSidebarButton = document.getElementById("closeSidebarButton");
+  const sidebar            = document.getElementById("sidebar");
+  const hero               = document.querySelector(".hero");
 
-    function openSidebar()  { sidebar.classList.add("is-open");    sidebarOverlay.classList.add("is-open"); }
-    function closeSidebar() { sidebar.classList.remove("is-open"); sidebarOverlay.classList.remove("is-open"); }
+  function animateHeroMove(changeLayout) {
+    const first = hero.getBoundingClientRect();
 
-    openSidebarButton.addEventListener("click", openSidebar);
-    closeSidebarButton.addEventListener("click", closeSidebar);
-    sidebarOverlay.addEventListener("click", closeSidebar);
-    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSidebar(); });
-  </script>
+    changeLayout();
+
+    const last = hero.getBoundingClientRect();
+
+    const dx = first.left - last.left;
+    const dy = first.top - last.top;
+
+    hero.style.transition = "none";
+    hero.style.transform = `translate(${dx}px, ${dy}px)`;
+
+    requestAnimationFrame(() => {
+      hero.style.transition = "transform 0.48s cubic-bezier(0.22, 1, 0.36, 1)";
+      hero.style.transform = "translate(0, 0)";
+    });
+  }
+
+  function openSidebar() {
+    animateHeroMove(() => {
+      sidebar.classList.add("is-open");
+      document.body.classList.add("sidebar-open");
+    });
+  }
+
+  function closeSidebar() {
+    animateHeroMove(() => {
+      sidebar.classList.remove("is-open");
+      document.body.classList.remove("sidebar-open");
+    });
+  }
+
+  hero.addEventListener("transitionend", () => {
+    hero.style.transition = "";
+    hero.style.transform = "";
+  });
+
+  openSidebarButton.addEventListener("click", openSidebar);
+  closeSidebarButton.addEventListener("click", closeSidebar);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeSidebar();
+  });
+</script>
+  
 
   <!-- 데이터 로직 + 인증 가드 -->
   <script type="module">
