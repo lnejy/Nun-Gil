@@ -58,20 +58,19 @@
         width: 40px;
         height: 40px;
         border-radius: 12px;
-        background: white;
+        background: transparent;
         display: flex;
         align-items: center;
         justify-content: center;
         cursor: pointer;
-        border: 1px solid var(--border);
-        color: var(--text-dark);
-        margin-bottom: 30px; /* 프로필 요약과의 간격 */
+        border: none;
+        color: var(--text-gray);
+        margin-bottom: 30px;
         transition: all 0.2s ease;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.02);
     }
 
     .back-btn:hover {
-        background: #f8f9fa;
+        color: var(--text-dark);
         transform: translateX(-3px);
     }
 
@@ -250,6 +249,22 @@
             font-weight: 600; margin-top: 12px;
         }
 
+        /* 세션 히스토리 아이템 */
+        .session-row {
+            display: flex; align-items: center; justify-content: space-between;
+            background: white; border: 1px solid var(--border);
+            border-radius: 16px; padding: 14px 20px; gap: 12px;
+            transition: var(--tr);
+        }
+        .session-row:hover { border-color: var(--p); box-shadow: 0 4px 12px rgba(120,163,234,0.08); }
+        .session-doc-name { font-size: 14px; font-weight: 600; color: var(--text-dark); margin-bottom: 3px; }
+        .session-doc-meta { font-size: 11px; color: var(--text-gray); }
+        .session-score {
+            font-size: 22px; font-weight: 900; color: var(--p);
+            flex-shrink: 0; min-width: 60px; text-align: right;
+        }
+        .session-score span { font-size: 13px; font-weight: 600; }
+
         /* 스크롤바 숨기기 혹은 커스텀 */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.05); border-radius: 10px; }
@@ -382,10 +397,12 @@
                 </div>
             </div>
 
-            <div class="chart-placeholder" style="margin-top: 24px;">
-                <i class="fa-solid fa-chart-area" style="font-size: 40px; margin-bottom: 15px; opacity: 0.3;"></i>
-                <p style="font-weight: 600;">Gaze Analytics Visualization</p>
-                <p style="font-size: 12px; opacity: 0.7;">세션 데이터 기반 시각화 차트 (준비 중)</p>
+            <!-- 세션 히스토리 -->
+            <div class="section-header" style="margin: 24px 0 16px;">
+                <h2 style="font-size: 18px; margin: 0;">학습 기록</h2>
+            </div>
+            <div id="sessionList" style="display:flex;flex-direction:column;gap:10px;max-height:260px;overflow-y:auto;padding-right:4px;">
+                <div style="text-align:center;color:var(--text-gray);font-size:13px;padding:30px 0;">학습 기록을 불러오는 중...</div>
             </div>
         </main>
     </div>
@@ -555,6 +572,45 @@
         } catch (e) {
             console.warn('리포트 로드 실패:', e.message)
             document.getElementById('sessionCount').textContent = '데이터를 불러오지 못했습니다.'
+        }
+
+        // ── 학습 기록 리스트 ──────────────────────────────
+        try {
+            const { data: history } = await sb
+                .from('study_sessions')
+                .select('id, start_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, documents(file_name)')
+                .eq('user_id', user.id)
+                .eq('status', 'COMPLETED')
+                .order('start_time', { ascending: false })
+                .limit(30)
+
+            const listEl = document.getElementById('sessionList')
+
+            if (!history || history.length === 0) {
+                listEl.innerHTML = '<div style="text-align:center;color:var(--text-gray);font-size:13px;padding:30px 0;">아직 완료된 학습 세션이 없어요.</div>'
+            } else {
+                listEl.innerHTML = history.map(s => {
+                    const T     = (s.duration_minutes ?? 0) * 60
+                    const { score } = computeScore(T, s.alert_count ?? 0, s.focus_time_seconds ?? 0, s.avg_alert_response_seconds ?? 0)
+                    const title = s.documents?.file_name ?? '알 수 없는 문서'
+                    const date  = new Date(s.start_time)
+                    const dateStr = `${date.getFullYear()}.${String(date.getMonth()+1).padStart(2,'0')}.${String(date.getDate()).padStart(2,'0')}`
+                    const durMin  = Math.round(s.duration_minutes ?? 0)
+
+                    return `
+                    <div class="session-row">
+                        <div style="min-width:0;flex:1;">
+                            <div class="session-doc-name">${title}</div>
+                            <div class="session-doc-meta">${dateStr} · ${durMin}분 학습</div>
+                        </div>
+                        <div class="session-score">${score}<span>점</span></div>
+                    </div>`
+                }).join('')
+            }
+        } catch (e) {
+            console.warn('학습 기록 로드 실패:', e.message)
+            document.getElementById('sessionList').innerHTML =
+                '<div style="text-align:center;color:var(--text-gray);font-size:13px;padding:20px 0;">기록을 불러오지 못했습니다.</div>'
         }
     </script>
 </body>

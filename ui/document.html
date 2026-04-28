@@ -229,6 +229,18 @@
     .fav-btn:hover { color: #f59e0b; }
     .fav-btn.active { color: #f59e0b; }
 
+    .file-activity {
+      display: flex; align-items: center; gap: 8px;
+      margin-top: 8px; flex-wrap: wrap;
+    }
+    .act-badge {
+      font-size: 11px; font-weight: 600; padding: 3px 9px;
+      border-radius: 20px; border: 1px solid;
+    }
+    .act-badge.done  { color: #4ade80; border-color: #bbf7d0; background: #f0fdf4; }
+    .act-badge.none  { color: #cbd5e1; border-color: #e2e8f0; background: #f8fafc; }
+    .act-score       { font-size: 12px; font-weight: 700; color: #78a3ea; margin-right: 4px; }
+
     .import-doc-btn {
       background: #f1f5f9; border: 1px solid #e2e8f0;
       border-radius: 10px; padding: 8px 14px;
@@ -600,6 +612,7 @@
     import { uploadDocument }              from '/src/lib/storage.js'
     import { getDocuments, createDocument, deleteDocument, toggleFavorite, updateDocumentWorkspace, getFavoriteDocuments } from '/src/lib/db/documents.js'
     import { getWorkspaces }               from '/src/lib/db/workspaces.js'
+    import { sb }                          from '/src/lib/supabase.js'
 
     // ── URL 파라미터 파싱 ──────────────────────────────────
     const params      = new URLSearchParams(location.search)
@@ -649,7 +662,64 @@
         return
       }
 
-      list.innerHTML = docs.map(doc => `
+      // ── 활동 데이터 일괄 조회 ─────────────────────────
+      const docIds = docs.map(d => d.id)
+
+      const [{ data: sessions }, { data: assets }] = await Promise.all([
+        sb.from('study_sessions')
+          .select('document_id, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds')
+          .in('document_id', docIds)
+          .eq('status', 'COMPLETED')
+          .order('start_time', { ascending: false }),
+        sb.from('learning_assets')
+          .select('document_id, type')
+          .in('document_id', docIds)
+          .eq('status', 'DONE'),
+      ])
+
+      // 문서별 최근 세션 (첫 번째 = 최신)
+      const sessionByDoc = {}
+      ;(sessions ?? []).forEach(s => {
+        if (!sessionByDoc[s.document_id]) sessionByDoc[s.document_id] = s
+      })
+
+      // 문서별 완료된 에셋 타입 Set
+      const assetsByDoc = {}
+      ;(assets ?? []).forEach(a => {
+        if (!assetsByDoc[a.document_id]) assetsByDoc[a.document_id] = new Set()
+        assetsByDoc[a.document_id].add(a.type)
+      })
+
+      function computeScore(s) {
+        const T = (s.duration_minutes ?? 0) * 60
+        if (T <= 0) return null
+        const W = s.alert_count ?? 0
+        const F = s.focus_time_seconds ?? 0
+        const R = s.avg_alert_response_seconds ?? 0
+        const sGaze  = (F / T) * 50
+        const sWarn  = Math.max(0, 30 * (1 - (W * 600 / T) / 5))
+        const sReact = W === 0 ? 20 : Math.max(0, 20 * (1 - (R - 1) / 9))
+        return Math.round(sGaze + sWarn + sReact)
+      }
+
+      function badge(done, label) {
+        return `<span class="act-badge ${done ? 'done' : 'none'}">${done ? '✓' : '–'} ${label}</span>`
+      }
+
+      list.innerHTML = docs.map(doc => {
+        const sess  = sessionByDoc[doc.id]
+        const types = assetsByDoc[doc.id] ?? new Set()
+        const score = sess ? computeScore(sess) : null
+
+        const actRow = `
+          <div class="file-activity">
+            <span class="act-score">${score !== null ? score + '점' : '미학습'}</span>
+            ${badge(types.has('SUMMARY'),  '요약')}
+            ${badge(types.has('MINDMAP'),  '마인드맵')}
+            ${badge(types.has('QUIZ'),     '퀴즈')}
+          </div>`
+
+        return `
         <div class="file-item" data-id="${doc.id}" data-type="${doc.file_type}" data-fav="${doc.is_favorite}">
           <div class="file-icon">
             <svg class="doc-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -663,16 +733,16 @@
               <span>유형: ${doc.file_type}</span>
               <span>업로드: ${fmtDate(doc.uploaded_at)}</span>
               ${doc.file_type === 'PPT' && !doc.converted_pdf_path
-                ? '<span style="color:#f59e0b;">변환 대기 중</span>'
-                : ''}
+                ? '<span style="color:#f59e0b;">변환 대기 중</span>' : ''}
             </div>
+            ${actRow}
           </div>
           <button class="fav-btn ${doc.is_favorite ? 'active' : ''}" data-id="${doc.id}" data-fav="${doc.is_favorite}" title="즐겨찾기">
             ${doc.is_favorite ? '★' : '☆'}
           </button>
           <div class="file-arrow">›</div>
-        </div>
-      `).join('')
+        </div>`
+      }).join('')
 
       // 별 클릭 → 즐겨찾기 토글
       list.querySelectorAll('.fav-btn').forEach(btn => {
