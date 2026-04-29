@@ -1,0 +1,22 @@
+# 의존성
+node_modules/
+
+# Supabase 임시 파일
+supabase/.temp/
+
+# Claude 로컬 설정
+.claude/
+
+# 환경변수 (추후 빌드 도구 도입 시 대비)
+.env
+.env.local
+.env.*.local
+
+# macOS
+.DS_Store
+
+# 에디터
+.vscode/
+.idea/
+*.swp
+*.swo

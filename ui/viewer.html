@@ -312,6 +312,9 @@
         <div style="font-size:14px;color:#94a3b8;font-family:sans-serif;">뷰어 로딩 중...</div>
     </div>
 
+    <!-- 경고 위젯 -->
+    <script src="/components/warningWidget.js"></script>
+
     <!-- pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
@@ -473,6 +476,13 @@
             warmup: 0
         };
 
+        /* ── 경고창 상태 ── */
+        var AWAY_THRESH_MS = 5000;   // 5초 이탈 시 경고
+        var AWAY_MARGIN    = -50;    // 경계 여유값(px): 50px 더 나가야 이탈로 판단
+        var awayStart      = null;   // 이탈 시작 시각 (null = 화면 보는 중)
+        var alertActive    = false;  // 경고창이 현재 떠 있는지
+        var alertShownAt   = null;   // 경고창이 뜬 시각
+
         var LICENSE_KEY = 'dev_mfa3ddd5031an00kfrmu7qlufvyg27h8pra7pl0w';
         var seeso = null;
         var CALIB_POINTS = 6;
@@ -555,7 +565,63 @@
             drawTrail();
 
             if (etOn && !isBlink && G.blinkFrames === 0) detectGazedWord(G.gx, G.gy);
+
+            // ── 시선 이탈 감지 (세션 진행 중에만) ──────────────
+            if (etOn && window._sessionActive) {
+                // 블링크는 이탈로 판단하지 않음
+                if (!isBlink && G.blinkFrames === 0) {
+                    var isOnScreen = G.gx > AWAY_MARGIN
+                        && G.gx < window.innerWidth  - AWAY_MARGIN
+                        && G.gy > AWAY_MARGIN
+                        && G.gy < window.innerHeight - AWAY_MARGIN;
+
+                    if (!isOnScreen) {
+                        // 이탈 중
+                        if (!awayStart && !alertActive) {
+                            // 이탈 시작: 집중 시간 일시 중단
+                            awayStart = Date.now();
+                            if (window._S && window._S.focusStart) {
+                                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000;
+                                window._S.focusStart = null;
+                            }
+                        }
+                        // 5초 경과 + 경고창 안 떠 있으면 경고 표시
+                        if (awayStart && !alertActive && (Date.now() - awayStart >= AWAY_THRESH_MS)) {
+                            showGazeWarning();
+                        }
+                    } else {
+                        // 화면으로 복귀
+                        if (!alertActive && awayStart) {
+                            // 경고 없이 복귀: 집중 시간 재개
+                            awayStart = null;
+                            if (window._S) window._S.focusStart = Date.now();
+                        }
+                        // 경고창이 떠 있는 상태에서 복귀해도 사용자가 직접 닫아야 함
+                    }
+                }
+            }
         }
+
+        function showGazeWarning() {
+            alertActive  = true;
+            alertShownAt = Date.now();
+            if (window._S) window._S.alertCount++;
+            showWarning(); // warningWidget.js
+        }
+
+        function dismissGazeWarning() {
+            if (!alertActive) return;
+            var responseTime = (Date.now() - alertShownAt) / 1000;
+            if (window._S) window._S.alertTimes.push(responseTime);
+            alertActive  = false;
+            alertShownAt = null;
+            awayStart    = null;
+            if (window._S) window._S.focusStart = Date.now();
+            // UI 닫기는 closeWarning()이 콜백 호출 전에 처리하므로 생략
+        }
+
+        // warningWidget의 닫기 버튼(× / 확인) → dismissGazeWarning 연결
+        onCloseWarning = dismissGazeWarning;
 
         function onDebug() { }
 
@@ -1145,6 +1211,9 @@
             alertTimes:   [],
             autosaveTimer: null,
         }
+        // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
+        window._S = S
+        window._sessionActive = false
 
         function calcMetrics() {
             const now = Date.now()
@@ -1187,6 +1256,8 @@
                 S.alertCount = 0
                 S.alertTimes = []
 
+                window._sessionActive = true
+
                 setSessionUI(true)
 
                 // ① 30초 자동저장
@@ -1200,6 +1271,16 @@
         async function endSession(status = 'COMPLETED') {
             if (!S.sessionId) return
             clearInterval(S.autosaveTimer)
+            window._sessionActive = false
+
+            // 경고창 떠 있으면 닫기 (반응 시간 미기록)
+            if (window.alertActive) {
+                window.alertActive  = false  // dismissGazeWarning이 조기 리턴하도록
+                window.alertShownAt = null
+                window.awayStart    = null
+                closeWarning()               // warningWidget.js — UI 닫기
+            }
+
             const { T, F, R } = calcMetrics()
             try {
                 await completeStudySession(S.sessionId, {
