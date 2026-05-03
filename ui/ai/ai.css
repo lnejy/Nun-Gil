@@ -1,0 +1,317 @@
+/* ui/ai/ai.css */
+
+.sb-tool-item.active {
+  background: #eef6ff;
+  color: var(--p);
+  border-color: #cfe0fb;
+}
+
+.paper-canvas.ai-mode {
+  flex: 0 0 min(1080px, calc(100vw - 380px));
+  min-height: 760px;
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ai-page {
+  padding: 44px 52px;
+}
+
+.ai-title {
+  font-size: 25px;
+  font-weight: 850;
+  color: #1e293b;
+  letter-spacing: -.04em;
+  margin-bottom: 18px;
+}
+
+.ai-summary-text {
+  color: #64748b;
+  line-height: 1.85;
+  font-size: 15px;
+  margin-bottom: 26px;
+}
+
+.ai-result-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e4edf9;
+  background: #fbfdff;
+  border-radius: 18px;
+  padding: 18px;
+  margin-bottom: 14px;
+  box-shadow: 0 8px 20px rgba(74,102,155,.06);
+}
+
+button.ai-result-card {
+  cursor: pointer;
+  transition: .18s cubic-bezier(.4, 0, .2, 1);
+}
+
+button.ai-result-card:hover {
+  transform: translateY(-2px);
+  border-color: #cfe0fb;
+  background: #f7fbff;
+}
+
+.ai-result-card h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: #1e293b;
+}
+
+.ai-result-card p {
+  color: #64748b;
+  line-height: 1.75;
+  font-size: 14px;
+  margin-bottom: 0;
+}
+
+.ai-source {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.ai-loading {
+  min-height: 720px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.ai-loading strong {
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.ai-spinner {
+  width: 44px;
+  height: 44px;
+  border: 4px solid #e8f0ff;
+  border-top-color: #73a2f0;
+  border-radius: 50%;
+  animation: aiSpin 1s linear infinite;
+}
+
+@keyframes aiSpin {
+  to { transform: rotate(360deg); }
+}
+
+.ai-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.ai-choice {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 11px 13px;
+  border: 1px solid #e4edf9;
+  border-radius: 12px;
+  background: #fff;
+  cursor: pointer;
+  color: #334155;
+  font-size: 14px;
+}
+
+.ai-choice:hover {
+  background: #f7fbff;
+}
+
+.ai-choice.correct {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #047857;
+  font-weight: 700;
+}
+
+.ai-choice.wrong {
+  border-color: #ef4444;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+.ai-quiz-answer {
+  margin: 12px 0 8px;
+  font-size: 14px;
+  color: #334155;
+}
+
+/* D3 Mindmap */
+.paper-canvas.mindmap-mode {
+  flex: 0 0 min(1120px, calc(100vw - 380px));
+  height: calc(100vh - 170px);
+  min-height: 760px;
+  padding: 0;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.mindmap-app {
+  height: 100%;
+  display: flex;
+  background: #ffffff;
+  color: #0f172a;
+}
+
+.mindmap-map-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #ffffff;
+}
+
+.mindmap-logo {
+  position: absolute;
+  top: 24px;
+  left: 30px;
+  z-index: 20;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.mindmap-toolbar {
+  position: absolute;
+  top: 62px;
+  left: 28px;
+  z-index: 20;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 560px;
+}
+
+.mindmap-toolbar button {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgba(216, 228, 248, .95);
+  background: rgba(255, 255, 255, .88);
+  color: #334155;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 700;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 8px 18px rgba(100, 130, 190, .08);
+  transition: .18s cubic-bezier(.4, 0, .2, 1);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mindmap-toolbar button:hover {
+  transform: translateY(-1px);
+  background: #f0f6ff;
+  box-shadow: 0 12px 22px rgba(120, 163, 234, .2);
+}
+
+.mindmap-map-area svg {
+  width: 100%;
+  height: 100%;
+}
+
+.mindmap-link {
+  fill: none;
+  stroke: #c7d7f5;
+  stroke-width: 2.4px;
+  opacity: .9;
+}
+
+.mindmap-node-card {
+  fill: rgba(255, 255, 255, .96);
+  stroke: #d8e4f8;
+  stroke-width: 1.4px;
+  rx: 18;
+  ry: 18;
+  cursor: pointer;
+  filter: drop-shadow(0 10px 18px rgba(74, 102, 155, .12));
+}
+
+.mindmap-node.selected .mindmap-node-card {
+  fill: #e8f0ff;
+  stroke: #6fa3ef;
+  stroke-width: 3px;
+}
+
+.mindmap-node text {
+  font-size: 13px;
+  font-weight: 700;
+  fill: #0f172a;
+  pointer-events: none;
+}
+
+.mindmap-arrow-text {
+  font-size: 22px !important;
+  font-weight: 800 !important;
+  fill: #6fa3ef !important;
+}
+
+.mindmap-detail-panel {
+  width: 360px;
+  height: 100%;
+  padding: 28px;
+  background: rgba(245, 249, 255, .58);
+  backdrop-filter: blur(12px);
+  box-shadow: -20px 0 48px rgba(80, 112, 176, .10);
+  border-left: 1px solid rgba(216, 228, 248, .9);
+  overflow-y: auto;
+}
+
+.mindmap-detail-card {
+  background: rgba(255, 255, 255, .97);
+  border: 1px solid rgba(216, 228, 248, .9);
+  border-radius: 26px;
+  padding: 24px;
+  box-shadow: 0 18px 45px rgba(74, 102, 155, .12);
+}
+
+.mindmap-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, .72);
+  border: 1px solid rgba(59, 130, 246, .22);
+  border-radius: 999px;
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e40af;
+  margin-bottom: 18px;
+}
+
+.mindmap-detail-card h2 {
+  font-size: 24px;
+  letter-spacing: -.04em;
+  margin-bottom: 12px;
+}
+
+.mindmap-detail-card p {
+  color: #475569;
+  line-height: 1.75;
+  font-size: 14px;
+  margin-bottom: 14px;
+}
+
+.mindmap-detail-card ul {
+  margin-left: 18px;
+  color: #334155;
+  line-height: 1.8;
+  font-size: 14px;
+}
+
+.mindmap-hint {
+  margin-top: 18px;
+  font-size: 12px !important;
+  color: #94a3b8 !important;
+}
