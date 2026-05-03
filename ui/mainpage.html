@@ -1,16 +1,13 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>눈길 메인페이지</title>
 
-  <link
-    rel="stylesheet"
-    as="style"
-    crossorigin
-    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css"
-  />
+  <link rel="stylesheet" as="style" crossorigin
+    href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
 
   <style>
     * {
@@ -21,34 +18,35 @@
     }
 
     body {
-  min-height: 100vh;
-  color: #1d2b4f;
-  background:
-    radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
-    radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
-    #f8faff;
-  overflow-x: hidden;
+      min-height: 100vh;
+      color: #1d2b4f;
+      background:
+        radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+        radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+        #f8faff;
+      overflow-x: hidden;
 
-  display: flex;
-  justify-content: center;
-}
-.container {
-  width: 100%;
-  max-width: 1100px;
-  min-height: 100vh;
-  margin: 0 auto;
-  padding: 22px 20px 40px;
+      display: flex;
+      justify-content: center;
+    }
 
-  display: flex;
-  flex-direction: column;
+    .container {
+      width: 100%;
+      max-width: 1100px;
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 22px 20px 40px;
 
-  transition:
-  width 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-  max-width 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-  margin-left 0.48s cubic-bezier(0.22, 1, 0.36, 1),
-  margin-right 0.48s cubic-bezier(0.22, 1, 0.36, 1);
-will-change: width, max-width, margin-left;
-}
+      display: flex;
+      flex-direction: column;
+
+      transition:
+        width 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+        max-width 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-left 0.48s cubic-bezier(0.22, 1, 0.36, 1),
+        margin-right 0.48s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: width, max-width, margin-left;
+    }
 
     .navbar {
       display: flex;
@@ -95,16 +93,16 @@ will-change: width, max-width, margin-left;
     }
 
     .hero {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding-top: 0;
-  padding-bottom: 24px;
-  will-change: transform;
-}
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding-top: 0;
+      padding-bottom: 24px;
+      will-change: transform;
+    }
 
     .hero-badge {
       display: inline-block;
@@ -258,37 +256,37 @@ will-change: width, max-width, margin-left;
 
     /* ── 사이드바 ── */
     .menu-button {
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+      width: 44px;
+      height: 44px;
+      border: none;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
 
-  position: fixed;
-  top: 18px;
-  left: 12px;
-  z-index: 30;
+      position: fixed;
+      top: 18px;
+      left: 12px;
+      z-index: 30;
 
-  opacity: 1;
-  transform: translateX(0);
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
+      opacity: 1;
+      transform: translateX(0);
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
 
     body.sidebar-open .menu-button {
-  opacity: 0;
-  pointer-events: none;
-  transform: translateX(-8px);
-}
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-8px);
+    }
 
     body.sidebar-open .container {
-  width: calc(100% - 260px);
-  max-width: calc(100% - 260px);
-  margin-left: 260px;
-  margin-right: 0;
-}
+      width: calc(100% - 260px);
+      max-width: calc(100% - 260px);
+      margin-left: 260px;
+      margin-right: 0;
+    }
 
     .menu-icon {
       width: 24px;
@@ -392,42 +390,42 @@ will-change: width, max-width, margin-left;
     }
 
     .sidebar-add-button {
-  width: calc(100% - 8px);
-  height: 44px;
-  margin: 0 auto;
-  border: none;
-  background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
-  color: #ffffff;
-  border-radius: 999px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
-  cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  box-shadow: 0 10px 20px rgba(120, 163, 234, 0.24);
-}
+      width: calc(100% - 8px);
+      height: 44px;
+      margin: 0 auto;
+      border: none;
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      color: #ffffff;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+      transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      box-shadow: 0 10px 20px rgba(120, 163, 234, 0.24);
+    }
 
-.sidebar-add-button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 22px rgba(120, 163, 234, 0.3);
-}
+    .sidebar-add-button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 12px 22px rgba(120, 163, 234, 0.3);
+    }
 
-.sidebar-add-plus {
-  font-size: 17px;
-  font-weight: 500;
-  line-height: 1;
-  position: relative;
-  top: -1px;
-}
+    .sidebar-add-plus {
+      font-size: 17px;
+      font-weight: 500;
+      line-height: 1;
+      position: relative;
+      top: -1px;
+    }
 
-.sidebar-add-button:active {
-  transform: translateY(0);
-  box-shadow: 0 6px 12px rgba(120, 163, 234, 0.2);
-}
+    .sidebar-add-button:active {
+      transform: translateY(0);
+      box-shadow: 0 6px 12px rgba(120, 163, 234, 0.2);
+    }
 
     .sidebar-section-label {
       margin: 0 8px 10px;
@@ -529,64 +527,113 @@ will-change: width, max-width, margin-left;
       align-items: center;
     }
 
-    .sidebar-profile {
-      padding: 14px;
-      border-top: 1px solid #f1f3f5;
-      background: #fcfcfd;
-      flex-shrink: 0;
-    }
+
 
     .sidebar-profile-card {
       display: flex;
       align-items: center;
+      justify-content: space-between;
       gap: 12px;
-      padding: 10px 12px;
+      padding: 12px;
       border: 1px solid #eef0f3;
       background: #ffffff;
-      border-radius: 14px;
+      border-radius: 16px;
+    }
+
+
+    .sidebar-profile {
+      padding: 16px 18px;
+      border-top: 1px solid #f1f3f5;
+      background: #fcfcfd;
+      flex-shrink: 0;
+
+      display: grid;
+      grid-template-columns: 0.7fr 1.3fr;
+      align-items: center;
+      column-gap: 14px;
+    }
+
+    .sidebar-profile-left {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
     }
 
     .sidebar-profile-avatar {
-      width: 44px;
-      height: 44px;
+      width: 42px;
+      height: 42px;
       border-radius: 50%;
-      background: #eceef2;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #a2a8b1;
-      flex-shrink: 0;
+      background: #eef2f7;
       overflow: hidden;
+      flex-shrink: 0;
     }
 
     .sidebar-profile-avatar svg {
-      width: 30px;
-      height: 30px;
+      width: 100%;
+      height: 100%;
       display: block;
     }
 
-    .sidebar-profile-info {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 3px;
-    }
-
     .sidebar-profile-name {
-      font-size: 14px;
+      max-width: 58px;
+      font-size: 12px;
       font-weight: 600;
       color: #313641;
       letter-spacing: -0.2px;
-    }
-
-    .sidebar-profile-email {
-      font-size: 12px;
-      color: #99a0aa;
+      text-align: center;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
+    .sidebar-profile-actions {
+      width: 100%;
+      max-width: 128px;
+      justify-self: center;
+
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+
+      transform: translateX(-8px);
+    }
+
+    .sidebar-profile-button {
+      width: 100%;
+      height: 30px;
+      border: 1px solid #e8edf5;
+      background: #f8faff;
+      color: #52627c;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+      cursor: pointer;
+    }
+
+    .sidebar-profile-button.report {
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      border: none;
+      color: #ffffff;
+      box-shadow: 0 6px 12px rgba(120, 163, 234, 0.18);
+    }
+
+
+    .sidebar-profile-button:hover {
+      background: #edf5ff;
+      color: #4d7fdc;
+      transform: translateY(-1px);
+    }
+
+
+    .sidebar-profile-button.report:hover {
+      background: linear-gradient(180deg, #82acf2 0%, #6999e8 100%);
+      color: #ffffff;
+    }
 
     @media (max-width: 900px) {
       .navbar {
@@ -669,6 +716,7 @@ will-change: width, max-width, margin-left;
     }
   </style>
 </head>
+
 <body class="sidebar-open">
   <!-- 사이드바 오버레이 -->
   <div class="sidebar-overlay" id="sidebarOverlay"></div>
@@ -725,19 +773,26 @@ will-change: width, max-width, margin-left;
     </div>
 
     <div class="sidebar-profile">
-      <div class="sidebar-profile-card" onclick="location.href='profile.html'" style="cursor:pointer;" title="프로필 설정">
+      <div class="sidebar-profile-left">
         <div class="sidebar-profile-avatar" aria-hidden="true">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="32" cy="32" r="32" fill="currentColor" opacity="0.14"/>
-            <circle cx="32" cy="24" r="10" fill="currentColor"/>
-            <path d="M18 46C18 38.268 24.268 32 32 32C39.732 32 46 38.268 46 46V48H18V46Z" fill="currentColor"/>
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <rect width="64" height="64" rx="32" fill="#edf2f8" />
+            <circle cx="32" cy="25" r="10" fill="#aab4c2" />
+            <path d="M16 52c2.5-11 9.5-17 16-17s13.5 6 16 17" fill="#aab4c2" />
           </svg>
         </div>
-        <div class="sidebar-profile-info">
-          <div class="sidebar-profile-name" id="profileName">...</div>
-          <div class="sidebar-profile-email" id="profileEmail">...</div>
-        </div>
+        <div class="sidebar-profile-name" id="profileName">신영서</div>
       </div>
+
+      <div class="sidebar-profile-actions">
+        <button class="sidebar-profile-button" onclick="location.href='profile.html'">
+          프로필 수정
+        </button>
+        <button class="sidebar-profile-button report" onclick="location.href='report.html'">
+          집중도 레포트
+        </button>
+      </div>
+    </div>
     </div>
   </aside>
 
@@ -766,12 +821,15 @@ will-change: width, max-width, margin-left;
       <div class="upload-card">
         <label for="fileUpload" class="upload-inner">
           <div class="upload-icon">
-  <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M32 44V14" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</div>
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M32 44V14" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39" stroke="currentColor"
+                stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
           <div class="upload-title">파일을 업로드해보세요</div>
           <div class="upload-button">파일 선택하기</div>
           <div class="upload-desc">
@@ -784,66 +842,66 @@ will-change: width, max-width, margin-left;
     </main>
   </div>
 
-   <script>
-  const openSidebarButton  = document.getElementById("openSidebarButton");
-  const closeSidebarButton = document.getElementById("closeSidebarButton");
-  const sidebar            = document.getElementById("sidebar");
-  const hero               = document.querySelector(".hero");
+  <script>
+    const openSidebarButton = document.getElementById("openSidebarButton");
+    const closeSidebarButton = document.getElementById("closeSidebarButton");
+    const sidebar = document.getElementById("sidebar");
+    const hero = document.querySelector(".hero");
 
-  function animateHeroMove(changeLayout) {
-    const first = hero.getBoundingClientRect();
+    function animateHeroMove(changeLayout) {
+      const first = hero.getBoundingClientRect();
 
-    changeLayout();
+      changeLayout();
 
-    const last = hero.getBoundingClientRect();
+      const last = hero.getBoundingClientRect();
 
-    const dx = first.left - last.left;
-    const dy = first.top - last.top;
+      const dx = first.left - last.left;
+      const dy = first.top - last.top;
 
-    hero.style.transition = "none";
-    hero.style.transform = `translate(${dx}px, ${dy}px)`;
+      hero.style.transition = "none";
+      hero.style.transform = `translate(${dx}px, ${dy}px)`;
 
-    requestAnimationFrame(() => {
-      hero.style.transition = "transform 0.48s cubic-bezier(0.22, 1, 0.36, 1)";
-      hero.style.transform = "translate(0, 0)";
+      requestAnimationFrame(() => {
+        hero.style.transition = "transform 0.48s cubic-bezier(0.22, 1, 0.36, 1)";
+        hero.style.transform = "translate(0, 0)";
+      });
+    }
+
+    function openSidebar() {
+      animateHeroMove(() => {
+        sidebar.classList.add("is-open");
+        document.body.classList.add("sidebar-open");
+      });
+    }
+
+    function closeSidebar() {
+      animateHeroMove(() => {
+        sidebar.classList.remove("is-open");
+        document.body.classList.remove("sidebar-open");
+      });
+    }
+
+    hero.addEventListener("transitionend", () => {
+      hero.style.transition = "";
+      hero.style.transform = "";
     });
-  }
 
-  function openSidebar() {
-    animateHeroMove(() => {
-      sidebar.classList.add("is-open");
-      document.body.classList.add("sidebar-open");
+    openSidebarButton.addEventListener("click", openSidebar);
+    closeSidebarButton.addEventListener("click", closeSidebar);
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") closeSidebar();
     });
-  }
+  </script>
 
-  function closeSidebar() {
-    animateHeroMove(() => {
-      sidebar.classList.remove("is-open");
-      document.body.classList.remove("sidebar-open");
-    });
-  }
-
-  hero.addEventListener("transitionend", () => {
-    hero.style.transition = "";
-    hero.style.transform = "";
-  });
-
-  openSidebarButton.addEventListener("click", openSidebar);
-  closeSidebarButton.addEventListener("click", closeSidebar);
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeSidebar();
-  });
-</script>
-  
 
   <!-- 데이터 로직 + 인증 가드 -->
   <script type="module">
     import { requireAuth, getCurrentUser, signOut } from '/src/lib/auth.js'
-    import { uploadDocument }                       from '/src/lib/storage.js'
-    import { createDocument }                       from '/src/lib/db/documents.js'
-    import { getWorkspaces }                        from '/src/lib/db/workspaces.js'
-    import { getRecentDocuments }                   from '/src/lib/db/documents.js'
+    import { uploadDocument } from '/src/lib/storage.js'
+    import { createDocument } from '/src/lib/db/documents.js'
+    import { getWorkspaces } from '/src/lib/db/workspaces.js'
+    import { getRecentDocuments } from '/src/lib/db/documents.js'
 
     // ── 인증 가드 ────────────────────────────────────────
     const session = await requireAuth()
@@ -852,8 +910,7 @@ will-change: width, max-width, margin-left;
 
     // ── 프로필 표시 ──────────────────────────────────────
     const user = await getCurrentUser()
-    document.getElementById('profileName').textContent  = user?.profile?.name ?? user?.email ?? '사용자'
-    document.getElementById('profileEmail').textContent = user?.email ?? ''
+    document.getElementById('profileName').textContent = user?.profile?.name ?? '사용자'
 
     // ── 사이드바: 워크스페이스 목록 ──────────────────────
     const workspaceSvg = `
@@ -868,7 +925,7 @@ will-change: width, max-width, margin-left;
       </svg>`
 
     async function renderSidebar() {
-      const wsList  = document.getElementById('sidebarWorkspaceList')
+      const wsList = document.getElementById('sidebarWorkspaceList')
       const recList = document.getElementById('sidebarRecentList')
 
       // 워크스페이스
@@ -911,9 +968,9 @@ will-change: width, max-width, margin-left;
     }
 
     // ── 홈 화면 파일 업로드 (빠른 업로드) ────────────────
-    const fileInput   = document.getElementById("fileUpload")
+    const fileInput = document.getElementById("fileUpload")
     const uploadTitle = document.querySelector(".upload-title")
-    const uploadCard  = document.querySelector(".upload-card")
+    const uploadCard = document.querySelector(".upload-card")
 
     fileInput.addEventListener("change", async () => {
       const file = fileInput.files[0]
@@ -960,4 +1017,5 @@ will-change: width, max-width, margin-left;
     renderSidebar()
   </script>
 </body>
+
 </html>
