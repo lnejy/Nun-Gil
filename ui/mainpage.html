@@ -522,6 +522,146 @@
       line-height: 1.3;
     }
 
+    /* ── 최근 문서 삭제 버튼 ── */
+    .recent-item {
+      position: relative;
+    }
+
+    .recent-delete-btn {
+      display: none;
+      position: absolute;
+      right: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 22px;
+      height: 22px;
+      border: none;
+      background: #f1f5f9;
+      border-radius: 6px;
+      font-size: 13px;
+      color: #94a3b8;
+      cursor: pointer;
+      line-height: 1;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, color 0.15s;
+      flex-shrink: 0;
+    }
+
+    .recent-item:hover .recent-delete-btn {
+      display: flex;
+    }
+
+    .recent-delete-btn:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+
+    /* ── 삭제 확인 모달 (사이드바용) ── */
+    .sb-delete-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .sb-delete-overlay.is-open {
+      display: flex;
+    }
+
+    .sb-delete-modal {
+      background: #fff;
+      border-radius: 24px;
+      padding: 32px 28px 24px;
+      width: 320px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+      text-align: center;
+      animation: sbModalPop 0.2s ease;
+    }
+
+    @keyframes sbModalPop {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .sb-delete-modal-icon {
+      font-size: 28px;
+      margin-bottom: 12px;
+    }
+
+    .sb-delete-modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 6px;
+    }
+
+    .sb-delete-modal-desc {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+
+    .sb-delete-modal-filename {
+      font-weight: 600;
+      color: #1e293b;
+      word-break: break-all;
+    }
+
+    .sb-delete-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .sb-btn-cancel {
+      flex: 1;
+      height: 42px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+    }
+
+    .sb-btn-cancel:hover {
+      background: #f1f5f9;
+    }
+
+    .sb-btn-delete {
+      flex: 1;
+      height: 42px;
+      border: none;
+      background: #ef4444;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    .sb-btn-delete:hover {
+      background: #dc2626;
+    }
+
+    .sb-btn-delete:disabled {
+      background: #fca5a5;
+      cursor: not-allowed;
+    }
+
     .workspace-item,
     .recent-item {
       align-items: center;
@@ -899,7 +1039,7 @@
   <script type="module">
     import { requireAuth, getCurrentUser, signOut } from '/src/lib/auth.js'
     import { uploadDocument } from '/src/lib/storage.js'
-    import { createDocument } from '/src/lib/db/documents.js'
+    import { createDocument, deleteDocument } from '/src/lib/db/documents.js'
     import { getWorkspaces } from '/src/lib/db/workspaces.js'
     import { getRecentDocuments } from '/src/lib/db/documents.js'
 
@@ -953,15 +1093,26 @@
         recList.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
       } else {
         recList.innerHTML = recentDocs.map(doc => `
-          <button class="recent-item" data-doc-id="${doc.id}">
+          <button class="recent-item" data-doc-id="${doc.id}" data-doc-name="${doc.file_name}">
             <span class="sidebar-icon">${docSvg}</span>
             <span class="recent-content">
               <span class="sidebar-text">${doc.file_name}</span>
             </span>
+            <span class="recent-delete-btn" data-doc-id="${doc.id}" data-doc-name="${doc.file_name}" title="삭제">×</span>
           </button>`).join('')
+
         recList.querySelectorAll('.recent-item').forEach(el => {
           el.addEventListener('click', () => {
             location.href = `viewer.html?doc_id=${el.dataset.docId}`
+          })
+        })
+
+        recList.querySelectorAll('.recent-delete-btn').forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            e.stopPropagation()
+            document.getElementById('sbDeleteFilename').textContent = btn.dataset.docName
+            document.getElementById('sbDeleteConfirmBtn').dataset.id = btn.dataset.docId
+            document.getElementById('sbDeleteOverlay').classList.add('is-open')
           })
         })
       }
@@ -1015,7 +1166,44 @@
 
     // ── 초기화 ────────────────────────────────────────────
     renderSidebar()
+
+    // ── 사이드바 삭제 모달 이벤트 ────────────────────────
+    document.getElementById('sbDeleteCancelBtn').addEventListener('click', () => {
+      document.getElementById('sbDeleteOverlay').classList.remove('is-open')
+    })
+
+    document.getElementById('sbDeleteConfirmBtn').addEventListener('click', async () => {
+      const btn = document.getElementById('sbDeleteConfirmBtn')
+      const id = btn.dataset.id
+      btn.disabled = true
+      btn.textContent = '삭제 중...'
+      try {
+        await deleteDocument(id)
+        document.getElementById('sbDeleteOverlay').classList.remove('is-open')
+        await renderSidebar()
+      } catch (e) {
+        alert('삭제 실패: ' + e.message)
+      } finally {
+        btn.disabled = false
+        btn.textContent = '삭제'
+      }
+    })
   </script>
+  <!-- 최근 문서 삭제 확인 모달 -->
+  <div class="sb-delete-overlay" id="sbDeleteOverlay">
+    <div class="sb-delete-modal">
+      <div class="sb-delete-modal-title">문서를 삭제할까요?</div>
+      <div class="sb-delete-modal-desc">
+        <span class="sb-delete-modal-filename" id="sbDeleteFilename"></span><br>
+        삭제한 문서는 복구할 수 없어요.
+      </div>
+      <div class="sb-delete-actions">
+        <button class="sb-btn-cancel" id="sbDeleteCancelBtn">취소</button>
+        <button class="sb-btn-delete" id="sbDeleteConfirmBtn">삭제</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 
 </html>

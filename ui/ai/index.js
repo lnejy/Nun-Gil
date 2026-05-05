@@ -22,6 +22,20 @@ window.addEventListener("viewer-init", () => {
 
   initAiState();
   bindAiButtons();
+
+  // ai 파라미터 있으면 해당 툴 자동 실행
+  const aiParam = new URLSearchParams(location.search).get("ai")
+  if (aiParam) {
+    const tool = aiParam.toLowerCase()
+    const btn  = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
+    if (btn) setActiveButton(btn)
+
+    setTimeout(() => {
+      if (tool === "summary") loadSummary().catch(console.error)
+      if (tool === "mindmap") loadMindmap().catch(console.error)
+      if (tool === "quiz")    loadQuiz().catch(console.error)
+    }, 300)
+  }
 });
 
 function bindAiButtons() {
