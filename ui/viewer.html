@@ -6,6 +6,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>눈길</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+    <style>
+      /* ai-view-mode: 사이드바·툴바·ET패널 숨기고 AI 콘텐츠만 표시 */
+      body.ai-view-mode .sidebar,
+      body.ai-view-mode .toolbar-wrapper,
+      body.ai-view-mode #etP,
+      body.ai-view-mode #trail-canvas,
+      body.ai-view-mode #gaze-dot,
+      body.ai-view-mode .side-area { display: none !important; }
+
+      body.ai-view-mode .main-wrapper { margin-left: 0 !important; }
+      body.ai-view-mode .center-area {
+        max-width: 100% !important;
+        padding: 0 !important;
+      }
+      body.ai-view-mode .content-container { padding-top: 0 !important; }
+      body.ai-view-mode #pdfContainer {
+        min-height: 100vh;
+        padding: 24px 32px;
+      }
+    </style>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./ai/ai.css">
     <style>
@@ -360,7 +380,8 @@
                 }
                 if (window._cachedCalib) {
                     applyAndActivate(window._cachedCalib);
-                } else {
+                } else if (!window._aiViewMode) {
+                    // ai 파라미터로 진입한 경우 캘리브레이션 스킵
                     showCalibOverlay();
                 }
             }
@@ -1307,6 +1328,13 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && S.sessionId) autosave()
         })
+
+        // ai 파라미터 감지 → 캘리브레이션 스킵 + 뷰어 UI 숨김
+        const aiParam = params.get('ai')
+        if (aiParam) {
+            window._aiViewMode = aiParam.toLowerCase()
+            document.body.classList.add('ai-view-mode')
+        }
 
         // ── viewer-init 이벤트 dispatch → goViewer() 실행 ─
         window.dispatchEvent(new CustomEvent('viewer-init', {

@@ -1,10 +1,14 @@
 <!DOCTYPE html>
 <html lang="ko">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>눈길 - 문서 목록</title>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./ai/ai.css">
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet">
   <style>
     :root {
       --bg: linear-gradient(180deg, #eef5ff 0%, #ffffff 55%, #ffffff 100%);
@@ -43,13 +47,25 @@
     }
 
     .btn-back {
-      display: flex; align-items: center; gap: 6px;
-      background: transparent; border: 1px solid var(--border);
-      border-radius: 10px; padding: 9px 16px;
-      font-size: 13px; font-weight: 600; color: var(--text-sub);
-      cursor: pointer; transition: var(--transition); flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: var(--transition);
+      flex-shrink: 0;
     }
-    .btn-back:hover { background: #f1f5f9; color: var(--text); }
+
+    .btn-back:hover {
+      background: #f1f5f9;
+      color: var(--text);
+    }
 
     .section-header-group {
       display: flex;
@@ -220,34 +236,326 @@
       line-height: 1;
     }
 
+    /* ── ··· 메뉴 ── */
+    .file-menu-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .file-menu-btn {
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: transparent;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #94a3b8;
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      line-height: 1;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .file-menu-btn:hover {
+      background: #f1f5f9;
+      color: #4b525d;
+    }
+
+    .file-dropdown {
+      display: none;
+      position: absolute;
+      right: 0;
+      top: 38px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(15, 23, 42, 0.10);
+      min-width: 120px;
+      z-index: 100;
+      overflow: hidden;
+    }
+
+    .file-dropdown.is-open {
+      display: block;
+    }
+
+    .file-dropdown-item {
+      width: 100%;
+      padding: 11px 16px;
+      border: none;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.15s;
+    }
+
+    .file-dropdown-item:hover {
+      background: #f8fafc;
+    }
+
+    .file-dropdown-item.danger {
+      color: #ef4444;
+    }
+
+    .file-dropdown-item.danger:hover {
+      background: #fff5f5;
+    }
+
+    /* ── 삭제 확인 모달 ── */
+    .delete-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.35);
+      backdrop-filter: blur(4px);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .delete-modal-overlay.is-open {
+      display: flex;
+    }
+
+    .delete-modal {
+      background: #fff;
+      border-radius: 24px;
+      padding: 36px 32px 28px;
+      width: 340px;
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.15);
+      text-align: center;
+      animation: modalPop 0.2s ease;
+    }
+
+    @keyframes modalPop {
+      from {
+        opacity: 0;
+        transform: scale(0.95) translateY(8px);
+      }
+
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .delete-modal-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #fff5f5;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      font-size: 22px;
+    }
+
+    .delete-modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e293b;
+      margin-bottom: 8px;
+    }
+
+    .delete-modal-desc {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.6;
+      margin-bottom: 24px;
+    }
+
+    .delete-modal-filename {
+      font-weight: 600;
+      color: #1e293b;
+      word-break: break-all;
+    }
+
+    .delete-modal-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-cancel {
+      flex: 1;
+      height: 44px;
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #64748b;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn-cancel:hover {
+      background: #f1f5f9;
+    }
+
+    .btn-delete-confirm {
+      flex: 1;
+      height: 44px;
+      border: none;
+      background: #ef4444;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      cursor: pointer;
+      transition: 0.15s;
+    }
+
+    .btn-delete-confirm:hover {
+      background: #dc2626;
+    }
+
+    .btn-delete-confirm:disabled {
+      background: #fca5a5;
+      cursor: not-allowed;
+    }
+
     .fav-btn {
-      background: none; border: none; cursor: pointer;
-      font-size: 18px; color: #cbd5e1; flex-shrink: 0;
-      padding: 4px 6px; border-radius: 6px; transition: 0.15s;
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 18px;
+      color: #cbd5e1;
+      flex-shrink: 0;
+      padding: 4px 6px;
+      border-radius: 6px;
+      transition: 0.15s;
       line-height: 1;
     }
-    .fav-btn:hover { color: #f59e0b; }
-    .fav-btn.active { color: #f59e0b; }
+
+    .fav-btn:hover {
+      color: #f59e0b;
+    }
+
+    .fav-btn.active {
+      color: #f59e0b;
+    }
 
     .file-activity {
-      display: flex; align-items: center; gap: 8px;
-      margin-top: 8px; flex-wrap: wrap;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 8px;
+      flex-wrap: wrap;
     }
+
     .act-badge {
-      font-size: 11px; font-weight: 600; padding: 3px 9px;
-      border-radius: 20px; border: 1px solid;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 20px;
+      border: 1px solid;
     }
-    .act-badge.done  { color: #4ade80; border-color: #bbf7d0; background: #f0fdf4; }
-    .act-badge.none  { color: #cbd5e1; border-color: #e2e8f0; background: #f8fafc; }
-    .act-score       { font-size: 12px; font-weight: 700; color: #78a3ea; margin-right: 4px; }
+
+    .act-badge.done {
+      color: #4ade80;
+      border-color: #bbf7d0;
+      background: #f0fdf4;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+    }
+    .act-badge.done:hover {
+      background: #dcfce7;
+      transform: translateY(-1px);
+    }
+
+    /* ── AI 팝업 ── */
+    .ai-popup-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15,23,42,0.45);
+      backdrop-filter: blur(6px);
+      z-index: 150;
+      align-items: center; justify-content: center;
+    }
+    .ai-popup-overlay.is-open { display: flex; }
+
+    .ai-popup {
+      width: 86vw; height: 86vh; max-width: 1280px;
+      background: #fff; border-radius: 24px; overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15,23,42,0.2);
+      display: flex; flex-direction: column;
+      animation: popupIn 0.22s ease;
+    }
+    @keyframes popupIn {
+      from { opacity: 0; transform: scale(0.96) translateY(12px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .ai-popup-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 20px; border-bottom: 1px solid #f1f5f9; flex-shrink: 0;
+    }
+    .ai-popup-docname {
+      font-size: 13px; font-weight: 600; color: #64748b;
+      flex: 1; min-width: 0;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .ai-popup-tabs { display: flex; gap: 6px; flex-shrink: 0; }
+    .ai-popup-tab {
+      padding: 7px 16px; border: 1px solid #e2e8f0; background: #f8fafc;
+      border-radius: 999px; font-size: 13px; font-weight: 600; color: #64748b;
+      cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .ai-popup-tab:hover:not(:disabled) { background: #eef4ff; color: #4f8cff; border-color: #93b8ff; }
+    .ai-popup-tab.active { background: #4f8cff; color: #fff; border-color: #4f8cff; }
+    .ai-popup-tab:disabled { opacity: 0.35; cursor: not-allowed; }
+    .ai-popup-close {
+      width: 34px; height: 34px; border: none; background: #f1f5f9;
+      border-radius: 10px; font-size: 20px; color: #64748b;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; transition: background 0.15s;
+    }
+    .ai-popup-close:hover { background: #e2e8f0; color: #1e293b; }
+    .ai-popup-body {
+      flex: 1; overflow-y: auto;
+      background: #fff;
+    }
+    .ai-popup-body .ai-page { padding: 36px 44px; }
+    .ai-popup-body .mindmap-app { height: 100%; min-height: 600px; }
+
+    .act-badge.none {
+      color: #cbd5e1;
+      border-color: #e2e8f0;
+      background: #f8fafc;
+    }
+
+    .act-score {
+      font-size: 12px;
+      font-weight: 700;
+      color: #78a3ea;
+      margin-right: 4px;
+    }
 
     .import-doc-btn {
-      background: #f1f5f9; border: 1px solid #e2e8f0;
-      border-radius: 10px; padding: 8px 14px;
-      font-size: 13px; font-weight: 600; color: #4b525d;
-      cursor: pointer; transition: 0.15s; white-space: nowrap;
+      background: #f1f5f9;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #4b525d;
+      cursor: pointer;
+      transition: 0.15s;
+      white-space: nowrap;
     }
-    .import-doc-btn:hover { background: #e2e8f0; }
+
+    .import-doc-btn:hover {
+      background: #e2e8f0;
+    }
 
     .modal {
       position: fixed;
@@ -265,39 +573,39 @@
     }
 
     .upload-card {
-  width: 100%;
-  max-width: 900px;
-  min-height: 260px;
-  background: rgba(255, 255, 255, 0.584);
-  border: 1px solid rgba(111, 163, 239, 0.12);
-  border-radius: 28px;
-  padding: 32px 24px;
-  box-shadow: 0 14px 34px rgba(117, 154, 214, 0.05);
-  backdrop-filter: blur(14px);
-  transition: 0.25s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  margin-top: 20px;
-  position: relative;
-}
+      width: 100%;
+      max-width: 900px;
+      min-height: 260px;
+      background: rgba(255, 255, 255, 0.584);
+      border: 1px solid rgba(111, 163, 239, 0.12);
+      border-radius: 28px;
+      padding: 32px 24px;
+      box-shadow: 0 14px 34px rgba(117, 154, 214, 0.05);
+      backdrop-filter: blur(14px);
+      transition: 0.25s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      margin-top: 20px;
+      position: relative;
+    }
 
-.upload-card:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(111, 163, 239, 0.1);
-}
+    .upload-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(111, 163, 239, 0.1);
+    }
 
-.upload-card-inner {
-  width: 100%;
-  max-width: 560px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  text-align: center;
-}
+    .upload-card-inner {
+      width: 100%;
+      max-width: 560px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      text-align: center;
+    }
 
     .upload-title {
       font-size: 20px;
@@ -317,26 +625,26 @@
     }
 
     .upload-dropzone {
-  width: 100%;
-  min-height: 200px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  cursor: pointer;
-  text-align: center;
-  background: rgba(255, 255, 255, 0.4);
-  border: 1px solid rgba(111, 163, 239, 0.12);
-  border-radius: 22px;
-  padding: 28px 20px;
-  transition: 0.2s ease;
-}
+      width: 100%;
+      min-height: 200px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      cursor: pointer;
+      text-align: center;
+      background: rgba(255, 255, 255, 0.4);
+      border: 1px solid rgba(111, 163, 239, 0.12);
+      border-radius: 22px;
+      padding: 28px 20px;
+      transition: 0.2s ease;
+    }
 
-.upload-dropzone:hover {
-  background: rgba(255, 255, 255, 0.38);
-  border-color: rgba(111, 163, 239, 0.32);
-}
+    .upload-dropzone:hover {
+      background: rgba(255, 255, 255, 0.38);
+      border-color: rgba(111, 163, 239, 0.32);
+    }
 
     .upload-drop-icon {
       width: 49px;
@@ -370,40 +678,40 @@
     }
 
     .upload-actions {
-  display: flex;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 18px;
-}
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 18px;
+    }
 
-.upload-btn {
-  min-width: 120px;
-  height: 40px;
-  padding: 0 20px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: 0.2s ease;
+    .upload-btn {
+      min-width: 120px;
+      height: 40px;
+      padding: 0 20px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: 0.2s ease;
 
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-}
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
 
-.upload-btn-light {
-  border: 1px solid var(--border);
-  background: var(--white);
-  color: var(--text-sub);
-}
+    .upload-btn-light {
+      border: 1px solid var(--border);
+      background: var(--white);
+      color: var(--text-sub);
+    }
 
-.upload-btn-primary {
-  border: none;
-  background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
-  color: white;
-  box-shadow: 0 10px 18px rgba(111, 163, 239, 0.18);
-}
+    .upload-btn-primary {
+      border: none;
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      color: white;
+      box-shadow: 0 10px 18px rgba(111, 163, 239, 0.18);
+    }
 
     .modal-close {
       position: absolute;
@@ -478,6 +786,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="page-header">
     <div style="display:flex;align-items:center;gap:16px;">
@@ -532,45 +841,48 @@
   </div>
 
   <div class="modal" id="uploadModal">
-  <div class="upload-card">
-    <button class="modal-close" id="closeUploadModalBtn" aria-label="닫기">×</button>
+    <div class="upload-card">
+      <button class="modal-close" id="closeUploadModalBtn" aria-label="닫기">×</button>
 
-    <div class="upload-card-inner">
-      <div class="upload-title">새 문서 추가</div>
-      <div class="upload-sub">문서를 업로드하면 눈길이 학습에 집중할 수 있도록 도와드릴게요 :)</div>
+      <div class="upload-card-inner">
+        <div class="upload-title">새 문서 추가</div>
+        <div class="upload-sub">문서를 업로드하면 눈길이 학습에 집중할 수 있도록 도와드릴게요 :)</div>
 
-      <label for="fileUploadModal" class="upload-dropzone">
-        <div class="upload-drop-icon">
-          <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M32 44V14" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39" stroke="currentColor" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+        <label for="fileUploadModal" class="upload-dropzone">
+          <div class="upload-drop-icon">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M32 44V14" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-width="3.8" stroke-linecap="round"
+                stroke-linejoin="round" />
+              <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39" stroke="currentColor"
+                stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+
+          <div class="upload-drop-title">파일을 업로드해보세요</div>
+          <!-- <div class="upload-btn upload-btn-primary">파일 선택하기</div> -->
+          <div class="upload-drop-sub">
+            PDF, PPT 파일을 드래그해서 올리거나 버튼을 눌러 문서를 선택할 수 있어요.
+          </div>
+        </label>
+
+        <input type="file" id="fileUploadModal" accept=".pdf,.ppt,.pptx" />
+
+        <div class="upload-actions">
+          <button class="upload-btn upload-btn-light" id="closeUploadModalBtn2">취소</button>
+          <button class="upload-btn upload-btn-primary" id="submitUploadBtn">추가하기</button>
         </div>
-
-        <div class="upload-drop-title">파일을 업로드해보세요</div>
-        <!-- <div class="upload-btn upload-btn-primary">파일 선택하기</div> -->
-        <div class="upload-drop-sub">
-          PDF, PPT 파일을 드래그해서 올리거나 버튼을 눌러 문서를 선택할 수 있어요.
-        </div>
-      </label>
-
-      <input type="file" id="fileUploadModal" accept=".pdf,.ppt,.pptx" />
-
-      <div class="upload-actions">
-        <button class="upload-btn upload-btn-light" id="closeUploadModalBtn2">취소</button>
-        <button class="upload-btn upload-btn-primary" id="submitUploadBtn">추가하기</button>
       </div>
     </div>
   </div>
-</div>
 
   <!-- UI 인터랙션 (모달 열기/닫기, 드래그앤드롭) -->
   <script>
-    const uploadModal     = document.getElementById("uploadModal");
-    const fileInputModal  = document.getElementById("fileUploadModal");
+    const uploadModal = document.getElementById("uploadModal");
+    const fileInputModal = document.getElementById("fileUploadModal");
     const uploadDropTitle = document.querySelector(".upload-drop-title");
-    const uploadCard      = document.querySelector(".upload-card");
+    const uploadCard = document.querySelector(".upload-card");
 
     document.getElementById("openUploadModalBtn").addEventListener("click", () => {
       uploadModal.classList.add("open");
@@ -608,14 +920,14 @@
 
   <!-- 데이터 로직 (Supabase 연동) -->
   <script type="module">
-    import { requireAuth }                 from '/src/lib/auth.js'
-    import { uploadDocument }              from '/src/lib/storage.js'
+    import { requireAuth } from '/src/lib/auth.js'
+    import { uploadDocument } from '/src/lib/storage.js'
     import { getDocuments, createDocument, deleteDocument, toggleFavorite, updateDocumentWorkspace, getFavoriteDocuments } from '/src/lib/db/documents.js'
-    import { getWorkspaces }               from '/src/lib/db/workspaces.js'
-    import { sb }                          from '/src/lib/supabase.js'
+    import { getWorkspaces } from '/src/lib/db/workspaces.js'
+    import { sb } from '/src/lib/supabase.js'
 
     // ── URL 파라미터 파싱 ──────────────────────────────────
-    const params      = new URLSearchParams(location.search)
+    const params = new URLSearchParams(location.search)
     const workspaceId = params.get('workspace_id') ?? undefined   // undefined = 전체
 
     // ── 뒤로가기 버튼 ─────────────────────────────────────
@@ -629,24 +941,24 @@
     // ── 워크스페이스 이름 표시 ────────────────────────────
     async function initHeader() {
       const titleEl = document.querySelector('.section-title')
-      const subEl   = document.querySelector('.section-sub')
+      const subEl = document.querySelector('.section-sub')
       if (workspaceId) {
         const workspaces = await getWorkspaces()
         const ws = workspaces.find(w => w.id === workspaceId)
         if (ws) {
           titleEl.textContent = ws.title
-          subEl.textContent   = '워크스페이스의 문서 목록입니다.'
+          subEl.textContent = '워크스페이스의 문서 목록입니다.'
         }
       } else {
         titleEl.textContent = '전체 문서'
-        subEl.textContent   = '업로드한 모든 문서 목록입니다.'
+        subEl.textContent = '업로드한 모든 문서 목록입니다.'
       }
     }
 
     // ── 날짜 포맷 ─────────────────────────────────────────
     function fmtDate(iso) {
       const d = new Date(iso)
-      return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`
+      return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
     }
 
     // ── 문서 목록 렌더링 ─────────────────────────────────
@@ -679,16 +991,16 @@
 
       // 문서별 최근 세션 (첫 번째 = 최신)
       const sessionByDoc = {}
-      ;(sessions ?? []).forEach(s => {
-        if (!sessionByDoc[s.document_id]) sessionByDoc[s.document_id] = s
-      })
+        ; (sessions ?? []).forEach(s => {
+          if (!sessionByDoc[s.document_id]) sessionByDoc[s.document_id] = s
+        })
 
       // 문서별 완료된 에셋 타입 Set
       const assetsByDoc = {}
-      ;(assets ?? []).forEach(a => {
-        if (!assetsByDoc[a.document_id]) assetsByDoc[a.document_id] = new Set()
-        assetsByDoc[a.document_id].add(a.type)
-      })
+        ; (assets ?? []).forEach(a => {
+          if (!assetsByDoc[a.document_id]) assetsByDoc[a.document_id] = new Set()
+          assetsByDoc[a.document_id].add(a.type)
+        })
 
       function computeScore(s) {
         const T = (s.duration_minutes ?? 0) * 60
@@ -696,31 +1008,34 @@
         const W = s.alert_count ?? 0
         const F = s.focus_time_seconds ?? 0
         const R = s.avg_alert_response_seconds ?? 0
-        const sGaze  = (F / T) * 50
-        const sWarn  = Math.max(0, 30 * (1 - (W * 600 / T) / 5))
+        const sGaze = (F / T) * 50
+        const sWarn = Math.max(0, 30 * (1 - (W * 600 / T) / 5))
         const sReact = W === 0 ? 20 : Math.max(0, 20 * (1 - (R - 1) / 9))
         return Math.round(sGaze + sWarn + sReact)
       }
 
-      function badge(done, label) {
-        return `<span class="act-badge ${done ? 'done' : 'none'}">${done ? '✓' : '–'} ${label}</span>`
+      function badge(done, label, docId, type) {
+        if (done) {
+          return `<span class="act-badge done" data-doc-id="${docId}" data-type="${type}">✓ ${label}</span>`
+        }
+        return `<span class="act-badge none">– ${label}</span>`
       }
 
       list.innerHTML = docs.map(doc => {
-        const sess  = sessionByDoc[doc.id]
+        const sess = sessionByDoc[doc.id]
         const types = assetsByDoc[doc.id] ?? new Set()
         const score = sess ? computeScore(sess) : null
 
         const actRow = `
           <div class="file-activity">
             <span class="act-score">${score !== null ? score + '점' : '미학습'}</span>
-            ${badge(types.has('SUMMARY'),  '요약')}
-            ${badge(types.has('MINDMAP'),  '마인드맵')}
-            ${badge(types.has('QUIZ'),     '퀴즈')}
+            ${badge(types.has('SUMMARY'), '요약', doc.id, 'SUMMARY')}
+            ${badge(types.has('MINDMAP'), '마인드맵', doc.id, 'MINDMAP')}
+            ${badge(types.has('QUIZ'), '퀴즈', doc.id, 'QUIZ')}
           </div>`
 
         return `
-        <div class="file-item" data-id="${doc.id}" data-type="${doc.file_type}" data-fav="${doc.is_favorite}">
+        <div class="file-item" data-id="${doc.id}" data-type="${doc.file_type}" data-fav="${doc.is_favorite}" data-types="${[...types].join(',')}">
           <div class="file-icon">
             <svg class="doc-icon-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -733,14 +1048,21 @@
               <span>유형: ${doc.file_type}</span>
               <span>업로드: ${fmtDate(doc.uploaded_at)}</span>
               ${doc.file_type === 'PPT' && !doc.converted_pdf_path
-                ? '<span style="color:#f59e0b;">변환 대기 중</span>' : ''}
+            ? '<span style="color:#f59e0b;">변환 대기 중</span>' : ''}
             </div>
             ${actRow}
           </div>
           <button class="fav-btn ${doc.is_favorite ? 'active' : ''}" data-id="${doc.id}" data-fav="${doc.is_favorite}" title="즐겨찾기">
             ${doc.is_favorite ? '★' : '☆'}
           </button>
-          <div class="file-arrow">›</div>
+          <div class="file-menu-wrap">
+            <button class="file-menu-btn" data-id="${doc.id}" title="더보기">···</button>
+            <div class="file-dropdown" id="dropdown-${doc.id}">
+              <button class="file-dropdown-item danger" data-id="${doc.id}" data-name="${doc.file_name}">
+                삭제
+              </button>
+            </div>
+          </div>
         </div>`
       }).join('')
 
@@ -748,7 +1070,7 @@
       list.querySelectorAll('.fav-btn').forEach(btn => {
         btn.addEventListener('click', async (e) => {
           e.stopPropagation()
-          const id  = btn.dataset.id
+          const id = btn.dataset.id
           const cur = btn.dataset.fav === 'true'
           const next = !cur
           btn.dataset.fav = next
@@ -759,13 +1081,377 @@
         })
       })
 
-      // 행 클릭 → viewer
+      // 행 클릭 → viewer (배지·메뉴 클릭은 제외)
       list.querySelectorAll('.file-item').forEach(el => {
-        el.addEventListener('click', () => {
+        el.addEventListener('click', (e) => {
+          if (e.target.closest('.act-badge') || e.target.closest('.file-menu-wrap') || e.target.closest('.fav-btn')) return
           location.href = `viewer.html?doc_id=${el.dataset.id}${workspaceId ? '&workspace_id=' + workspaceId : ''}`
         })
       })
+
+      // ··· 메뉴 토글
+      list.querySelectorAll('.file-menu-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const dropdown = document.getElementById(`dropdown-${btn.dataset.id}`)
+          const isOpen = dropdown.classList.contains('is-open')
+          // 모든 드롭다운 닫기
+          document.querySelectorAll('.file-dropdown').forEach(d => d.classList.remove('is-open'))
+          if (!isOpen) dropdown.classList.add('is-open')
+        })
+      })
+
+      // 삭제 버튼 → 모달 열기
+      list.querySelectorAll('.file-dropdown-item.danger').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          document.querySelectorAll('.file-dropdown').forEach(d => d.classList.remove('is-open'))
+          document.getElementById('deleteModalFilename').textContent = btn.dataset.name
+          document.getElementById('deleteConfirmBtn').dataset.id = btn.dataset.id
+          document.getElementById('deleteModalOverlay').classList.add('is-open')
+        })
+      })
     }
+
+    // 외부 클릭 시 드롭다운 닫기
+    document.addEventListener('click', () => {
+      document.querySelectorAll('.file-dropdown').forEach(d => d.classList.remove('is-open'))
+    })
+
+    // ── AI 팝업 ──────────────────────────────────────────
+    const aiPopupOverlay = document.getElementById('aiPopupOverlay')
+    const aiPopupBody    = document.getElementById('aiPopupBody')
+    const aiPopupTabs    = document.getElementById('aiPopupTabs')
+    let popupDocId  = null
+    let popupAssets = {}   // { SUMMARY, MINDMAP, QUIZ }
+
+    // badge 클릭 → DB 조회 → 팝업 열기
+    document.addEventListener('click', async (e) => {
+      const badge = e.target.closest('.act-badge.done[data-doc-id]')
+      if (!badge) return
+      e.stopPropagation()
+
+      const docId   = badge.dataset.docId
+      const type    = badge.dataset.type
+      const docName = badge.closest('.file-item')?.querySelector('.file-name')?.textContent ?? ''
+      const types   = new Set((badge.closest('.file-item')?.dataset.types ?? '').split(','))
+
+      document.getElementById('aiPopupDocName').textContent = docName
+      aiPopupTabs.querySelectorAll('.ai-popup-tab').forEach(tab => {
+        tab.disabled = !types.has(tab.dataset.type)
+      })
+
+      // 다른 문서면 assets 새로 조회
+      if (popupDocId !== docId) {
+        popupDocId  = docId
+        popupAssets = {}
+        const { data } = await sb
+          .from('learning_assets')
+          .select('type, content')
+          .eq('document_id', docId)
+          .eq('status', 'DONE')
+        ;(data ?? []).forEach(a => { popupAssets[a.type] = a.content })
+      }
+
+      openAiPopup(type)
+    })
+
+    function openAiPopup(type) {
+      aiPopupTabs.querySelectorAll('.ai-popup-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.type === type)
+      })
+      aiPopupOverlay.classList.add('is-open')
+      renderAiContent(type)
+    }
+
+    function closeAiPopup() {
+      aiPopupOverlay.classList.remove('is-open')
+      aiPopupBody.innerHTML = ''
+    }
+
+    document.getElementById('aiPopupClose').addEventListener('click', closeAiPopup)
+    aiPopupOverlay.addEventListener('click', (e) => { if (e.target === aiPopupOverlay) closeAiPopup() })
+    aiPopupTabs.querySelectorAll('.ai-popup-tab').forEach(tab => {
+      tab.addEventListener('click', () => { if (!tab.disabled) openAiPopup(tab.dataset.type) })
+    })
+
+    function esc(str) {
+      return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    }
+
+    // ── 타입별 렌더링 ─────────────────────────────────────
+    function renderAiContent(type) {
+      const content = popupAssets[type]
+      if (!content) {
+        aiPopupBody.innerHTML = `<div class="ai-loading"><div class="ai-spinner"></div><strong>데이터가 없습니다</strong><span>문서를 다시 업로드해 주세요.</span></div>`
+        return
+      }
+      if (type === 'SUMMARY') renderSummary(content)
+      if (type === 'MINDMAP') renderMindmap(content)
+      if (type === 'QUIZ')    renderQuiz(content)
+    }
+
+    // 요약 — viewer summary.js와 동일한 HTML 구조
+    function renderSummary(content) {
+      // 구 형식: string / 신 형식: { title, summary, key_points }
+      const isStr     = typeof content === 'string'
+      const title     = esc(isStr ? '요약' : (content?.title ?? '요약'))
+      const summary   = esc(isStr ? content : (content?.summary ?? ''))
+      const keyPoints = isStr ? [] : (Array.isArray(content?.key_points) ? content.key_points : [])
+
+      aiPopupBody.innerHTML = `
+        <div class="ai-page">
+          <h1 class="ai-title">${title}</h1>
+          <p class="ai-summary-text">${summary}</p>
+          ${keyPoints.map(kp => `
+            <div class="ai-result-card">
+              <h3>${esc(kp.title)}</h3>
+              <p>${esc(kp.description)}</p>
+            </div>`).join('')}
+        </div>`
+    }
+
+    // 구 형식({title, nodes}) → 신 형식({name, detail, children}) 변환
+    function normalizeMindmap(data) {
+      if (data.name && Array.isArray(data.children)) return data  // 신 형식
+      if (data.title && Array.isArray(data.nodes)) {              // 구 형식
+        const map = {}
+        data.nodes.forEach(n => { map[n.id] = { name: n.label || n.name || '', detail: '', children: [] } })
+        const referenced = new Set()
+        data.nodes.forEach(n => (n.children || []).forEach(id => referenced.add(String(id))))
+        data.nodes.forEach(n => {
+          ;(n.children || []).forEach(id => { if (map[String(id)]) map[n.id].children.push(map[String(id)]) })
+        })
+        const roots = data.nodes.filter(n => !referenced.has(String(n.id))).map(n => map[n.id])
+        return { name: data.title, detail: '', children: roots }
+      }
+      return data
+    }
+
+    // 마인드맵 — viewer mindmap.js와 동일한 D3 렌더링
+    function renderMindmap(rawData) {
+      const data = normalizeMindmap(rawData)
+      aiPopupBody.innerHTML = `
+        <div class="mindmap-app" id="popupMindmapApp">
+          <main class="mindmap-map-area" id="popupMapArea">
+            <div class="mindmap-logo">눈길 · 마인드맵</div>
+            <div class="mindmap-toolbar">
+              <button id="pmZoomIn" title="확대">＋</button>
+              <button id="pmZoomOut" title="축소">－</button>
+              <button id="pmToggleAll" title="전체 펼치기">⤢</button>
+            </div>
+          </main>
+          <aside class="mindmap-detail-panel">
+            <div class="mindmap-detail-card" id="pmDetail">
+              <div class="mindmap-pill">👀 세부 설명</div>
+              <h2>마인드맵 탐색</h2>
+              <p>카드를 클릭하면 상세 설명과 하위 개념을 확인할 수 있습니다.</p>
+            </div>
+          </aside>
+        </div>`
+
+      const nodeW = 164, nodeH = 50, dur = 600
+      const ease  = d3.easeCubicInOut
+      let allExpanded = false
+
+      const area   = document.getElementById('popupMapArea')
+      const svgEl  = d3.select(area).append('svg')
+      const gCont  = svgEl.append('g')
+      const zoom   = d3.zoom().scaleExtent([0.3, 2.5])
+        .on('zoom', e => gCont.attr('transform', e.transform))
+      svgEl.call(zoom)
+
+      const root = d3.hierarchy(data)
+      root.x0 = 300; root.y0 = 100
+      root.children?.forEach(collapse)
+
+      function collapse(d) {
+        if (d.children) { d._children = d.children; d._children.forEach(collapse); d.children = null }
+      }
+      function expand(d) {
+        if (d._children) { d.children = d._children; d._children = null }
+        if (d.children) d.children.forEach(expand)
+      }
+      function toggle(d) {
+        if (d.children) { d._children = d.children; d.children = null }
+        else if (d._children) { d.children = d._children; d._children = null }
+      }
+
+      function update(src) {
+        d3.tree().nodeSize([90, 240])(root)
+        const nodes = root.descendants()
+        const links = root.links()
+        nodes.forEach(d => d.y = d.depth * 240)
+        const t = d3.transition().duration(dur).ease(ease)
+
+        const link = gCont.selectAll('path.mindmap-link').data(links, d => d.target.data.name)
+        link.enter().append('path').attr('class','mindmap-link').attr('opacity',0)
+          .attr('d', () => { const o={x:src.x0,y:src.y0}; return diag({source:o,target:o}) })
+          .transition(t).attr('opacity',1).attr('d',diag)
+        link.transition(t).attr('d',diag).attr('opacity',1)
+        link.exit().transition(t).attr('opacity',0).attr('d',()=>{ const o={x:src.x,y:src.y}; return diag({source:o,target:o}) }).remove()
+
+        const node = gCont.selectAll('g.mindmap-node').data(nodes, d => d.data.name)
+        const ne = node.enter().append('g').attr('class','mindmap-node')
+          .attr('transform', () => `translate(${src.y0+100},${src.x0+300}) scale(0.7)`).style('opacity',0)
+          .on('click', function(ev, d) {
+            ev.stopPropagation()
+            d3.selectAll('.mindmap-node').classed('selected',false)
+            d3.select(this).classed('selected',true)
+            document.getElementById('pmDetail').innerHTML = `
+              <div class="mindmap-pill">👀 세부 설명</div>
+              <h2>${esc(d.data.name)}</h2>
+              <p>${esc(d.data.detail || '세부 설명 없음')}</p>
+              ${[...(d.children||[]),(d._children||[])].length ? `<hr style="border:0;border-top:1px solid #dde7f5;margin:14px 0"><p><strong>하위 개념</strong></p><ul>${[...(d.children||[]),(d._children||[])].map(c=>`<li>${esc(c.data.name)}</li>`).join('')}</ul>` : ''}
+            `
+            if (d.children || d._children) { toggle(d); update(d) }
+          })
+        ne.append('rect').attr('class','mindmap-node-card').attr('x',-nodeW/2).attr('y',-nodeH/2).attr('width',nodeW).attr('height',nodeH)
+        ne.append('text').attr('class','mindmap-node-label').attr('text-anchor','middle').attr('dy',5)
+          .text(d => d.data.name.length > 12 ? d.data.name.slice(0,12)+'…' : d.data.name)
+        ne.append('text').attr('class','mindmap-arrow-text').attr('text-anchor','middle').attr('x',nodeW/2-18).attr('dy',5)
+          .style('display', d => d._children ? 'block' : 'none').text('›')
+
+        const nu = ne.merge(node)
+        nu.transition(t).attr('transform', d=>`translate(${d.y+100},${d.x+300}) scale(1)`).style('opacity',1)
+        nu.select('.mindmap-arrow-text').style('display', d => d._children ? 'block' : 'none')
+        node.exit().transition(t).attr('transform',()=>`translate(${src.y+100},${src.x+300}) scale(0.7)`).style('opacity',0).remove()
+        gCont.selectAll('path.mindmap-link').lower()
+        nodes.forEach(d => { d.x0=d.x; d.y0=d.y })
+      }
+
+      function diag(d) {
+        const sx=d.source.x+300,sy=d.source.y+100,tx=d.target.x+300,ty=d.target.y+100
+        return `M ${sy} ${sx} C ${(sy+ty)/2} ${sx}, ${(sy+ty)/2} ${tx}, ${ty} ${tx}`
+      }
+
+      document.getElementById('pmZoomIn').onclick  = () => svgEl.transition().duration(400).call(zoom.scaleBy, 1.25)
+      document.getElementById('pmZoomOut').onclick = () => svgEl.transition().duration(400).call(zoom.scaleBy, 0.8)
+      document.getElementById('pmToggleAll').onclick = () => {
+        const btn = document.getElementById('pmToggleAll')
+        if (allExpanded) { root.children?.forEach(collapse); allExpanded=false; btn.title='전체 펼치기'; btn.innerHTML='⤢' }
+        else { expand(root); allExpanded=true; btn.title='전체 접기'; btn.innerHTML='⤡' }
+        update(root)
+      }
+      update(root)
+    }
+
+    // 퀴즈 — quiz.html 스타일 (한 문제씩, 제출 후 정답 공개)
+    function renderQuiz(rawQuiz) {
+      const questions = Array.isArray(rawQuiz) ? [...rawQuiz] : []
+      if (!questions.length) {
+        aiPopupBody.innerHTML = `<div class="ai-loading"><strong>퀴즈 데이터가 없습니다</strong></div>`
+        return
+      }
+      let idx=0, selIdx=null, submitted=false, score=0
+
+      function draw() {
+        const q      = questions[idx]
+        const total  = questions.length
+        const pct    = Math.round(((idx+1)/total)*100)
+        const ansIdx = Number(q.answerIndex ?? 0)
+
+        aiPopupBody.innerHTML = `
+          <div class="ai-page">
+            <div style="display:flex;justify-content:space-between;font-size:13px;color:#64748b;margin-bottom:8px">
+              <span>${idx+1} / ${total}</span><span>${pct}%</span>
+            </div>
+            <div style="width:100%;height:6px;background:#e5e7eb;border-radius:999px;overflow:hidden;margin-bottom:22px">
+              <div style="width:${pct}%;height:100%;background:#78a3ea;border-radius:999px;transition:.25s"></div>
+            </div>
+            <div style="display:inline-block;padding:4px 12px;background:#eef4ff;color:#78a3ea;border-radius:999px;font-size:12px;font-weight:700;margin-bottom:10px">Q${idx+1}</div>
+            <div style="font-size:18px;font-weight:750;color:#111827;line-height:1.55;margin-bottom:20px">${esc(q.question)}</div>
+            <div class="ai-choice-list" id="qChoices">
+              ${(q.options||[]).map((opt,i)=>`<button class="ai-choice" data-i="${i}">${esc(opt)}</button>`).join('')}
+            </div>
+            <div id="qAnswerBox" style="display:none;margin-top:16px;padding:18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:16px">
+              <p id="qResultTxt" style="font-size:15px;font-weight:800;margin-bottom:8px"></p>
+              <p style="font-size:13px;color:#374151;line-height:1.65">${esc(q.explanation??'')}</p>
+            </div>
+            <div style="margin-top:18px;display:flex;gap:8px">
+              <button id="qSubmit" disabled style="flex:1;padding:13px;border:none;border-radius:13px;background:#78a3ea;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;opacity:.5">제출하기</button>
+            </div>
+          </div>`
+
+        aiPopupBody.querySelectorAll('.ai-choice').forEach(btn => {
+          btn.addEventListener('click', () => {
+            if (submitted) return
+            selIdx = Number(btn.dataset.i)
+            aiPopupBody.querySelectorAll('.ai-choice').forEach(b => b.classList.remove('selected'))
+            btn.classList.add('selected')
+            const sb = aiPopupBody.querySelector('#qSubmit')
+            sb.disabled = false; sb.style.opacity = '1'
+          })
+        })
+
+        aiPopupBody.querySelector('#qSubmit').addEventListener('click', () => {
+          if (selIdx === null) return
+          submitted = true
+          const correct = selIdx === ansIdx
+          if (correct) score++
+
+          aiPopupBody.querySelectorAll('.ai-choice').forEach((btn,i) => {
+            btn.disabled = true
+            if (i === ansIdx) { btn.classList.add('correct'); btn.textContent = `✓ ${btn.textContent}` }
+            else if (i === selIdx) { btn.classList.add('wrong'); btn.textContent = `✕ ${btn.textContent}` }
+          })
+
+          const box = aiPopupBody.querySelector('#qAnswerBox')
+          const txt = aiPopupBody.querySelector('#qResultTxt')
+          txt.textContent = correct ? '정답!' : '오답'
+          txt.style.color = correct ? '#16a34a' : '#dc2626'
+          box.style.display = 'block'
+
+          const submitBtn = aiPopupBody.querySelector('#qSubmit')
+          submitBtn.style.display = 'none'
+          const nextBtn = document.createElement('button')
+          const isLast  = idx === total - 1
+          nextBtn.style.cssText = 'flex:1;padding:13px;border:none;border-radius:13px;background:#78a3ea;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit'
+          nextBtn.textContent = isLast ? '결과 보기' : '다음 문제'
+          nextBtn.onclick = () => isLast ? showResult() : (idx++, submitted=false, selIdx=null, draw())
+          submitBtn.parentElement.appendChild(nextBtn)
+        })
+      }
+
+      function showResult() {
+        aiPopupBody.innerHTML = `
+          <div class="ai-page" style="text-align:center">
+            <div style="font-size:18px;font-weight:700;color:#1e293b;margin-bottom:12px">퀴즈 결과</div>
+            <div style="font-size:52px;font-weight:900;color:#78a3ea;margin-bottom:6px">${Math.round(score/questions.length*100)}점</div>
+            <div style="font-size:14px;color:#64748b;margin-bottom:24px">총 ${questions.length}문제 중 ${score}문제 정답</div>
+            <button id="qRestart" style="padding:13px 32px;border:none;border-radius:13px;background:#78a3ea;color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit">다시 풀기</button>
+          </div>`
+        aiPopupBody.querySelector('#qRestart').onclick = () => {
+          questions.sort(() => Math.random() - 0.5)
+          idx=0; score=0; submitted=false; selIdx=null; draw()
+        }
+      }
+
+      draw()
+    }
+
+    // 삭제 모달 취소
+    document.getElementById('deleteCancelBtn').addEventListener('click', () => {
+      document.getElementById('deleteModalOverlay').classList.remove('is-open')
+    })
+
+    // 삭제 모달 확인
+    document.getElementById('deleteConfirmBtn').addEventListener('click', async () => {
+      const confirmBtn = document.getElementById('deleteConfirmBtn')
+      const id = confirmBtn.dataset.id
+      confirmBtn.disabled = true
+      confirmBtn.textContent = '삭제 중...'
+      try {
+        await deleteDocument(id)
+        document.getElementById('deleteModalOverlay').classList.remove('is-open')
+        await renderDocumentsByTab()
+      } catch (e) {
+        alert('삭제 실패: ' + e.message)
+      } finally {
+        confirmBtn.disabled = false
+        confirmBtn.textContent = '삭제'
+      }
+    })
 
     // ── 탭 전환 ───────────────────────────────────────────
     let currentTab = 'all'
@@ -801,7 +1487,7 @@
     })
 
     // ── 파일 업로드 처리 ──────────────────────────────────
-    const submitBtn   = document.getElementById('submitUploadBtn')
+    const submitBtn = document.getElementById('submitUploadBtn')
     const uploadingIndicator = `<span style="opacity:.7">업로드 중...</span>`
 
     submitBtn.addEventListener('click', async () => {
@@ -877,5 +1563,37 @@
     await initHeader()
     await renderDocumentsByTab()
   </script>
+  <!-- AI 팝업 -->
+  <div class="ai-popup-overlay" id="aiPopupOverlay">
+    <div class="ai-popup">
+      <div class="ai-popup-header">
+        <span class="ai-popup-docname" id="aiPopupDocName"></span>
+        <div class="ai-popup-tabs" id="aiPopupTabs">
+          <button class="ai-popup-tab" data-type="SUMMARY">요약</button>
+          <button class="ai-popup-tab" data-type="MINDMAP">마인드맵</button>
+          <button class="ai-popup-tab" data-type="QUIZ">퀴즈</button>
+        </div>
+        <button class="ai-popup-close" id="aiPopupClose">×</button>
+      </div>
+      <div class="ai-popup-body" id="aiPopupBody"></div>
+    </div>
+  </div>
+
+  <!-- 삭제 확인 모달 -->
+  <div class="delete-modal-overlay" id="deleteModalOverlay">
+    <div class="delete-modal">
+      <div class="delete-modal-title">문서를 삭제할까요?</div>
+      <div class="delete-modal-desc">
+        <span class="delete-modal-filename" id="deleteModalFilename"></span><br>
+        삭제한 문서는 복구할 수 없어요.
+      </div>
+      <div class="delete-modal-actions">
+        <button class="btn-cancel" id="deleteCancelBtn">취소</button>
+        <button class="btn-delete-confirm" id="deleteConfirmBtn">삭제</button>
+      </div>
+    </div>
+  </div>
+
 </body>
+
 </html>

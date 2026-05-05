@@ -1,6 +1,16 @@
 // ui/ai/공통.js
 // AI 기능 공통 유틸: 캐시, PDF chunk, Claude 호출, 공통 렌더 보조
 
+import { SUPABASE_URL, sb } from '/src/lib/supabase.js'
+
+const ASK_CLAUDE_URL = `${SUPABASE_URL}/functions/v1/ask-claude`
+
+async function getAuthHeader() {
+  const { data: { session } } = await sb.auth.getSession()
+  if (!session) throw new Error('로그인이 필요합니다.')
+  return `Bearer ${session.access_token}`
+}
+
 export const AI_STATE = {
   docId: null,
   docTitle: "문서",
@@ -312,12 +322,13 @@ ${chunk.text}
 }
 
 export async function askClaudeJson(prompt) {
-  const res = await fetch("/api/claude", {
+  const res = await fetch(ASK_CLAUDE_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": await getAuthHeader(),
     },
-    body: JSON.stringify({ prompt : sanitizeForJson(prompt) }),
+    body: JSON.stringify({ prompt: sanitizeForJson(prompt) }),
   });
 
   const data = await res.json();
@@ -339,12 +350,13 @@ export async function askClaudeJson(prompt) {
 }
 
 export async function askClaudeText(prompt) {
-  const res = await fetch("/api/claude", {
+  const res = await fetch(ASK_CLAUDE_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "Authorization": await getAuthHeader(),
     },
-    body: JSON.stringify({ prompt : sanitizeForJson(prompt) }),
+    body: JSON.stringify({ prompt: sanitizeForJson(prompt) }),
   });
 
   const data = await res.json();

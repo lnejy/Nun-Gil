@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI 퀴즈</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      min-height: 100vh;
+      font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(180deg, #eef5ff 0%, #ffffff 55%, #ffffff 100%);
+      color: #111827;
+    }
+
+    .quiz-page {
+      width: 100%;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 56px 20px;
+    }
+
+    .quiz-container {
+      width: 100%;
+      max-width: 760px;
+    }
+
+    .quiz-top {
+      margin-bottom: 24px;
+    }
+
+    .quiz-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 7px 12px;
+      margin-bottom: 12px;
+      border-radius: 999px;
+      background: #eaf2ff;
+      color: #3b76e8;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .quiz-title {
+      font-size: 30px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .quiz-desc {
+      font-size: 15px;
+      color: #6b7280;
+      line-height: 1.6;
+    }
+
+    .quiz-header {
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid #e5e7eb;
+      border-radius: 22px;
+      padding: 20px;
+      margin-bottom: 18px;
+      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    }
+
+    .progress-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .progress-text {
+      font-size: 15px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    .progress-percent {
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 9px;
+      background: #e5e7eb;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: #4f8cff;
+      border-radius: 999px;
+      transition: width 0.25s ease;
+    }
+
+    .question-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 28px;
+      padding: 30px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+    }
+
+    .question-number {
+      display: inline-block;
+      margin-bottom: 14px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: #f3f7ff;
+      color: #4f8cff;
+      font-size: 14px;
+      font-weight: 700;
+    }
+
+    .question-text {
+      font-size: 22px;
+      line-height: 1.5;
+      font-weight: 750;
+      color: #111827;
+      margin-bottom: 26px;
+    }
+
+    .option-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-btn {
+      width: 100%;
+      min-height: 54px;
+      padding: 15px 18px;
+      border: 1px solid #d1d5db;
+      border-radius: 17px;
+      background: #ffffff;
+      color: #374151;
+      font-size: 15px;
+      line-height: 1.45;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .option-btn:hover {
+      background: #f3f7ff;
+      border-color: #93b8ff;
+      transform: translateY(-1px);
+    }
+
+    .option-btn.selected {
+      background: #eaf2ff;
+      border-color: #4f8cff;
+      color: #1f4fbf;
+      font-weight: 650;
+    }
+
+    .option-btn.correct {
+      background: #ecfdf3;
+      border-color: #22c55e;
+      color: #166534;
+      font-weight: 700;
+    }
+
+    .option-btn.wrong {
+      background: #fef2f2;
+      border-color: #ef4444;
+      color: #991b1b;
+      font-weight: 700;
+    }
+
+    .option-btn:disabled {
+      cursor: default;
+      transform: none;
+    }
+
+    .answer-box {
+      margin-top: 24px;
+      padding: 22px;
+      border-radius: 20px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+
+    .result-text {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 16px;
+    }
+
+    .result-text.correct-text {
+      color: #16a34a;
+    }
+
+    .result-text.wrong-text {
+      color: #dc2626;
+    }
+
+    .answer-detail {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    .answer-detail-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 6px;
+    }
+
+    .answer-detail-content {
+      font-size: 14px;
+      line-height: 1.7;
+      color: #374151;
+    }
+
+    .button-area {
+      margin-top: 24px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .submit-btn,
+    .next-btn,
+    .restart-btn {
+      width: 100%;
+      padding: 15px 18px;
+      border: none;
+      border-radius: 16px;
+      background: #4f8cff;
+      color: #ffffff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .submit-btn:hover,
+    .next-btn:hover,
+    .restart-btn:hover {
+      background: #3b76e8;
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(79, 140, 255, 0.26);
+    }
+
+    .submit-btn:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+      box-shadow: none;
+      transform: none;
+    }
+
+    .result-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 28px;
+      padding: 34px;
+      box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+      text-align: center;
+    }
+
+    .result-card h2 {
+      font-size: 28px;
+      margin-bottom: 12px;
+      color: #111827;
+    }
+
+    .score-text {
+      font-size: 42px;
+      font-weight: 850;
+      color: #4f8cff;
+      margin-bottom: 8px;
+    }
+
+    .score-desc {
+      font-size: 15px;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    .review-list {
+      margin-top: 26px;
+      text-align: left;
+    }
+
+    .review-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: #111827;
+      margin-bottom: 12px;
+    }
+
+    .review-item {
+      padding: 16px;
+      border: 1px solid #e5e7eb;
+      border-radius: 18px;
+      background: #f9fafb;
+      margin-bottom: 12px;
+    }
+
+    .review-question {
+      font-size: 14px;
+      font-weight: 750;
+      line-height: 1.6;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+
+    .review-answer {
+      font-size: 13px;
+      line-height: 1.6;
+      color: #374151;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    @media (max-width: 640px) {
+      .quiz-page {
+        padding: 34px 14px;
+      }
+
+      .quiz-title {
+        font-size: 25px;
+      }
+
+      .question-card {
+        padding: 22px;
+        border-radius: 24px;
+      }
+
+      .question-text {
+        font-size: 19px;
+      }
+
+      .button-area {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="quiz-page">
+    <section class="quiz-container">
+
+      <div class="quiz-top">
+        <div class="quiz-badge">AI 문서 기반 퀴즈</div>
+        <h1 class="quiz-title">퀴즈 풀기</h1>
+        <p class="quiz-desc">
+          문서에서 생성된 문제를 풀고, 제출 후 정답과 해설을 확인할 수 있습니다.
+        </p>
+      </div>
+
+      <!-- 퀴즈 풀이 화면 -->
+      <section id="quizView">
+        <div class="quiz-header">
+          <div class="progress-info">
+            <p id="quizProgressText" class="progress-text">1 / 5</p>
+            <p id="progressPercent" class="progress-percent">20%</p>
+          </div>
+
+          <div class="progress-bar">
+            <div id="progressFill" class="progress-fill"></div>
+          </div>
+        </div>
+
+        <div class="question-card">
+          <p id="questionNumber" class="question-number">Q1</p>
+          <h2 id="questionText" class="question-text"></h2>
+
+          <div id="optionList" class="option-list"></div>
+
+          <div id="answerBox" class="answer-box hidden">
+            <p id="resultText" class="result-text"></p>
+
+            <div class="answer-detail">
+              <p class="answer-detail-title">정답</p>
+              <p id="correctAnswerText" class="answer-detail-content"></p>
+            </div>
+
+            <div class="answer-detail">
+              <p class="answer-detail-title">해설</p>
+              <p id="explanationText" class="answer-detail-content"></p>
+            </div>
+          </div>
+
+          <div class="button-area">
+            <button id="submitBtn" class="submit-btn">
+              제출 및 정답과 해설 보기
+            </button>
+
+            <button id="nextBtn" class="next-btn hidden">
+              다음 문제
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 결과 화면 -->
+      <section id="resultView" class="hidden">
+        <div class="result-card">
+          <h2>퀴즈 결과</h2>
+          <p id="scoreText" class="score-text"></p>
+          <p id="scoreDesc" class="score-desc"></p>
+
+          <button id="restartBtn" class="restart-btn">
+            다시 풀기
+          </button>
+
+          <div id="reviewList" class="review-list"></div>
+        </div>
+      </section>
+
+    </section>
+  </main>
+
+  <script>
+    const quizData = [
+      {
+        question: "TCP의 특징으로 알맞은 것은?",
+        options: [
+          "비연결형 통신이다",
+          "신뢰성 있는 데이터 전송을 제공한다",
+          "물리 계층에서만 동작한다",
+          "암호화만 담당한다"
+        ],
+        answerIndex: 1,
+        explanation: "TCP는 연결형 프로토콜로 데이터의 순서와 오류를 확인하여 신뢰성 있는 전송을 제공합니다."
+      },
+      {
+        question: "UDP는 연결 설정 없이 데이터를 전송한다.",
+        options: ["O", "X"],
+        answerIndex: 0,
+        explanation: "UDP는 비연결형 프로토콜이기 때문에 연결 설정 과정 없이 데이터를 전송합니다."
+      },
+      {
+        question: "문서 기반 퀴즈에서 sourceBlockId를 저장하는 이유로 알맞은 것은?",
+        options: [
+          "문제 번호를 예쁘게 보이게 하기 위해",
+          "사용자가 선택지를 여러 개 고르게 하기 위해",
+          "문제와 원문 위치를 연결하기 위해",
+          "퀴즈 배경색을 바꾸기 위해"
+        ],
+        answerIndex: 2,
+        explanation: "sourceBlockId는 문제가 어떤 문서 블록에서 생성되었는지 연결하기 위한 값입니다. 이를 통해 원문 보기나 오답 복습 기능과 연결할 수 있습니다."
+      },
+      {
+        question: "사용자 화면에서는 페이지 번호보다 개념 중심으로 요약을 보여주는 것이 좋다.",
+        options: ["O", "X"],
+        answerIndex: 0,
+        explanation: "페이지 단위는 문서 형식에 따라 내용이 끊기거나 섞일 수 있으므로, 사용자에게는 개념이나 내용 블록 중심으로 보여주는 것이 자연스럽습니다."
+      },
+      {
+        question: "표가 포함된 문서에서 표는 어떤 방식으로 처리하는 것이 좋은가?",
+        options: [
+          "표 내용을 무시한다",
+          "표를 일반 문장처럼 한 줄로 합친다",
+          "표를 table 블록으로 따로 저장하고 요약한다",
+          "표는 퀴즈에 사용할 수 없다"
+        ],
+        answerIndex: 2,
+        explanation: "표는 일반 문단과 구조가 다르기 때문에 table 블록으로 분리해서 저장하고, 표의 제목, 헤더, 행 정보를 기반으로 요약하거나 퀴즈를 생성하는 것이 좋습니다."
+      }
+    ];
+
+    let currentIndex = 0;
+    let selectedIndex = null;
+    let isSubmitted = false;
+    let userAnswers = [];
+
+    const quizView = document.getElementById("quizView");
+    const resultView = document.getElementById("resultView");
+
+    const quizProgressText = document.getElementById("quizProgressText");
+    const progressPercent = document.getElementById("progressPercent");
+    const progressFill = document.getElementById("progressFill");
+
+    const questionNumber = document.getElementById("questionNumber");
+    const questionText = document.getElementById("questionText");
+    const optionList = document.getElementById("optionList");
+
+    const answerBox = document.getElementById("answerBox");
+    const resultText = document.getElementById("resultText");
+    const correctAnswerText = document.getElementById("correctAnswerText");
+    const explanationText = document.getElementById("explanationText");
+
+    const submitBtn = document.getElementById("submitBtn");
+    const nextBtn = document.getElementById("nextBtn");
+
+    const scoreText = document.getElementById("scoreText");
+    const scoreDesc = document.getElementById("scoreDesc");
+    const restartBtn = document.getElementById("restartBtn");
+    const reviewList = document.getElementById("reviewList");
+
+    function renderQuiz() {
+      const quiz = quizData[currentIndex];
+
+      selectedIndex = null;
+      isSubmitted = false;
+
+      const progress = Math.round(((currentIndex + 1) / quizData.length) * 100);
+
+      quizProgressText.textContent = `${currentIndex + 1} / ${quizData.length}`;
+      progressPercent.textContent = `${progress}%`;
+      progressFill.style.width = `${progress}%`;
+
+      questionNumber.textContent = `Q${currentIndex + 1}`;
+      questionText.textContent = quiz.question;
+
+      optionList.innerHTML = "";
+
+      quiz.options.forEach((option, index) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "option-btn";
+        button.textContent = option;
+
+        button.addEventListener("click", () => {
+          if (isSubmitted) return;
+
+          selectedIndex = index;
+
+          document.querySelectorAll(".option-btn").forEach((btn) => {
+            btn.classList.remove("selected");
+          });
+
+          button.classList.add("selected");
+        });
+
+        optionList.appendChild(button);
+      });
+
+      answerBox.classList.add("hidden");
+      submitBtn.classList.remove("hidden");
+      submitBtn.disabled = false;
+      nextBtn.classList.add("hidden");
+    }
+
+    submitBtn.addEventListener("click", () => {
+      if (selectedIndex === null) {
+        alert("답을 선택해주세요.");
+        return;
+      }
+
+      const quiz = quizData[currentIndex];
+      const optionButtons = document.querySelectorAll(".option-btn");
+      const isCorrect = selectedIndex === quiz.answerIndex;
+
+      isSubmitted = true;
+
+      userAnswers[currentIndex] = {
+        question: quiz.question,
+        selectedIndex: selectedIndex,
+        selectedAnswer: quiz.options[selectedIndex],
+        correctIndex: quiz.answerIndex,
+        correctAnswer: quiz.options[quiz.answerIndex],
+        explanation: quiz.explanation,
+        isCorrect: isCorrect
+      };
+
+      optionButtons.forEach((button, index) => {
+        button.disabled = true;
+
+        if (index === quiz.answerIndex) {
+          button.classList.add("correct");
+          button.textContent = `✓ ${button.textContent}`;
+        }
+
+        if (index === selectedIndex && selectedIndex !== quiz.answerIndex) {
+          button.classList.add("wrong");
+          button.textContent = `✕ ${button.textContent}`;
+        }
+      });
+
+      if (isCorrect) {
+        resultText.textContent = "정답입니다!";
+        resultText.className = "result-text correct-text";
+      } else {
+        resultText.textContent = "오답입니다.";
+        resultText.className = "result-text wrong-text";
+      }
+
+      correctAnswerText.textContent = quiz.options[quiz.answerIndex];
+      explanationText.textContent = quiz.explanation;
+
+      answerBox.classList.remove("hidden");
+      submitBtn.classList.add("hidden");
+
+      if (currentIndex < quizData.length - 1) {
+        nextBtn.textContent = "다음 문제";
+      } else {
+        nextBtn.textContent = "결과 보기";
+      }
+
+      nextBtn.classList.remove("hidden");
+    });
+
+    nextBtn.addEventListener("click", () => {
+      if (currentIndex < quizData.length - 1) {
+        currentIndex++;
+        renderQuiz();
+      } else {
+        showResult();
+      }
+    });
+
+    restartBtn.addEventListener("click", () => {
+      currentIndex = 0;
+      selectedIndex = null;
+      isSubmitted = false;
+      userAnswers = [];
+
+      resultView.classList.add("hidden");
+      quizView.classList.remove("hidden");
+
+      renderQuiz();
+    });
+
+    function showResult() {
+      quizView.classList.add("hidden");
+      resultView.classList.remove("hidden");
+
+      const correctCount = userAnswers.filter((answer) => answer.isCorrect).length;
+      const totalCount = quizData.length;
+      const scorePercent = Math.round((correctCount / totalCount) * 100);
+
+      scoreText.textContent = `${scorePercent}점`;
+      scoreDesc.textContent = `총 ${totalCount}문제 중 ${correctCount}문제를 맞혔습니다.`;
+
+      const wrongAnswers = userAnswers.filter((answer) => !answer.isCorrect);
+
+      reviewList.innerHTML = "";
+
+      if (wrongAnswers.length === 0) {
+        reviewList.innerHTML = `
+          <p class="review-title">오답 복습</p>
+          <div class="review-item">
+            <p class="review-question">틀린 문제가 없습니다.</p>
+            <p class="review-answer">모든 문제를 정확하게 이해했습니다.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const title = document.createElement("p");
+      title.className = "review-title";
+      title.textContent = "오답 복습";
+      reviewList.appendChild(title);
+
+      wrongAnswers.forEach((item) => {
+        const reviewItem = document.createElement("div");
+        reviewItem.className = "review-item";
+
+        reviewItem.innerHTML = `
+          <p class="review-question">${item.question}</p>
+          <p class="review-answer"><strong>내 답:</strong> ${item.selectedAnswer}</p>
+          <p class="review-answer"><strong>정답:</strong> ${item.correctAnswer}</p>
+          <p class="review-answer"><strong>해설:</strong> ${item.explanation}</p>
+        `;
+
+        reviewList.appendChild(reviewItem);
+      });
+    }
+
+    renderQuiz();
+  </script>
+</body>
+</html>

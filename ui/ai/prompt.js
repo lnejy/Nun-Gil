@@ -136,8 +136,8 @@ ${context}
 [
   {
     "question": "문제",
-    "choices": ["선택지1", "선택지2", "선택지3", "선택지4"],
-    "answer": "정답",
+    "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
+    "answerIndex": 0,
     "explanation": "문서 근거 기반 해설",
     "source_chunks": ["c0001"]
   }
@@ -146,6 +146,6 @@ ${context}
 조건:
 - 문제는 정확히 5개 만든다.
 - 선택지는 반드시 4개다.
-- answer는 choices 중 하나여야 한다.
+- answerIndex는 options 배열의 정답 인덱스(0~3)다.
 `;
 }
