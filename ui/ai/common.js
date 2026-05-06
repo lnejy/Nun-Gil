@@ -381,9 +381,8 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 function sanitizeForJson(value) {
-  return String(value ?? "")
-    // 깨진 surrogate만 대체
-    .replace(/[\uD800-\uDFFF]/g, "�")
-    // null 문자만 제거
-    .replace(/\u0000/g, "");
+  return encodeURIComponent(
+    String(value ?? "")
+      .replace(/\u0000/g, "")
+  );
 }
