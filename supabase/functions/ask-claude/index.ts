@@ -40,34 +40,47 @@ Deno.serve(async (req: Request) => {
     if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
 
     // ── 요청 파싱 ─────────────────────────────────────────
-    const { prompt } = await req.json()
-    if (!prompt) return json({ error: 'prompt required' }, 400)
+   const { prompt, encoded, prefill } = await req.json()
+const decodedPrompt = encoded ? decodeURIComponent(prompt) : prompt
 
-    // ── Claude API 호출 ───────────────────────────────────
-    const apiKey = Deno.env.get('Claude_API_KEY')
-    if (!apiKey) return json({ error: 'Claude_API_KEY not set' }, 500)
+const apiKey = Deno.env.get('Claude_API_KEY')
+if (!apiKey) return json({ error: 'Claude_API_KEY not set' }, 500)
 
-    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 8000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    })
+const messages: any[] = [
+  { role: 'user', content: decodedPrompt }
+]
 
-    const data = await claudeRes.json()
+if (prefill) {
+  messages.push({ role: 'assistant', content: prefill })
+}
 
-    if (!claudeRes.ok) {
-      return json({ error: data }, claudeRes.status)
-    }
+const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+  method: 'POST',
+  headers: {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+  },
+  body: JSON.stringify({
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 8000,
+    system: 'You are a JSON-only API. Respond with raw JSON only — no markdown, no code fences, no commentary, no headers. Output must start with { or [ and end with } or ].',
+    messages,
+  }),
+})
 
-    return json(data)
+const data = await claudeRes.json()
+
+if (!claudeRes.ok) {
+  return json({ error: data }, claudeRes.status)
+}
+
+// prefill 사용 시 응답 앞에 prefill 복원
+if (prefill && data.content?.[0]?.text) {
+  data.content[0].text = prefill + data.content[0].text
+}
+
+return json(data)
 
   } catch (err) {
     return json({ error: String(err) }, 500)
