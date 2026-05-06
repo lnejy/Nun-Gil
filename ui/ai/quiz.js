@@ -2,11 +2,12 @@
 import {
   AI_STATE,
   askClaudeJson,
-  buildContext,
+  decideOutputRange,  // ← 추가
   escapeHtml,
   getAiCache,
   getCanvas,
   getChunks,
+  getConcepts,
   setAiCache,
   setAiMode,
   showAiLoading,
@@ -15,25 +16,32 @@ import {
 
 import { createQuizPrompt } from "./prompt.js";
 
-export async function loadQuiz() {
+export async function loadQuiz({ shouldRender = () => true } = {}) {
   const cache = getAiCache();
 
   if (cache.quiz) {
-    renderQuiz(cache.quiz);
+    if (shouldRender()) renderQuiz(cache.quiz);
     return;
   }
 
-  showAiLoading("퀴즈 생성 중");
+  if (shouldRender()) showAiLoading("퀴즈 생성 중");
 
-  const chunks = await getChunks();
+  await getChunks();
+  const concepts = await getConcepts({ topK: 8, candidateK: 12 });
+
+  if (shouldRender()) showAiLoading("퀴즈 생성 중");
+
+  const range = decideOutputRange(AI_STATE.pageCount, "quiz");
   const prompt = createQuizPrompt({
     title: AI_STATE.docTitle,
-    context: buildContext(chunks),
+    context: JSON.stringify(concepts, null, 2),
+    range,
   });
 
-  const quiz = await askClaudeJson(prompt);
+  const quiz = await askClaudeJson(prompt, "array");
   setAiCache({ quiz });
-  renderQuiz(quiz);
+
+  if (shouldRender()) renderQuiz(quiz);
 }
 
 function renderQuiz(quiz) {

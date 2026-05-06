@@ -4,38 +4,49 @@
 import {
   AI_STATE,
   askClaudeJson,
-  buildContext,
+  decideOutputRange,
   escapeHtml,
   getAiCache,
   getCanvas,
   getChunks,
+  getConcepts,
   setAiCache,
   setAiMode,
   showAiLoading,
   sourceText,
 } from "./common.js";
 
-import { createMindmapPrompt } from "./prompt.js";
+import {
+  createMindmapPrompt,
+  createConceptExtractPrompt,
+} from "./prompt.js";
 
-export async function loadMindmap() {
+export async function loadMindmap({ shouldRender = () => true } = {}) {
   const cache = getAiCache();
 
   if (cache.mindmap) {
-    renderMindmap(cache.mindmap);
+    if (shouldRender()) renderMindmap(cache.mindmap);
     return;
   }
 
-  showAiLoading("마인드맵 생성 중");
+  if (shouldRender()) showAiLoading("마인드맵 생성 중");
 
-  const chunks = await getChunks();
+  await getChunks();
+  const concepts = await getConcepts({ topK: 8, candidateK: 12 });
+
+  if (shouldRender()) showAiLoading("마인드맵 생성 중");
+
+  const range = decideOutputRange(AI_STATE.pageCount, "mindmap");
   const prompt = createMindmapPrompt({
     title: AI_STATE.docTitle,
-    context: buildContext(chunks),
+    context: JSON.stringify(concepts, null, 2),
+    range,
   });
 
   const mindmap = await askClaudeJson(prompt);
   setAiCache({ mindmap });
-  renderMindmap(mindmap);
+
+  if (shouldRender()) renderMindmap(mindmap);
 }
 
 function renderMindmap(mindmapData) {
