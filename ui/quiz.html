@@ -30,7 +30,7 @@
 
     .quiz-container {
       width: 100%;
-      max-width: 760px;
+      max-width: 820px;
     }
 
     .quiz-top {
@@ -64,7 +64,11 @@
     }
 
     .quiz-header {
-      background: rgba(255, 255, 255, 0.78);
+      position: sticky;
+      top: 16px;
+      z-index: 10;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(10px);
       border: 1px solid #e5e7eb;
       border-radius: 22px;
       padding: 20px;
@@ -104,6 +108,12 @@
       background: #4f8cff;
       border-radius: 999px;
       transition: width 0.25s ease;
+    }
+
+    .question-list {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
     }
 
     .question-card {
@@ -233,9 +243,7 @@
       gap: 10px;
     }
 
-    .submit-btn,
-    .next-btn,
-    .restart-btn {
+    .submit-one-btn {
       width: 100%;
       padding: 15px 18px;
       border: none;
@@ -248,22 +256,55 @@
       transition: all 0.18s ease;
     }
 
-    .submit-btn:hover,
-    .next-btn:hover,
-    .restart-btn:hover {
+    .submit-one-btn:hover {
       background: #3b76e8;
       transform: translateY(-1px);
       box-shadow: 0 10px 22px rgba(79, 140, 255, 0.26);
     }
 
-    .submit-btn:disabled {
+    .submit-one-btn:disabled {
       background: #cbd5e1;
       cursor: not-allowed;
       box-shadow: none;
       transform: none;
     }
 
+    .bottom-action {
+      margin-top: 26px;
+      display: flex;
+      gap: 12px;
+    }
+
+    .result-btn,
+    .restart-btn {
+      width: 100%;
+      padding: 16px 18px;
+      border: none;
+      border-radius: 18px;
+      font-size: 15px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: all 0.18s ease;
+    }
+
+    .result-btn {
+      background: #4f8cff;
+      color: #ffffff;
+    }
+
+    .restart-btn {
+      background: #eef2f7;
+      color: #334155;
+    }
+
+    .result-btn:hover,
+    .restart-btn:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
+    }
+
     .result-card {
+      margin-top: 26px;
       background: #ffffff;
       border: 1px solid #e5e7eb;
       border-radius: 28px;
@@ -347,7 +388,7 @@
         font-size: 19px;
       }
 
-      .button-area {
+      .bottom-action {
         flex-direction: column;
       }
     }
@@ -362,16 +403,15 @@
         <div class="quiz-badge">AI 문서 기반 퀴즈</div>
         <h1 class="quiz-title">퀴즈 풀기</h1>
         <p class="quiz-desc">
-          문서에서 생성된 문제를 풀고, 제출 후 정답과 해설을 확인할 수 있습니다.
+          문서에서 생성된 문제를 스크롤하면서 풀고, 각 문제마다 정답과 해설을 확인할 수 있습니다.
         </p>
       </div>
 
-      <!-- 퀴즈 풀이 화면 -->
       <section id="quizView">
         <div class="quiz-header">
           <div class="progress-info">
-            <p id="quizProgressText" class="progress-text">1 / 5</p>
-            <p id="progressPercent" class="progress-percent">20%</p>
+            <p id="quizProgressText" class="progress-text">0 / 5 제출</p>
+            <p id="progressPercent" class="progress-percent">0%</p>
           </div>
 
           <div class="progress-bar">
@@ -379,46 +419,26 @@
           </div>
         </div>
 
-        <div class="question-card">
-          <p id="questionNumber" class="question-number">Q1</p>
-          <h2 id="questionText" class="question-text"></h2>
+        <div id="questionList" class="question-list"></div>
 
-          <div id="optionList" class="option-list"></div>
+        <div class="bottom-action">
+          <button id="resultBtn" class="result-btn">
+            결과 보기
+          </button>
 
-          <div id="answerBox" class="answer-box hidden">
-            <p id="resultText" class="result-text"></p>
-
-            <div class="answer-detail">
-              <p class="answer-detail-title">정답</p>
-              <p id="correctAnswerText" class="answer-detail-content"></p>
-            </div>
-
-            <div class="answer-detail">
-              <p class="answer-detail-title">해설</p>
-              <p id="explanationText" class="answer-detail-content"></p>
-            </div>
-          </div>
-
-          <div class="button-area">
-            <button id="submitBtn" class="submit-btn">
-              제출 및 정답과 해설 보기
-            </button>
-
-            <button id="nextBtn" class="next-btn hidden">
-              다음 문제
-            </button>
-          </div>
+          <button id="restartBtn" class="restart-btn">
+            다시 풀기
+          </button>
         </div>
       </section>
 
-      <!-- 결과 화면 -->
       <section id="resultView" class="hidden">
         <div class="result-card">
           <h2>퀴즈 결과</h2>
           <p id="scoreText" class="score-text"></p>
           <p id="scoreDesc" class="score-desc"></p>
 
-          <button id="restartBtn" class="restart-btn">
+          <button id="resultRestartBtn" class="restart-btn">
             다시 풀기
           </button>
 
@@ -478,99 +498,126 @@
       }
     ];
 
-    let currentIndex = 0;
-    let selectedIndex = null;
-    let isSubmitted = false;
-    let userAnswers = [];
+    let userAnswers = Array(quizData.length).fill(null);
 
     const quizView = document.getElementById("quizView");
     const resultView = document.getElementById("resultView");
+
+    const questionList = document.getElementById("questionList");
 
     const quizProgressText = document.getElementById("quizProgressText");
     const progressPercent = document.getElementById("progressPercent");
     const progressFill = document.getElementById("progressFill");
 
-    const questionNumber = document.getElementById("questionNumber");
-    const questionText = document.getElementById("questionText");
-    const optionList = document.getElementById("optionList");
-
-    const answerBox = document.getElementById("answerBox");
-    const resultText = document.getElementById("resultText");
-    const correctAnswerText = document.getElementById("correctAnswerText");
-    const explanationText = document.getElementById("explanationText");
-
-    const submitBtn = document.getElementById("submitBtn");
-    const nextBtn = document.getElementById("nextBtn");
+    const resultBtn = document.getElementById("resultBtn");
+    const restartBtn = document.getElementById("restartBtn");
+    const resultRestartBtn = document.getElementById("resultRestartBtn");
 
     const scoreText = document.getElementById("scoreText");
     const scoreDesc = document.getElementById("scoreDesc");
-    const restartBtn = document.getElementById("restartBtn");
     const reviewList = document.getElementById("reviewList");
 
-    function renderQuiz() {
-      const quiz = quizData[currentIndex];
+    function renderQuizList() {
+      questionList.innerHTML = "";
 
-      selectedIndex = null;
-      isSubmitted = false;
+      quizData.forEach((quiz, quizIndex) => {
+        const card = document.createElement("div");
+        card.className = "question-card";
+        card.dataset.quizIndex = quizIndex;
 
-      const progress = Math.round(((currentIndex + 1) / quizData.length) * 100);
+        card.innerHTML = `
+          <p class="question-number">Q${quizIndex + 1}</p>
+          <h2 class="question-text">${quiz.question}</h2>
 
-      quizProgressText.textContent = `${currentIndex + 1} / ${quizData.length}`;
-      progressPercent.textContent = `${progress}%`;
-      progressFill.style.width = `${progress}%`;
+          <div class="option-list"></div>
 
-      questionNumber.textContent = `Q${currentIndex + 1}`;
-      questionText.textContent = quiz.question;
+          <div class="answer-box hidden">
+            <p class="result-text"></p>
 
-      optionList.innerHTML = "";
+            <div class="answer-detail">
+              <p class="answer-detail-title">정답</p>
+              <p class="answer-detail-content correct-answer-text"></p>
+            </div>
 
-      quiz.options.forEach((option, index) => {
-        const button = document.createElement("button");
-        button.type = "button";
-        button.className = "option-btn";
-        button.textContent = option;
+            <div class="answer-detail">
+              <p class="answer-detail-title">해설</p>
+              <p class="answer-detail-content explanation-text"></p>
+            </div>
+          </div>
 
-        button.addEventListener("click", () => {
-          if (isSubmitted) return;
+          <div class="button-area">
+            <button class="submit-one-btn" type="button">
+              제출 및 정답과 해설 보기
+            </button>
+          </div>
+        `;
 
-          selectedIndex = index;
+        const optionList = card.querySelector(".option-list");
+        const submitBtn = card.querySelector(".submit-one-btn");
 
-          document.querySelectorAll(".option-btn").forEach((btn) => {
-            btn.classList.remove("selected");
+        quiz.options.forEach((option, optionIndex) => {
+          const button = document.createElement("button");
+          button.type = "button";
+          button.className = "option-btn";
+          button.textContent = option;
+          button.dataset.optionIndex = optionIndex;
+
+          button.addEventListener("click", () => {
+            if (userAnswers[quizIndex]?.isSubmitted) return;
+
+            card.querySelectorAll(".option-btn").forEach((btn) => {
+              btn.classList.remove("selected");
+            });
+
+            button.classList.add("selected");
+
+            userAnswers[quizIndex] = {
+              selectedIndex: optionIndex,
+              isSubmitted: false
+            };
           });
 
-          button.classList.add("selected");
+          optionList.appendChild(button);
         });
 
-        optionList.appendChild(button);
+        submitBtn.addEventListener("click", () => {
+          submitQuestion(quizIndex, card);
+        });
+
+        questionList.appendChild(card);
       });
 
-      answerBox.classList.add("hidden");
-      submitBtn.classList.remove("hidden");
-      submitBtn.disabled = false;
-      nextBtn.classList.add("hidden");
+      updateProgress();
     }
 
-    submitBtn.addEventListener("click", () => {
-      if (selectedIndex === null) {
+    function submitQuestion(quizIndex, card) {
+      const quiz = quizData[quizIndex];
+      const answerData = userAnswers[quizIndex];
+
+      if (!answerData || answerData.selectedIndex === undefined) {
         alert("답을 선택해주세요.");
         return;
       }
 
-      const quiz = quizData[currentIndex];
-      const optionButtons = document.querySelectorAll(".option-btn");
+      const selectedIndex = answerData.selectedIndex;
       const isCorrect = selectedIndex === quiz.answerIndex;
 
-      isSubmitted = true;
+      const optionButtons = card.querySelectorAll(".option-btn");
+      const answerBox = card.querySelector(".answer-box");
+      const resultText = card.querySelector(".result-text");
+      const correctAnswerText = card.querySelector(".correct-answer-text");
+      const explanationText = card.querySelector(".explanation-text");
+      const submitBtn = card.querySelector(".submit-one-btn");
 
-      userAnswers[currentIndex] = {
+      userAnswers[quizIndex] = {
         question: quiz.question,
         selectedIndex: selectedIndex,
         selectedAnswer: quiz.options[selectedIndex],
         correctIndex: quiz.answerIndex,
         correctAnswer: quiz.options[quiz.answerIndex],
         explanation: quiz.explanation,
-        isCorrect: isCorrect
+        isCorrect: isCorrect,
+        isSubmitted: true
       };
 
       optionButtons.forEach((button, index) => {
@@ -599,56 +646,77 @@
       explanationText.textContent = quiz.explanation;
 
       answerBox.classList.remove("hidden");
-      submitBtn.classList.add("hidden");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "제출 완료";
 
-      if (currentIndex < quizData.length - 1) {
-        nextBtn.textContent = "다음 문제";
-      } else {
-        nextBtn.textContent = "결과 보기";
+      updateProgress();
+    }
+
+    function updateProgress() {
+      const submittedCount = userAnswers.filter((answer) => answer?.isSubmitted).length;
+      const totalCount = quizData.length;
+      const progress = Math.round((submittedCount / totalCount) * 100);
+
+      quizProgressText.textContent = `${submittedCount} / ${totalCount} 제출`;
+      progressPercent.textContent = `${progress}%`;
+      progressFill.style.width = `${progress}%`;
+    }
+
+    resultBtn.addEventListener("click", () => {
+      const submittedCount = userAnswers.filter((answer) => answer?.isSubmitted).length;
+
+      if (submittedCount < quizData.length) {
+        const move = confirm("아직 제출하지 않은 문제가 있습니다. 그래도 결과를 보시겠습니까?");
+        if (!move) return;
       }
 
-      nextBtn.classList.remove("hidden");
+      showResult();
     });
 
-    nextBtn.addEventListener("click", () => {
-      if (currentIndex < quizData.length - 1) {
-        currentIndex++;
-        renderQuiz();
-      } else {
-        showResult();
-      }
-    });
-
-    restartBtn.addEventListener("click", () => {
-      currentIndex = 0;
-      selectedIndex = null;
-      isSubmitted = false;
-      userAnswers = [];
-
-      resultView.classList.add("hidden");
-      quizView.classList.remove("hidden");
-
-      renderQuiz();
-    });
+    restartBtn.addEventListener("click", restartQuiz);
+    resultRestartBtn.addEventListener("click", restartQuiz);
 
     function showResult() {
       quizView.classList.add("hidden");
       resultView.classList.remove("hidden");
 
-      const correctCount = userAnswers.filter((answer) => answer.isCorrect).length;
+      const submittedAnswers = userAnswers.filter((answer) => answer?.isSubmitted);
+      const correctCount = submittedAnswers.filter((answer) => answer.isCorrect).length;
       const totalCount = quizData.length;
       const scorePercent = Math.round((correctCount / totalCount) * 100);
 
       scoreText.textContent = `${scorePercent}점`;
       scoreDesc.textContent = `총 ${totalCount}문제 중 ${correctCount}문제를 맞혔습니다.`;
 
-      const wrongAnswers = userAnswers.filter((answer) => !answer.isCorrect);
+      const wrongAnswers = [];
+
+      quizData.forEach((quiz, index) => {
+        const answer = userAnswers[index];
+
+        if (!answer || !answer.isSubmitted) {
+          wrongAnswers.push({
+            question: quiz.question,
+            selectedAnswer: "미제출",
+            correctAnswer: quiz.options[quiz.answerIndex],
+            explanation: quiz.explanation
+          });
+          return;
+        }
+
+        if (!answer.isCorrect) {
+          wrongAnswers.push(answer);
+        }
+      });
 
       reviewList.innerHTML = "";
 
+      const title = document.createElement("p");
+      title.className = "review-title";
+      title.textContent = "오답 복습";
+      reviewList.appendChild(title);
+
       if (wrongAnswers.length === 0) {
-        reviewList.innerHTML = `
-          <p class="review-title">오답 복습</p>
+        reviewList.innerHTML += `
           <div class="review-item">
             <p class="review-question">틀린 문제가 없습니다.</p>
             <p class="review-answer">모든 문제를 정확하게 이해했습니다.</p>
@@ -656,11 +724,6 @@
         `;
         return;
       }
-
-      const title = document.createElement("p");
-      title.className = "review-title";
-      title.textContent = "오답 복습";
-      reviewList.appendChild(title);
 
       wrongAnswers.forEach((item) => {
         const reviewItem = document.createElement("div");
@@ -675,9 +738,28 @@
 
         reviewList.appendChild(reviewItem);
       });
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
     }
 
-    renderQuiz();
+    function restartQuiz() {
+      userAnswers = Array(quizData.length).fill(null);
+
+      resultView.classList.add("hidden");
+      quizView.classList.remove("hidden");
+
+      renderQuizList();
+
+      window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+      });
+    }
+
+    renderQuizList();
   </script>
 </body>
 </html>
