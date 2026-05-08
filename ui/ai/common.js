@@ -2,6 +2,7 @@
 // AI 기능 공통 유틸: 캐시, PDF chunk, Claude 호출, 공통 렌더 보조
 
 import { SUPABASE_URL, sb } from '/src/lib/supabase.js'
+import { createConceptExtractPrompt } from './prompt.js'
 
 const ASK_CLAUDE_URL = `${SUPABASE_URL}/functions/v1/ask-claude`
 
@@ -16,6 +17,7 @@ export const AI_STATE = {
   docTitle: "문서",
   pdfUrl: null,
   canvasId: "pdfContainer",
+  pageCount: 0,
 };
 
 export function initAiState() {
@@ -112,6 +114,7 @@ async function extractPdfChunksFromUrl(url) {
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
   const pdf = await pdfjsLib.getDocument(url).promise;
+  AI_STATE.pageCount = pdf.numPages;
   const pages = [];
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -370,6 +373,71 @@ export async function askClaudeText(prompt) {
 
 export function sourceText(sourceChunks) {
   return sourceChunks?.length ? `근거: ${sourceChunks.join(", ")}` : "";
+}
+
+// ── 핵심 개념 추출 (Claude 호출 → 캐시) ───────────────
+export async function getConcepts({ topK = 8, candidateK = 12 } = {}) {
+  const cache = getAiCache();
+  if (Array.isArray(cache.concepts) && cache.concepts.length > 0) {
+    return cache.concepts;
+  }
+
+  const chunks = await getChunks();
+  const context = buildContext(chunks);
+
+  const prompt = createConceptExtractPrompt({
+    title: AI_STATE.docTitle,
+    context,
+    estimatedPageCount: AI_STATE.pageCount || 10,
+  });
+
+  const raw = await askClaudeJson(prompt);
+  const concepts = Array.isArray(raw) ? raw.slice(0, topK) : raw;
+  setAiCache({ concepts });
+  return concepts;
+}
+
+// ── 페이지 수 기반 출력 범위 결정 ──────────────────────
+export function decideOutputRange(pageCount = 10, type = "summary") {
+  const defaults = {
+    summary: { min: 4, max: 7 },
+    mindmap: { min: 4, max: 6 },
+    quiz:    { min: 5, max: 8 },
+  };
+
+  const base = defaults[type] || defaults.summary;
+
+  if (pageCount <= 5) {
+    return { min: Math.max(base.min - 1, 2), max: Math.max(base.max - 2, 3) };
+  }
+  if (pageCount <= 15) {
+    return base;
+  }
+  if (pageCount <= 30) {
+    return { min: base.min + 1, max: base.max + 1 };
+  }
+  return { min: base.min + 2, max: base.max + 2 };
+}
+
+// ── 중요 chunk 반환 (개념 참조 chunk 우선) ─────────────
+export async function getImportantChunks({ topK = 6, candidateK = 16 } = {}) {
+  const chunks = await getChunks();
+  const cache = getAiCache();
+
+  if (!Array.isArray(cache.concepts) || cache.concepts.length === 0) {
+    return chunks.slice(0, candidateK);
+  }
+
+  const referencedIds = new Set();
+  for (const concept of cache.concepts) {
+    if (Array.isArray(concept.source_chunks)) {
+      concept.source_chunks.forEach(id => referencedIds.add(id));
+    }
+  }
+
+  const referenced = chunks.filter(c => referencedIds.has(c.chunk_id));
+  const others    = chunks.filter(c => !referencedIds.has(c.chunk_id));
+  return [...referenced, ...others].slice(0, candidateK);
 }
 
 // 생성된 지식 자산을 learning_assets DB에 저장

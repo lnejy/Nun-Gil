@@ -155,9 +155,14 @@
         warmup:0
     };
 
-    var LICENSE_KEY  = 'dev_figw9wf24kntvlm1kitwvabnthsh58be86ysqt8e';
+    var LICENSE_KEY  = '';  // /api/config에서 로드
     var seeso        = null;
     var CALIB_POINTS = 6;
+
+    // 서버 .env에서 EyeDID 라이선스 키 가져오기
+    fetch('/api/config').then(function(r) { return r.json(); }).then(function(cfg) {
+        if (cfg.eyedidLicenseKey) LICENSE_KEY = cfg.eyedidLicenseKey;
+    }).catch(function(e) { console.warn('설정 로드 실패:', e.message); });
 
     var gazeDot     = document.getElementById('gaze-dot');
     var trailCanvas = document.getElementById('trail-canvas');

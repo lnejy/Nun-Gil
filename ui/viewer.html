@@ -548,11 +548,16 @@
         var alertActive    = false;  // 경고창이 현재 떠 있는지
         var alertShownAt   = null;   // 경고창이 뜬 시각
 
-        var LICENSE_KEY = 'dev_mfa3ddd5031an00kfrmu7qlufvyg27h8pra7pl0w';
+        var LICENSE_KEY = '';  // /api/config에서 로드
         var seeso = null;
         var CALIB_POINTS = 6;
         var etOn = false;
         var _isRecalib = false;
+
+        // 서버 .env에서 EyeDID 라이선스 키 가져오기
+        fetch('/api/config').then(function(r) { return r.json(); }).then(function(cfg) {
+            if (cfg.eyedidLicenseKey) LICENSE_KEY = cfg.eyedidLicenseKey;
+        }).catch(function(e) { console.warn('설정 로드 실패:', e.message); });
 
         var gazeDot = document.getElementById('gaze-dot');
         var trailCanvas = document.getElementById('trail-canvas');
@@ -625,7 +630,7 @@
 
             if (!isBlink && G.blinkFrames === 0) {
                 trail.push({ x: G.gx, y: G.gy, t: Date.now() });
-                if (trail.length > 50) trail.shift();
+                if (trail.length > 20) trail.shift();
             }
             drawTrail();
 
@@ -697,10 +702,10 @@
             var now = Date.now();
             for (var i = 1; i < trail.length; i++) {
                 var a = trail[i - 1], b = trail[i];
-                var alpha = Math.max(0, (1 - (now - b.t) / 700) * 0.35);
+                var alpha = Math.max(0, (1 - (now - b.t) / 350) * 0.35);
                 tCtx.beginPath(); tCtx.moveTo(a.x, a.y); tCtx.lineTo(b.x, b.y);
-                tCtx.strokeStyle = 'rgba(59,130,246,' + alpha + ')';
-                tCtx.lineWidth = 2; tCtx.stroke();
+                tCtx.strokeStyle = 'rgba(135,200,245,' + alpha + ')';
+                tCtx.lineWidth = 1.2; tCtx.stroke();
             }
         }
 
@@ -947,8 +952,18 @@
            같은 워크스페이스 이전 캘리브레이션 데이터를 사용해
            전체 캘리브레이션 과정 없이 트래킹 시작
         ══════════════════════════════════════════════════════ */
+        function fallbackToFreshCalib(reason) {
+            console.warn('캐시 캘리브레이션 실패 (' + reason + '), 새 캘리브레이션으로 전환');
+            try {
+                var uid = window._supabaseUser?.id || 'anon';
+                var wsId = new URLSearchParams(location.search).get('ws_id') || 'default';
+                localStorage.removeItem('nungil_calib_' + uid + '_' + wsId);
+            } catch (_) {}
+            seeso = null; G.calibDone = false;
+            showCalibOverlay();
+        }
+
         async function applyAndActivate(calibDataStr) {
-            // 간단한 "재사용 중" 표시
             var overlay = document.getElementById('calibOverlay');
             overlay.classList.add('active');
             var card = document.querySelector('#calibSetup .calib-card');
@@ -964,15 +979,21 @@
             }
             document.getElementById('calibSetup').classList.add('active');
 
-            // SDK 로드 대기
+            // SDK 로드 대기 (8초 타임아웃)
             if (!window._sdkLoaded) {
-                await new Promise(function (resolve) {
-                    window.addEventListener('seeso-ready', resolve, { once: true });
-                });
+                var loaded = await Promise.race([
+                    new Promise(function (resolve) {
+                        window.addEventListener('seeso-ready', function () { resolve(true); }, { once: true });
+                    }),
+                    new Promise(function (resolve) {
+                        setTimeout(function () { resolve(false); }, 8000);
+                    })
+                ]);
+                if (!loaded) { fallbackToFreshCalib('SDK 로드 타임아웃'); return; }
             }
 
             var EasySeesoClass = window.EasySeeSo;
-            if (!EasySeesoClass) { showCalibOverlay(); return; }
+            if (!EasySeesoClass) { fallbackToFreshCalib('SDK 클래스 없음'); return; }
 
             seeso = new EasySeesoClass();
             try {
@@ -983,7 +1004,7 @@
                             seeso.setMonitorSize(15);
                             seeso.setFaceDistance(60);
                             seeso.setCameraPosition(window.innerWidth / 2, true);
-                            await seeso.setCalibrationData(calibDataStr);  // 캐시 적용
+                            await seeso.setCalibrationData(calibDataStr);
                         } catch (e) {
                             console.warn('캘리브레이션 데이터 적용 오류:', e);
                         }
@@ -994,22 +1015,15 @@
                             hideCalibOverlay();
                             activateET();
                         } else {
-                            // 트래킹 실패 → 새 캘리브레이션으로 fallback
-                            console.warn('트래킹 시작 실패, 새 캘리브레이션으로 전환');
-                            seeso = null; G.calibDone = false;
-                            showCalibOverlay();
+                            fallbackToFreshCalib('트래킹 시작 실패');
                         }
                     },
                     function () {
-                        // SDK 인증 실패 → 새 캘리브레이션
-                        seeso = null;
-                        showCalibOverlay();
+                        fallbackToFreshCalib('SDK 인증 실패');
                     }
                 );
             } catch (e) {
-                console.warn('SDK 초기화 오류:', e);
-                seeso = null;
-                showCalibOverlay();
+                fallbackToFreshCalib('SDK 초기화 오류: ' + e.message);
             }
         }
 
