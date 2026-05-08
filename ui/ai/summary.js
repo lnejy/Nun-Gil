@@ -10,6 +10,8 @@ import {
   getChunks,
   getConcepts,
   getImportantChunks,
+  loadAssetFromDb,
+  saveAssetToDb,
   setAiCache,
   setAiMode,
   showAiLoading,
@@ -22,13 +24,23 @@ import {
 } from "./prompt.js";
 
 export async function loadSummary({ shouldRender = () => true } = {}) {
+  // 1차: sessionStorage 캐시
   const cache = getAiCache();
-
   if (cache.summary) {
     if (shouldRender()) renderSummary(cache.summary);
     return;
   }
 
+  // 2차: Supabase DB
+  if (shouldRender()) showAiLoading("저장된 요약 확인 중");
+  const dbAsset = await loadAssetFromDb('SUMMARY');
+  if (dbAsset) {
+    setAiCache({ summary: dbAsset });
+    if (shouldRender()) renderSummary(dbAsset);
+    return;
+  }
+
+  // 3차: Claude API 생성
   if (shouldRender()) showAiLoading("요약 생성 중");
 
   await getChunks();
@@ -44,7 +56,8 @@ export async function loadSummary({ shouldRender = () => true } = {}) {
   });
 
   const summary = await askClaudeJson(prompt);
-  setAiCache({ summary });  // 캐시는 항상 저장 (다음에 빨리 보여주려고)
+  setAiCache({ summary });
+  saveAssetToDb('SUMMARY', summary);   // DB 저장
 
   if (shouldRender()) renderSummary(summary);
 }
@@ -117,6 +130,15 @@ const explainBox = card.querySelector(".ai-inline-explain");
 
       if (explainBox.dataset.loaded === "true") return;
 
+      // 이미 저장된 설명이 있으면 바로 렌더
+      if (point._explain) {
+        explainBox.innerHTML = window.marked
+          ? window.marked.parse(point._explain)
+          : `<p>${escapeHtml(point._explain)}</p>`;
+        explainBox.dataset.loaded = "true";
+        return;
+      }
+
       try {
         const response = await explainSummaryPoint(point);
 
@@ -125,6 +147,11 @@ const explainBox = card.querySelector(".ai-inline-explain");
           : `<p>${escapeHtml(response)}</p>`;
 
         explainBox.dataset.loaded = "true";
+
+        // 설명을 summary 객체에 저장 → 캐시 + DB 갱신
+        point._explain = response;
+        setAiCache({ summary });
+        saveAssetToDb('SUMMARY', summary);
       } catch (err) {
         explainBox.innerHTML = `
           <p class="ai-error-text">오류: ${escapeHtml(err.message)}</p>
