@@ -372,7 +372,7 @@ body.bookmark-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www
 /* ═══════════════════════════════════════════════════════
    시선 추적 — gaze dot & trail
 ═══════════════════════════════════════════════════════ */
-#gaze-dot { position: fixed; width: 16px; height: 16px; border-radius: 50%; background: rgba(59,130,246,.7); pointer-events: none; transform: translate(-50%,-50%); z-index: 99999; box-shadow: 0 0 12px rgba(59,130,246,.4); opacity: 0; transition: left .05s linear, top .05s linear, opacity .25s; }
+#gaze-dot { position: fixed; width: 16px; height: 16px; border-radius: 50%; background: transparent; border: 1.5px solid rgba(135,200,245,.6); pointer-events: none; transform: translate(-50%,-50%); z-index: 99999; opacity: 0; transition: left .05s linear, top .05s linear, opacity .25s; }
 #gaze-dot.visible { opacity: 1; }
 #gaze-dot.blink { opacity: .15; transition: opacity .05s; }
 #trail-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 9998; display: none; }
