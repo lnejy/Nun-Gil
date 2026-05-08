@@ -728,6 +728,54 @@ export function sourceText(sourceChunks) {
   return sourceChunks?.length ? `근거: ${sourceChunks.join(", ")}` : "";
 }
 
+// ── 지식 자산 DB 저장 (learning_assets) ────────────────
+export async function saveAssetToDb(type, content) {
+  const docId = AI_STATE.docId;
+  if (!sb || !docId || docId === 'demo') return;
+
+  try {
+    const { data: existing } = await sb
+      .from('learning_assets')
+      .select('id')
+      .eq('document_id', docId)
+      .eq('type', type)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await sb.from('learning_assets')
+        .update({ status: 'DONE', content })
+        .eq('id', existing.id);
+    } else {
+      await sb.from('learning_assets')
+        .insert({ document_id: docId, type, status: 'DONE', content });
+    }
+    console.log(`지식 자산 저장 완료: ${type}`);
+  } catch (e) {
+    console.warn('지식 자산 저장 실패:', e.message);
+  }
+}
+
+// ── DB에서 지식 자산 불러오기 ───────────────────────────
+export async function loadAssetFromDb(type) {
+  const docId = AI_STATE.docId;
+  if (!sb || !docId || docId === 'demo') return null;
+
+  try {
+    const { data } = await sb
+      .from('learning_assets')
+      .select('content')
+      .eq('document_id', docId)
+      .eq('type', type)
+      .eq('status', 'DONE')
+      .maybeSingle();
+
+    return data?.content || null;
+  } catch (e) {
+    console.warn('지식 자산 로드 실패:', e.message);
+    return null;
+  }
+}
+
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")

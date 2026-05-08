@@ -427,6 +427,10 @@
         }
 
         function renderPages(pdf, container, scale) {
+            // 북마크 태그 보존: 렌더 전에 떼어두고 렌더 후 다시 붙임
+            var savedTags = Array.from(container.querySelectorAll('.bookmark-tag'));
+            savedTags.forEach(function (t) { t.remove(); });
+
             container.innerHTML = '';
             var totalPages = pdf.numPages;
 
@@ -453,7 +457,14 @@
 
                     page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
                         .promise.then(function () {
-                            if (num < totalPages) renderPage(num + 1);
+                            if (num < totalPages) {
+                                renderPage(num + 1);
+                            } else {
+                                // 마지막 페이지 렌더 완료 → 북마크 태그 복원
+                                savedTags.forEach(function (t) { container.appendChild(t); });
+                                // PDF 렌더 완료 이벤트 (북마크 DB 로드 트리거)
+                                window.dispatchEvent(new Event('pdf-rendered'));
+                            }
                         });
                 });
             }
@@ -1021,6 +1032,7 @@
 
     <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
     <script type="module">
+        import { sb } from '/src/lib/supabase.js'
         import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
         import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument } from '/src/lib/db/documents.js'
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
@@ -1032,6 +1044,10 @@
         // ── 인증 가드 ─────────────────────────────────────
         const session = await requireAuth()
         if (!session) throw new Error('unauthenticated')
+
+        // script.js(비모듈)에서 Supabase 접근할 수 있도록 window에 노출
+        window._sb = sb
+        window._userId = session.user.id
 
         // ── URL 파라미터 ───────────────────────────────────
         const params = new URLSearchParams(location.search)
@@ -1343,6 +1359,16 @@
         window.dispatchEvent(new CustomEvent('viewer-init', {
             detail: { cachedCalib, workspaceId, calibKey }
         }))
+
+        // PDF 렌더 완료 후 DB 북마크 로드
+        window.addEventListener('pdf-rendered', function () {
+            if (typeof syncBookmarksFromDb === 'function') syncBookmarksFromDb()
+        }, { once: true })
+
+        // PDF 없는 경우(에러/변환중)에도 북마크 로드
+        if (!window._pdfUrl) {
+            if (typeof syncBookmarksFromDb === 'function') syncBookmarksFromDb()
+        }
     </script>
 
 </body>

@@ -10,6 +10,8 @@ import {
   getCanvas,
   getChunks,
   getConcepts,
+  loadAssetFromDb,
+  saveAssetToDb,
   setAiCache,
   setAiMode,
   showAiLoading,
@@ -22,13 +24,23 @@ import {
 } from "./prompt.js";
 
 export async function loadMindmap({ shouldRender = () => true } = {}) {
+  // 1차: sessionStorage 캐시
   const cache = getAiCache();
-
   if (cache.mindmap) {
     if (shouldRender()) renderMindmap(cache.mindmap);
     return;
   }
 
+  // 2차: Supabase DB
+  if (shouldRender()) showAiLoading("저장된 마인드맵 확인 중");
+  const dbAsset = await loadAssetFromDb('MINDMAP');
+  if (dbAsset) {
+    setAiCache({ mindmap: dbAsset });
+    if (shouldRender()) renderMindmap(dbAsset);
+    return;
+  }
+
+  // 3차: Claude API 생성
   if (shouldRender()) showAiLoading("마인드맵 생성 중");
 
   await getChunks();
@@ -45,6 +57,7 @@ export async function loadMindmap({ shouldRender = () => true } = {}) {
 
   const mindmap = await askClaudeJson(prompt);
   setAiCache({ mindmap });
+  saveAssetToDb('MINDMAP', mindmap);   // DB 저장
 
   if (shouldRender()) renderMindmap(mindmap);
 }
