@@ -372,6 +372,38 @@ export function sourceText(sourceChunks) {
   return sourceChunks?.length ? `근거: ${sourceChunks.join(", ")}` : "";
 }
 
+// 생성된 지식 자산을 learning_assets DB에 저장
+export async function saveAssetToDb(type, content) {
+  const sb    = window.sb;
+  const docId = window._currentDocId;
+  if (!sb || !docId) return;
+
+  try {
+    const { data: existing } = await sb
+      .from('learning_assets')
+      .select('id')
+      .eq('document_id', docId)
+      .eq('type', type)
+      .maybeSingle();
+
+    if (existing?.id) {
+      await sb.from('learning_assets')
+        .update({ status: 'DONE', content })
+        .eq('id', existing.id);
+    } else {
+      await sb.from('learning_assets')
+        .insert({ document_id: docId, type, status: 'DONE', content });
+    }
+
+    // 사이드바 지식 자산 갱신
+    if (typeof window.loadKnowledgeAssets === 'function') {
+      window.loadKnowledgeAssets(docId);
+    }
+  } catch (e) {
+    console.warn('지식 자산 저장 실패:', e.message);
+  }
+}
+
 export function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
