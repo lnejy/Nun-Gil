@@ -26,6 +26,11 @@ window.addEventListener("viewer-init", () => {
   bindAiButtons();
 });
 
+// 문서 in-place 전환 시 AI state 재초기화
+window.addEventListener("doc-changed", () => {
+  initAiState();
+});
+
 function bindAiButtons() {
   document.querySelectorAll(".sb-tool-item[data-ai-tool]").forEach((btn) => {
     btn.addEventListener("click", async () => {

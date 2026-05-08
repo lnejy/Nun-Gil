@@ -25,6 +25,29 @@
         min-height: 100vh;
         padding: 24px 32px;
       }
+
+      .workspace-welcome {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: flex-start;
+        padding-top: 12vh;
+        height: 100%; min-height: 70vh;
+        text-align: center; color: #94a3b8; gap: 12px;
+      }
+      .workspace-welcome h1 {
+        font-size: 28px; font-weight: 750;
+        color: #1e293b; letter-spacing: -0.5px;
+        margin-top: 10px;
+      }
+      .workspace-welcome p { font-size: 14px; color: #94a3b8; }
+
+      /* 문서 미선택 시 도구 버튼 비활성화 */
+      body.ws-only-mode .sb-tool-item,
+      body.ws-only-mode .tool-btn-main,
+      body.ws-only-mode .session-btn {
+        opacity: 0.35;
+        pointer-events: none;
+        cursor: not-allowed;
+      }
     </style>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./ai/ai.css">
@@ -205,13 +228,13 @@
                 </div>
             </div>
             <div class="sidebar-scroll">
-                <div class="sb-label" id="sbWorkspaceLabel">문서</div>
+                <div class="sb-label" id="sbWorkspaceLabel" style="color:#1e293b;font-weight:700;font-size:13px;">문서</div>
                 <div class="sb-list" id="sbDocList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
-                <div class="sb-label" style="margin-top:16px;">★ 즐겨찾기</div>
-                <div class="sb-list" id="sbFavList">
-                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                <div class="sb-label" style="margin-top:20px;color:#64748b;font-weight:600;font-size:12px;">✦ 지식 자산</div>
+                <div class="sb-list" id="sbAssetList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 생성된 자산이 표시됩니다.</div>
                 </div>
             </div>
             <div class="sb-profile">
@@ -286,8 +309,12 @@
                 <div class="side-area">
                     <aside class="note-sb" id="noteSb">
                         <div class="note-box">
-                            <div class="note-h">메모장</div>
-                            <textarea class="note-ta" placeholder="여기에 실시간 메모를 작성하세요..."></textarea>
+                            <div class="note-h" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>메모장</span>
+                                <button id="noteSaveBtn" onclick="saveNote()" style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
+                            </div>
+                            <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
+                            <div id="noteSaveMsg" style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">✓ 저장됐어요</div>
                         </div>
                     </aside>
                 </div>
@@ -334,7 +361,7 @@
     </div>
 
     <!-- 경고 위젯 -->
-    <script src="/components/warningWidget.js"></script>
+    <script src="./components/warningWidget.js"></script>
 
     <!-- pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -377,15 +404,21 @@
                 } else if (window._pdfConversionPending) {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">PPT 파일 변환 중입니다.<br>잠시 후 다시 시도해 주세요.</div>';
+                } else if (window._wsOnlyMode) {
+                    var wsName = window._wsName || '워크스페이스';
+                    var c = document.getElementById('pdfContainer');
+                    if (c) c.innerHTML = '<div class="workspace-welcome"><div style="font-size:48px">👀</div><h1>' + wsName + '</h1><p>왼쪽에서 문서를 선택해 주세요.</p></div>';
                 } else {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
                 }
-                if (window._cachedCalib) {
-                    applyAndActivate(window._cachedCalib);
-                } else if (!window._aiViewMode) {
-                    // ai 파라미터로 진입한 경우 캘리브레이션 스킵
-                    showCalibOverlay();
+                // 워크스페이스 모드(문서 미선택)엔 캘리브레이션 불필요
+                if (!window._wsOnlyMode && !window._aiViewMode) {
+                    if (window._cachedCalib) {
+                        applyAndActivate(window._cachedCalib);
+                    } else {
+                        showCalibOverlay();
+                    }
                 }
             }
         }
@@ -462,8 +495,8 @@
                             } else {
                                 // 마지막 페이지 렌더 완료 → 북마크 태그 복원
                                 savedTags.forEach(function (t) { container.appendChild(t); });
-                                // PDF 렌더 완료 이벤트 (북마크 DB 로드 트리거)
-                                window.dispatchEvent(new Event('pdf-rendered'));
+                                // 마지막 페이지 렌더링 완료 → 북마크 복원 트리거
+                                window.dispatchEvent(new CustomEvent('pdf-rendered'));
                             }
                         });
                 });
@@ -1045,15 +1078,16 @@
         const session = await requireAuth()
         if (!session) throw new Error('unauthenticated')
 
-        // script.js(비모듈)에서 Supabase 접근할 수 있도록 window에 노출
-        window._sb = sb
-        window._userId = session.user.id
-
         // ── URL 파라미터 ───────────────────────────────────
         const params = new URLSearchParams(location.search)
-        const docId = params.get('doc_id')
-        // URL에 workspace_id가 있으면 우선 사용 (document.html에서 넘겨줌)
+        let docId = params.get('doc_id')              // let: in-place 전환 시 갱신
         let workspaceId = params.get('workspace_id') ?? null
+
+        // 워크스페이스만 있고 문서 없으면 웰컴 모드
+        if (!docId && workspaceId) {
+            window._wsOnlyMode = true
+            document.body.classList.add('ws-only-mode')
+        }
 
         // ── 문서 조회 → PDF URL + workspace_id ────────────
         if (docId) {
@@ -1100,7 +1134,21 @@
             console.warn('캘리브레이션 캐시 읽기 실패:', e)
         }
 
-        // ── 사이드바: 프로필 + 문서 목록 ────────────────────
+        // 워크스페이스 이름 미리 세팅 (goViewer의 웰컴화면에서 사용)
+        if (workspaceId && !docId) {
+            try {
+                const wsList = await getWorkspaces()
+                const ws = wsList.find(w => w.id === workspaceId)
+                window._wsName = ws?.title ?? ''
+            } catch (e) { console.warn('워크스페이스 이름 로드 실패:', e) }
+        }
+
+        // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
+        window.dispatchEvent(new CustomEvent('viewer-init', {
+            detail: { cachedCalib, workspaceId, calibKey }
+        }))
+
+        // ── 사이드바: 프로필 + 문서 목록 (비동기, viewer-init 이후) ────
         try {
             const result = await getCurrentUser()
             const nameEl = document.getElementById('sbProfileName')
@@ -1120,7 +1168,9 @@
             if (workspaceId) {
                 const workspaces = await getWorkspaces()
                 const ws = workspaces.find(w => w.id === workspaceId)
-                if (labelEl) labelEl.textContent = ws?.title ?? '워크스페이스 문서'
+                const wsName = ws?.title ?? '워크스페이스 문서'
+                window._wsName = wsName
+                if (labelEl) labelEl.textContent = wsName
                 docs = await getDocuments(workspaceId)
             } else {
                 if (labelEl) labelEl.textContent = '최근 문서'
@@ -1139,12 +1189,7 @@
                 listEl.querySelectorAll('.sb-item').forEach(el => {
                     el.addEventListener('click', () => {
                         const id = el.dataset.docId
-                        if (id && id !== docId) {
-                            const dest = workspaceId
-                                ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
-                                : `viewer.html?doc_id=${id}`
-                            location.href = dest
-                        }
+                        if (id && id !== docId) loadDocInViewer(id)
                     })
                 })
             }
@@ -1152,32 +1197,135 @@
             console.warn('문서 목록 로드 실패:', e.message)
         }
 
-        try {
-            const favEl = document.getElementById('sbFavList')
-            const favDocs = await getFavoriteDocuments()
-            if (!favDocs.length) {
-                favEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">즐겨찾기 없음</div>'
-            } else {
-                favEl.innerHTML = favDocs.map(d => `
-                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}" data-ws-id="${d.workspace_id ?? ''}">
-                        <span class="sb-item-text">${d.file_name}</span>
-                    </button>
-                `).join('')
-                favEl.querySelectorAll('.sb-item').forEach(el => {
-                    el.addEventListener('click', () => {
-                        const id = el.dataset.docId
-                        const wsId = el.dataset.wsId
-                        if (id && id !== docId) {
-                            const dest = wsId
-                                ? `viewer.html?doc_id=${id}&workspace_id=${wsId}`
-                                : `viewer.html?doc_id=${id}`
-                            location.href = dest
-                        }
+        // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
+        window.loadKnowledgeAssets = loadKnowledgeAssets
+        async function loadKnowledgeAssets(targetDocId) {
+            const assetEl = document.getElementById('sbAssetList')
+            if (!assetEl) return
+
+            const typeIcon = {
+                SUMMARY: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+                MINDMAP:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+                QUIZ:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            }
+            const toolName = { SUMMARY: 'summary', MINDMAP: 'mindmap', QUIZ: 'quiz' }
+
+            try {
+                let query = sb
+                    .from('learning_assets')
+                    .select('type, status, document_id, documents(file_name)')
+                    .eq('status', 'DONE')
+
+                if (targetDocId) {
+                    query = query.eq('document_id', targetDocId)
+                } else if (workspaceId) {
+                    const wsDocs = await getDocuments(workspaceId)
+                    const docIds = wsDocs.map(d => d.id)
+                    if (!docIds.length) {
+                        assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                        return
+                    }
+                    query = query.in('document_id', docIds)
+                } else {
+                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 표시됩니다.</div>'
+                    return
+                }
+
+                const { data: assets } = await query
+
+                if (!assets || !assets.length) {
+                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                    return
+                }
+
+                assetEl.innerHTML = assets.map(a => {
+                    const fname = a.documents?.file_name ?? ''
+                    return `
+                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" style="gap:8px;align-items:center;">
+                        <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
+                        <span class="sb-item-text" style="font-size:12px;">${fname}</span>
+                    </button>`
+                }).join('')
+
+                assetEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', async () => {
+                        const tool   = el.dataset.tool
+                        const dId    = el.dataset.docId
+
+                        if (dId && dId !== docId) await loadDocInViewer(dId)
+
+                        const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
+                        if (btn) btn.click()
+
+                        assetEl.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'))
+                        el.classList.add('active')
                     })
                 })
+            } catch (e) {
+                console.warn('지식 자산 로드 실패:', e.message)
             }
-        } catch (e) {
-            console.warn('즐겨찾기 로드 실패:', e.message)
+        }
+
+        // 진입 시 자산 로드 (문서 또는 워크스페이스 기준)
+        loadKnowledgeAssets(docId || null)
+
+        // ── 문서 in-place 로드 (script.js에서도 접근 가능하도록 전역 노출) ──
+        window.loadDocInViewer = loadDocInViewer
+        async function loadDocInViewer(id) {
+            try {
+                const doc = await getDocument(id)
+                const pdfPath = doc?.file_type === 'PDF'
+                    ? doc.file_url
+                    : (doc?.converted_pdf_path ?? null)
+
+                if (pdfPath) {
+                    const url = await getSignedUrl(pdfPath)
+                    window._pdfUrl = url
+                    window.renderPdf(url)
+                } else {
+                    const c = document.getElementById('pdfContainer')
+                    if (c) c.innerHTML = '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
+                }
+
+                docId = id
+                window._currentDocId = id
+                window._wsOnlyMode = false
+                document.body.classList.remove('ws-only-mode')
+                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+
+                // 기존 북마크 태그 제거 + 상태 초기화
+                document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
+                if (typeof window._resetBookmarks === 'function') window._resetBookmarks()
+                // PDF 렌더링 완료 후 북마크 복원
+                window.addEventListener('pdf-rendered', function() {
+                    if (typeof window.loadBookmarks === 'function') window.loadBookmarks()
+                }, { once: true })
+
+                // URL 갱신 (페이지 이동 없이)
+                history.pushState({}, '', workspaceId
+                    ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
+                    : `viewer.html?doc_id=${id}`)
+
+                // 메모장 내용 해당 문서 것으로 갱신
+                if (typeof window.reloadMemoForDoc === 'function') window.reloadMemoForDoc()
+
+                // 사이드바 활성 아이템 갱신
+                document.querySelectorAll('#sbDocList .sb-item').forEach(el => {
+                    el.classList.toggle('active', el.dataset.docId === id)
+                })
+
+                // 지식 자산 갱신
+                loadKnowledgeAssets(id)
+
+                // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
+                window.dispatchEvent(new CustomEvent('doc-changed'))
+
+                // 진행 중인 세션 종료
+                if (S.sessionId) await endSession('COMPLETED')
+
+            } catch (e) {
+                console.warn('문서 전환 실패:', e.message)
+            }
         }
 
         // ── 새 문서 추가 버튼 ─────────────────────────────
@@ -1258,6 +1406,12 @@
         // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
         window._S = S
         window._sessionActive = false
+        // script.js에서 사용할 수 있도록 전역 노출
+        window.sb = sb
+        window._sb = sb
+        window._userId = session.user.id
+        window._currentDocId  = docId
+        window._workspaceId   = workspaceId
 
         function calcMetrics() {
             const now = Date.now()
@@ -1301,6 +1455,7 @@
                 S.alertTimes = []
 
                 window._sessionActive = true
+                window._currentSessionId = sess.id
 
                 setSessionUI(true)
 
@@ -1319,10 +1474,10 @@
 
             // 경고창 떠 있으면 닫기 (반응 시간 미기록)
             if (window.alertActive) {
-                window.alertActive  = false  // dismissGazeWarning이 조기 리턴하도록
+                window.alertActive  = false
                 window.alertShownAt = null
                 window.awayStart    = null
-                closeWarning()               // warningWidget.js — UI 닫기
+                closeWarning()
             }
 
             const { T, F, R } = calcMetrics()
@@ -1338,6 +1493,7 @@
                 console.warn('세션 종료 실패:', e.message)
             }
             S.sessionId = null
+            window._currentSessionId = null
             setSessionUI(false)
         }
 
@@ -1355,19 +1511,14 @@
             document.body.classList.add('ai-view-mode')
         }
 
-        // ── viewer-init 이벤트 dispatch → goViewer() 실행 ─
-        window.dispatchEvent(new CustomEvent('viewer-init', {
-            detail: { cachedCalib, workspaceId, calibKey }
-        }))
-
         // PDF 렌더 완료 후 DB 북마크 로드
         window.addEventListener('pdf-rendered', function () {
-            if (typeof syncBookmarksFromDb === 'function') syncBookmarksFromDb()
+            if (typeof loadBookmarks === 'function') loadBookmarks()
         }, { once: true })
 
         // PDF 없는 경우(에러/변환중)에도 북마크 로드
-        if (!window._pdfUrl) {
-            if (typeof syncBookmarksFromDb === 'function') syncBookmarksFromDb()
+        if (!window._pdfUrl && !window._wsOnlyMode) {
+            if (typeof loadBookmarks === 'function') loadBookmarks()
         }
     </script>
 

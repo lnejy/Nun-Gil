@@ -3,7 +3,13 @@ let isBookmarkMode = false;
 let bookmarkCount  = 0;
 let bookmarksData  = {};
 
-// ── 문서 ID ──────────────────────────────────────────────
+// 문서 전환 시 북마크 상태 초기화 (viewer.html에서 호출)
+window._resetBookmarks = function() {
+    bookmarkCount = 0;
+    bookmarksData = {};
+};
+
+// ── 문서 ID (localStorage 키 구분용) ──────────────────────
 function getDocId() {
     return new URLSearchParams(location.search).get('doc_id') || 'default';
 }
@@ -23,10 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 메모장 복원 & 자동저장 등록
     initMemoStorage();
 
-    // 기존 localStorage 북마크 데이터 정리 (DB 전용 전환)
-    localStorage.removeItem(`nungil_bm_${getDocId()}`);
-
-    // 북마크는 viewer.html 모듈에서 syncBookmarksFromDb() 호출 시 DB에서 로드
+    // 북마크는 viewer.html 모듈에서 pdf-rendered 이벤트 시 loadBookmarks() 호출
 });
 
 /* ══════════════════════════════════════════════════════════
@@ -45,133 +48,143 @@ function togNote() {
 function initMemoStorage() {
     const ta = document.querySelector('.note-ta');
     if (!ta) return;
-    const key   = `nungil_note_${getDocId()}`;
-    const saved = localStorage.getItem(key);
-    if (saved) ta.value = saved;
-    ta.addEventListener('input', () => localStorage.setItem(key, ta.value));
+    _loadMemoContent(ta);
+    ta.addEventListener('input', () => {
+        localStorage.setItem(`nungil_note_${getDocId()}`, ta.value);
+    });
+}
+
+function _loadMemoContent(ta) {
+    ta.value = localStorage.getItem(`nungil_note_${getDocId()}`) || '';
+}
+
+window.reloadMemoForDoc = function () {
+    const ta = document.querySelector('.note-ta');
+    if (ta) _loadMemoContent(ta);
+};
+
+// 메모 저장 버튼 핸들러
+function saveNote() {
+    const ta  = document.querySelector('.note-ta');
+    const msg = document.getElementById('noteSaveMsg');
+    if (!ta || !msg) return;
+    const key = `nungil_note_${getDocId()}`;
+    localStorage.setItem(key, ta.value);
+    msg.style.display = 'block';
+    setTimeout(() => { msg.style.display = 'none'; }, 2000);
 }
 
 /* ══════════════════════════════════════════════════════════
-   북마크 저장/복원 (Supabase DB 전용)
+   북마크 저장/복원 (Supabase + localStorage 병행)
 ══════════════════════════════════════════════════════════ */
+async function saveBookmarkToDb(bmId, data, positionY) {
+    const sb = window.sb;
+    if (!sb || !window._currentDocId) return;
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
 
-// ── 저장: Supabase DB에만 저장 ──
-function saveBookmarks() {
-    saveBookmarksToDb();
+    await sb.from('bookmarks').upsert({
+        id:               data.dbId ?? undefined,
+        user_id:          user.id,
+        document_id:      window._currentDocId,
+        workspace_id:     window._workspaceId ?? null,
+        position_y:       positionY,
+        title:            data.title || `북마크 ${bmId}`,
+        memo:             data.content || '',
+        color:            data.color || 'blue',
+        highlighted_text: data.highlighted_text || '',
+    }, { onConflict: 'id' }).select('id').single().then(({ data: row }) => {
+        if (row?.id) bookmarksData[bmId].dbId = row.id;
+    });
 }
 
-async function saveBookmarksToDb() {
-    const sb     = window._sb;
-    const userId = window._userId;
-    const docId  = getDocId();
-    if (!sb || !userId || !docId || docId === 'default') return;
-
-    try {
-        for (const [id, data] of Object.entries(bookmarksData)) {
-            const tag  = document.getElementById(data.tagElementId);
-            const posY = tag ? parseFloat(tag.style.top) : 0;
-
-            const row = {
-                title:            data.title || null,
-                memo:             data.content || null,
-                color:            data.color || 'blue',
-                position_y:       posY,
-                highlighted_text: data.highlightedText || null,
-            };
-
-            if (data._dbId) {
-                await sb.from('bookmarks').update(row).eq('id', data._dbId);
-            } else {
-                const { data: inserted, error } = await sb
-                    .from('bookmarks')
-                    .insert({
-                        ...row,
-                        user_id:      userId,
-                        document_id:  docId,
-                        workspace_id: window._workspaceId || null,
-                    })
-                    .select('id')
-                    .single();
-
-                if (!error && inserted) {
-                    data._dbId = inserted.id;
-                }
-            }
-        }
-    } catch (e) {
-        console.warn('북마크 DB 저장 실패:', e.message);
-    }
-}
-
-// ── DB에서 북마크 로드 (viewer.html 모듈에서 호출) ──
-async function syncBookmarksFromDb() {
-    const sb    = window._sb;
-    const docId = getDocId();
-    if (!sb || !docId || docId === 'default') return;
-
-    try {
-        const { data, error } = await sb
-            .from('bookmarks')
-            .select('*')
-            .eq('document_id', docId)
-            .order('created_at', { ascending: true });
-
-        if (error) throw error;
-        if (!data || data.length === 0) return;
-
-        const canvas = document.querySelector('.paper-canvas');
-        if (!canvas) return;
-
-        // 기존 DOM 태그 제거
-        canvas.querySelectorAll('.bookmark-tag').forEach(t => t.remove());
-        bookmarksData = {};
-        bookmarkCount = 0;
-
-        data.forEach((row, idx) => {
-            const num   = idx + 1;
-            bookmarkCount = Math.max(bookmarkCount, num);
-            const tagId = `tag-id-${num}`;
-
-            bookmarksData[num] = {
-                title:           row.title || '',
-                content:         row.memo || '',
-                color:           row.color || 'blue',
-                tagElementId:    tagId,
-                highlightedText: row.highlighted_text || '',
-                _dbId:           row.id,
-            };
-
-            const tag = document.createElement('div');
-            tag.id          = tagId;
-            tag.className   = `bookmark-tag tag-${row.color || 'blue'}`;
-            tag.style.top   = `${row.position_y || 0}px`;
-            tag.innerText   = row.title || `[${num}]`;
-            tag.dataset.id  = num;
-            tag.dataset.color = row.color || 'blue';
-            tag.onclick = (e) => {
-                e.stopPropagation();
-                const existing = tag.querySelector('.bookmark-popup');
-                if (existing) existing.remove();
-                else showBookmarkPopup(tag);
-            };
-            canvas.appendChild(tag);
-        });
-
-        console.log('DB 북마크 로드 완료:', data.length, '개');
-    } catch (e) {
-        console.warn('DB 북마크 로드 실패:', e.message);
-    }
-}
-
-// ── DB에서 북마크 삭제 ──
 async function deleteBookmarkFromDb(dbId) {
-    const sb = window._sb;
+    const sb = window.sb;
     if (!sb || !dbId) return;
-    try {
-        await sb.from('bookmarks').delete().eq('id', dbId);
-    } catch (e) {
-        console.warn('북마크 DB 삭제 실패:', e.message);
+    await sb.from('bookmarks').delete().eq('id', dbId);
+}
+
+function saveBookmarks() {
+    // localStorage 로컬 캐시
+    const key   = `nungil_bm_${getDocId()}`;
+    const items = Object.entries(bookmarksData).map(([id, data]) => {
+        const tag = document.getElementById(data.tagElementId);
+        return { id, top: tag ? parseFloat(tag.style.top) : 0, ...data };
+    });
+    localStorage.setItem(key, JSON.stringify({ count: bookmarkCount, items }));
+}
+
+window.loadBookmarks = loadBookmarks;
+async function loadBookmarks() {
+    const docId = getDocId();
+    if (!docId || docId === 'default') return;
+    const sb = window.sb;
+
+    // Supabase에서 먼저 불러오기 시도
+    if (sb) {
+        try {
+            const { data: rows } = await sb
+                .from('bookmarks')
+                .select('*')
+                .eq('document_id', docId)
+                .order('created_at', { ascending: true });
+
+            if (rows && rows.length > 0) {
+                _renderBookmarks(rows.map(r => ({
+                    id:           bookmarkCount + 1,
+                    dbId:         r.id,
+                    top:          r.position_y,
+                    title:        r.title,
+                    content:      r.memo,
+                    color:        r.color,
+                    tagElementId: `bm-tag-${r.id}`,
+                    highlighted_text: r.highlighted_text,
+                })));
+                return;
+            }
+        } catch (e) { console.warn('북마크 DB 로드 실패:', e.message); }
     }
+
+    // fallback: localStorage
+    const key = `nungil_bm_${docId}`;
+    const raw = localStorage.getItem(key);
+    if (!raw) return;
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch (e) { return; }
+    _renderBookmarks(parsed.items || []);
+}
+
+function _renderBookmarks(items) {
+    const bmCanvas = document.querySelector('.paper-canvas');
+    if (!bmCanvas) return;
+
+    items.forEach((item, idx) => {
+        // DB에서 복원 시 고유 ID 보장
+        const localId = item.id || (bookmarkCount + idx + 1);
+        const tagElemId = item.tagElementId || `bm-tag-${item.dbId || localId}`;
+
+        bookmarkCount = Math.max(bookmarkCount, Number(localId));
+        bookmarksData[localId] = {
+            dbId: item.dbId, title: item.title, content: item.content,
+            color: item.color, tagElementId: tagElemId,
+            highlighted_text: item.highlighted_text,
+        };
+
+        const tag = document.createElement('div');
+        tag.id             = tagElemId;
+        tag.className      = `bookmark-tag tag-${item.color || 'blue'}`;
+        tag.style.top      = `${item.top}px`;
+        tag.innerText      = item.title || `[${localId}]`;
+        tag.dataset.id     = localId;
+        tag.dataset.color  = item.color || 'blue';
+        if (item.dbId) tag.dataset.dbId = item.dbId;   // 북마크함 이동에 사용
+        tag.onclick = (e) => {
+            e.stopPropagation();
+            const existing = tag.querySelector('.bookmark-popup');
+            if (existing) existing.remove(); else showBookmarkPopup(tag);
+        };
+        bmCanvas.appendChild(tag);
+    });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -197,7 +210,7 @@ document.querySelector('.paper-canvas').addEventListener('mouseup', function (e)
         yPos = e.clientY - canvasRect.top;
     }
 
-    createBookmarkIndexTag(yPos, targetSpan, selectedText);
+    createBookmarkIndexTag(yPos, targetSpan);
     selection.removeAllRanges();
     toggleBookmarkMode();
 });
@@ -210,7 +223,7 @@ const colorPalette = [
     { name: 'purple', code: '#be4bdb' },
 ];
 
-function createBookmarkIndexTag(topPosition, targetSpan, highlightedText) {
+function createBookmarkIndexTag(topPosition, targetSpan) {
     bookmarkCount++;
     const canvas       = document.querySelector('.paper-canvas');
     const initialColor = 'blue';
@@ -240,7 +253,6 @@ function createBookmarkIndexTag(topPosition, targetSpan, highlightedText) {
 
     bookmarksData[bookmarkCount] = {
         title: '', content: '', color: initialColor, tagElementId: tagId,
-        highlightedText: highlightedText || '',
     };
 
     if (targetSpan) tag.targetSpan = targetSpan;
@@ -254,6 +266,8 @@ function createBookmarkIndexTag(topPosition, targetSpan, highlightedText) {
     canvas.appendChild(tag);
     showBookmarkPopup(tag);
     saveBookmarks();
+    // Supabase에도 저장
+    saveBookmarkToDb(bookmarkCount, bookmarksData[bookmarkCount], finalTop);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -275,14 +289,13 @@ function showBookmarkPopup(tag) {
 
     popup.innerHTML = `
         <div class="popup-header">
-            <span>북마크 #${id} 설정</span>
+            <span>북마크 설정</span>
             <button class="popup-close-btn" id="closePopup">&times;</button>
         </div>
         <div class="popup-color-selector">${paletteHTML}</div>
         <input type="text" class="popup-input" id="btitle" placeholder="제목" value="${savedData.title}">
         <textarea class="popup-textarea" id="bcontent" placeholder="메모 내용">${savedData.content}</textarea>
         <button class="popup-save-btn">설정 저장하기</button>
-        <button class="popup-delete-btn" style="margin-top:6px;width:100%;padding:8px;border:none;border-radius:6px;background:#fee2e2;color:#dc2626;font-size:13px;cursor:pointer;">북마크 삭제</button>
     `;
 
     popup.onclick = (e) => e.stopPropagation();
@@ -301,9 +314,11 @@ function showBookmarkPopup(tag) {
             title, content, color: tag.dataset.color,
         };
 
+        // 팝업 제거 → 태그 텍스트 업데이트
         popup.remove();
         tag.innerText = title || `[${id}]`;
 
+        // innerText 교체 후 onclick 재등록
         tag.onclick = (e) => {
             e.stopPropagation();
             const existing = tag.querySelector('.bookmark-popup');
@@ -311,15 +326,9 @@ function showBookmarkPopup(tag) {
         };
 
         saveBookmarks();
-    };
-
-    // 삭제 버튼
-    popup.querySelector('.popup-delete-btn').onclick = () => {
-        const dbId = bookmarksData[id]?._dbId;
-        delete bookmarksData[id];
-        popup.remove();
-        tag.remove();
-        if (dbId) deleteBookmarkFromDb(dbId);
+        // Supabase 업데이트
+        const posY = parseFloat(tag.style.top) || 0;
+        saveBookmarkToDb(id, bookmarksData[id], posY);
     };
 
     tag.appendChild(popup);
@@ -345,49 +354,141 @@ function toggleBookmarkMode() {
 /* ══════════════════════════════════════════════════════════
    북마크함 모달
 ══════════════════════════════════════════════════════════ */
-function togBookmarkList() {
+async function togBookmarkList() {
     const overlay = document.getElementById('bookmarkOverlay');
     const grid    = document.querySelector('.bm-modal-grid');
     const isActive = overlay.classList.toggle('show');
 
-    if (isActive) {
-        grid.innerHTML = '';
-        const keys = Object.keys(bookmarksData);
+    if (!isActive) { document.body.style.overflow = ''; return; }
 
-        if (keys.length === 0) {
-            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
-        } else {
-            keys.forEach(id => {
-                const data = bookmarksData[id];
-                const card = document.createElement('div');
-                card.className = 'bm-card';
-                card.innerHTML = `
-                    <div class="bm-card-top">
-                        <span class="bm-num">No.${String(id).padStart(2, '0')}</span>
-                        <span class="bm-dot" style="background:${colorPalette.find(c => c.name === data.color)?.code || '#ddd'};"></span>
-                    </div>
-                    <div class="bm-body">
-                        <h3 class="bm-title">${data.title || '제목 없음'}</h3>
-                        <p class="bm-content">${data.content || '내용이 비어있습니다.'}</p>
-                        ${data.highlightedText ? `<p class="bm-highlight" style="font-size:12px;color:#6b7280;margin-top:6px;font-style:italic;">"${data.highlightedText.slice(0, 80)}${data.highlightedText.length > 80 ? '...' : ''}"</p>` : ''}
-                    </div>
-                `;
-                card.onclick = () => {
-                    const target = document.getElementById(bookmarksData[id].tagElementId);
-                    if (target) {
-                        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        togBookmarkList();
+    document.body.style.overflow = 'hidden';
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">불러오는 중...</div>';
+
+    // Supabase에서 워크스페이스 전체 북마크 조회
+    const sb = window.sb;
+    let allBookmarks = [];
+
+    if (sb) {
+        try {
+            if (window._workspaceId) {
+                // 워크스페이스 내 모든 문서 ID 조회 후 북마크 필터링
+                const { data: docs } = await sb
+                    .from('documents')
+                    .select('id')
+                    .eq('workspace_id', window._workspaceId);
+                const docIds = (docs || []).map(d => d.id);
+                if (docIds.length > 0) {
+                    const { data, error } = await sb
+                        .from('bookmarks')
+                        .select('*, documents(file_name)')
+                        .in('document_id', docIds)
+                        .order('created_at', { ascending: false });
+                    if (error) throw error;
+                    allBookmarks = data || [];
+                }
+            } else if (window._currentDocId) {
+                const { data, error } = await sb
+                    .from('bookmarks')
+                    .select('*, documents(file_name)')
+                    .eq('document_id', window._currentDocId)
+                    .order('created_at', { ascending: false });
+                if (error) throw error;
+                allBookmarks = data || [];
+            }
+        } catch (e) { console.warn('북마크함 로드 실패:', e.message); }
+    }
+
+    // Supabase 결과 없으면 현재 문서 로컬 북마크 fallback
+    if (!allBookmarks.length) {
+        allBookmarks = Object.entries(bookmarksData).map(([id, data]) => ({
+            id: data.dbId, title: data.title, memo: data.content,
+            color: data.color, position_y: parseFloat(document.getElementById(data.tagElementId)?.style.top) || 0,
+            document_id: window._currentDocId,
+            documents: { file_name: document.title.replace('눈길 — ', '') },
+            _localId: id,
+        }));
+    }
+
+    grid.innerHTML = '';
+
+    if (!allBookmarks.length) {
+        grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
+        return;
+    }
+
+    allBookmarks.forEach(bm => {
+        const colorCode = colorPalette.find(c => c.name === bm.color)?.code || '#ddd';
+        const isOtherDoc = bm.document_id !== window._currentDocId;
+        const card = document.createElement('div');
+        card.className = 'bm-card';
+        card.innerHTML = `
+            <div class="bm-card-top">
+                <span class="bm-dot" style="background:${colorCode};"></span>
+                ${isOtherDoc ? `<span style="font-size:10px;color:#94a3b8;margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${bm.documents?.file_name ?? ''}</span>` : ''}
+                <button class="bm-delete-btn" title="삭제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
+            </div>
+            <div class="bm-body">
+                <h3 class="bm-title">${bm.title || '제목 없음'}</h3>
+                <p class="bm-content">${bm.memo || '내용이 비어있습니다.'}</p>
+            </div>
+        `;
+
+        // 삭제 버튼
+        card.querySelector('.bm-delete-btn').addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (bm.id) await deleteBookmarkFromDb(bm.id);
+            // 로컬 상태에서도 제거
+            const localEntry = Object.entries(bookmarksData).find(([, d]) => d.dbId === bm.id);
+            if (localEntry) {
+                const [localId, data] = localEntry;
+                document.getElementById(data.tagElementId)?.remove();
+                delete bookmarksData[localId];
+                saveBookmarks();
+            }
+            card.remove();
+            // 남은 카드 없으면 빈 메시지
+            if (!grid.querySelector('.bm-card')) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
+            }
+        });
+        card.onclick = async () => {
+            // 모달 닫기
+            overlay.classList.remove('show');
+            document.body.style.overflow = '';
+
+            if (isOtherDoc && typeof window.loadDocInViewer === 'function') {
+                // 다른 문서 로드 후 해당 위치로 스크롤
+                await window.loadDocInViewer(bm.document_id);
+                // 북마크 태그가 렌더링될 때까지 대기 후 스크롤
+                const waitAndScroll = (retries = 0) => {
+                    const tagEl = document.querySelector(`.bookmark-tag[data-db-id="${bm.id}"]`);
+                    if (tagEl) {
+                        tagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else if (retries < 8) {
+                        setTimeout(() => waitAndScroll(retries + 1), 300);
                     } else {
-                        alert('삭제되었거나 찾을 수 없는 북마크입니다.');
+                        const wrapper = document.querySelector('.main-wrapper');
+                        if (wrapper) wrapper.scrollTo({ top: bm.position_y, behavior: 'smooth' });
                     }
                 };
-                grid.appendChild(card);
-            });
-        }
-        document.body.style.overflow = 'hidden';
-    } else {
-        document.body.style.overflow = '';
-    }
+                setTimeout(() => waitAndScroll(), 500);
+            } else {
+                // 현재 문서 → data-db-id 속성으로 태그 찾아 스크롤
+                const tagEl = document.querySelector(`.bookmark-tag[data-db-id="${bm.id}"]`)
+                           || (() => {
+                               const localEntry = Object.values(bookmarksData).find(d => d.dbId === bm.id);
+                               return localEntry ? document.getElementById(localEntry.tagElementId) : null;
+                           })();
+                if (tagEl) {
+                    tagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    const wrapper = document.querySelector('.main-wrapper');
+                    if (wrapper) wrapper.scrollTo({ top: bm.position_y, behavior: 'smooth' });
+                }
+            }
+        };
+        grid.appendChild(card);
+    });
 }
 
 document.getElementById('bookmarkOverlay').addEventListener('click', function (e) {
