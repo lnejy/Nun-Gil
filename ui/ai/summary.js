@@ -8,6 +8,7 @@ import {
   getAiCache,
   getCanvas,
   getChunks,
+  saveAssetToDb,
   getConcepts,
   getImportantChunks,
   setAiCache,
@@ -44,7 +45,8 @@ export async function loadSummary({ shouldRender = () => true } = {}) {
   });
 
   const summary = await askClaudeJson(prompt);
-  setAiCache({ summary });  // 캐시는 항상 저장 (다음에 빨리 보여주려고)
+  setAiCache({ summary });
+  saveAssetToDb('SUMMARY', summary);   // DB 저장 (사이드바 + 영구 보존)
 
   if (shouldRender()) renderSummary(summary);
 }

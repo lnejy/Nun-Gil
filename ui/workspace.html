@@ -778,7 +778,7 @@
 
         card.addEventListener('click', (e) => {
           if (e.target.closest('.workspace-menu-wrap')) return
-          location.href = `document.html?workspace_id=${ws.id}`
+          location.href = `viewer.html?workspace_id=${ws.id}`
         })
 
         workspaceGrid.appendChild(card)

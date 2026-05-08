@@ -14,6 +14,7 @@ import {
   setAiMode,
   showAiLoading,
   sourceText,
+  saveAssetToDb,
 } from "./common.js";
 
 import {
@@ -45,6 +46,7 @@ export async function loadMindmap({ shouldRender = () => true } = {}) {
 
   const mindmap = await askClaudeJson(prompt);
   setAiCache({ mindmap });
+  saveAssetToDb('MINDMAP', mindmap);
 
   if (shouldRender()) renderMindmap(mindmap);
 }
