@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>PDF Layout Viewer</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #e5e7eb;
+            font-family: Arial, sans-serif;
+        }
+
+        .toolbar {
+            height: 56px;
+            background: #111827;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 0 20px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .toolbar button {
+            padding: 6px 12px;
+            border: 0;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #viewer {
+            padding: 32px;
+        }
+
+        .page {
+            position: relative;
+            margin: 0 auto 32px;
+            background: white;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+            overflow: hidden;
+        }
+
+        .page-bg {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: fill;
+            z-index: 1;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .overlay {
+            position: absolute;
+            box-sizing: border-box;
+            z-index: 5;
+            background: transparent;
+            border: 1px solid transparent;
+        }
+
+        .overlay.textOverlay {
+            background: transparent;
+            color: transparent;
+            border: 1px solid transparent;
+        }
+
+        .overlay.textOverlay:hover {
+            background: rgba(59, 130, 246, 0.2);
+            border-color: rgba(37, 99, 235, 0.8);
+        }
+
+        .overlay.visualRegion,
+        .overlay.regionOverlay {
+            pointer-events: auto;
+        }
+
+        .overlay:hover {
+            background: rgba(250, 204, 21, 0.22);
+            border-color: rgba(234, 179, 8, 0.8);
+        }
+
+        .overlay.active {
+            background: rgba(59, 130, 246, 0.25);
+            border-color: rgba(37, 99, 235, 0.9);
+        }
+
+        .debug .overlay.textOverlay {
+            border-color: rgba(239, 68, 68, 0.7);
+            background: rgba(239, 68, 68, 0.08);
+        }
+
+        .debug .overlay.visualRegion {
+            border-color: rgba(34, 197, 94, 0.7);
+            background: rgba(34, 197, 94, 0.07);
+        }
+
+        .debug .overlay.regionOverlay {
+            border-color: rgba(168, 85, 247, 0.7);
+            background: rgba(168, 85, 247, 0.07);
+        }
+
+        .page-label {
+            position: absolute;
+            right: 8px;
+            bottom: 6px;
+            z-index: 10;
+            font-size: 11px;
+            color: rgba(17, 24, 39, 0.45);
+            background: rgba(255, 255, 255, 0.65);
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        .tooltip {
+            position: fixed;
+            max-width: 420px;
+            padding: 8px 10px;
+            background: #111827;
+            color: white;
+            font-size: 12px;
+            line-height: 1.4;
+            border-radius: 6px;
+            pointer-events: none;
+            z-index: 100;
+            display: none;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="toolbar">
+        <strong>PDF Layout Viewer</strong>
+        <button id="zoomOut">-</button>
+        <span id="zoomLabel">100%</span>
+        <button id="zoomIn">+</button>
+        <button id="toggleDebug">bbox 보기</button>
+    </div>
+
+    <div id="viewer"></div>
+    <div id="tooltip" class="tooltip"></div>
+
+    <script>
+        const JSON_URL = "/public/demo-layout.json";
+
+        let layout = null;
+        let scale = 1.25;
+        let debug = false;
+
+        const viewer = document.getElementById("viewer");
+        const zoomLabel = document.getElementById("zoomLabel");
+        const tooltip = document.getElementById("tooltip");
+
+        async function init() {
+            const res = await fetch(JSON_URL);
+            layout = await res.json();
+            render();
+        }
+
+        function render() {
+            viewer.innerHTML = "";
+            viewer.classList.toggle("debug", debug);
+            zoomLabel.textContent = `${Math.round(scale * 100)}%`;
+
+            for (const page of layout.pages) {
+                const pageEl = document.createElement("div");
+                pageEl.className = "page";
+                pageEl.style.width = `${page.width * scale}px`;
+                pageEl.style.height = `${page.height * scale}px`;
+
+                const bg = document.createElement("img");
+                bg.className = "page-bg";
+                bg.src = resolveBackground(page);
+                bg.alt = `page ${page.page}`;
+                pageEl.appendChild(bg);
+
+                const overlays = page.overlays || [];
+
+                for (const block of overlays) {
+                    pageEl.appendChild(renderOverlay(block));
+                }
+
+                const label = document.createElement("div");
+                label.className = "page-label";
+                label.textContent = `${page.page} / ${layout.page_count} · ${page.overlaySource}`;
+                pageEl.appendChild(label);
+
+                viewer.appendChild(pageEl);
+            }
+        }
+
+        function resolveBackground(page) {
+    let bg = page.background || "";
+
+    if (bg.startsWith("/demo-pages/")) {
+        return "/public" + bg;
+    }
+
+    return `/public/demo-pages/page_${page.page}.png`;
+}
+
+        function renderOverlay(block) {
+            const el = document.createElement("div");
+            el.className = `overlay ${block.type}`;
+            el.dataset.blockId = block.block_id || "";
+            el.dataset.page = block.page || "";
+            el.dataset.text = block.cleanText || block.text || "";
+            el.dataset.source = block.source || "";
+
+            el.style.left = `${block.x * scale}px`;
+            el.style.top = `${block.y * scale}px`;
+            el.style.width = `${block.width * scale}px`;
+            el.style.height = `${block.height * scale}px`;
+
+            el.addEventListener("mouseenter", (e) => {
+                const text = block.cleanText || block.text || block.label || block.type;
+                if (!text) return;
+
+                tooltip.textContent =
+                    `[${block.type}] ${block.source || ""}\n` +
+                    text;
+
+                tooltip.style.display = "block";
+                moveTooltip(e);
+            });
+
+            el.addEventListener("mousemove", moveTooltip);
+
+            el.addEventListener("mouseleave", () => {
+                tooltip.style.display = "none";
+            });
+
+            el.addEventListener("click", () => {
+                document.querySelectorAll(".overlay.active").forEach(x => {
+                    x.classList.remove("active");
+                });
+                el.classList.add("active");
+
+                console.log({
+                    page: block.page,
+                    block_id: block.block_id,
+                    type: block.type,
+                    source: block.source,
+                    text: block.cleanText || block.text || "",
+                    bbox: block.bbox,
+                });
+            });
+
+            return el;
+        }
+
+        function moveTooltip(e) {
+            tooltip.style.left = `${e.clientX + 12}px`;
+            tooltip.style.top = `${e.clientY + 12}px`;
+        }
+
+        document.getElementById("zoomIn").addEventListener("click", () => {
+            scale = Math.min(scale + 0.1, 3);
+            render();
+        });
+
+        document.getElementById("zoomOut").addEventListener("click", () => {
+            scale = Math.max(scale - 0.1, 0.4);
+            render();
+        });
+
+        document.getElementById("toggleDebug").addEventListener("click", () => {
+            debug = !debug;
+            render();
+        });
+
+        init();
+    </script>
+</body>
+
+</html>

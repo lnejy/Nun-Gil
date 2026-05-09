@@ -90,7 +90,7 @@ function renderSummary(summary) {
           </button>
 
           <div class="ai-inline-explain" hidden>
-            <div class="ai-inline-loading">AI가 문서 근거를 바탕으로 설명 중...</div>
+            <div class="ai-inline-loading">문서 근거를 바탕으로 설명 중...</div>
           </div>
         </div>
       `).join("")}

@@ -82,7 +82,7 @@ export function showAiError(message) {
   setAiMode();
 
   canvas.innerHTML = `
-    <div class="pdf-no-content">AI 생성 실패: ${escapeHtml(message)}</div>
+    <div class="pdf-no-content">생성 실패: ${escapeHtml(message)}</div>
   `;
 }
 
