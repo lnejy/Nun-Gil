@@ -72,7 +72,7 @@ export function showAiLoading(label) {
     <div class="ai-loading">
       <div class="ai-spinner"></div>
       <strong>${escapeHtml(label)}</strong>
-      <span>문서 근거를 바탕으로 AI가 생성 중입니다...</span>
+      <span>문서 근거를 바탕으로 생성 중입니다...</span>
     </div>
   `;
 }

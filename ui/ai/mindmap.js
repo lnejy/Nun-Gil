@@ -58,7 +58,7 @@ function renderMindmap(mindmapData) {
   container.innerHTML = `
     <div class="mindmap-app">
       <main class="mindmap-map-area">
-        <div class="mindmap-logo">눈길 · D3 마인드맵</div>
+        <div class="mindmap-logo">눈길 마인드맵</div>
 
         <div class="mindmap-toolbar">
           <button type="button" id="mindmapZoomIn" title="확대">＋</button>
@@ -78,8 +78,8 @@ function renderMindmap(mindmapData) {
     </div>
   `;
 
-  const nodeWidth = 164;
-  const nodeHeight = 50;
+  const nodeWidth = 260;
+  const depthGap = 330;
   const duration = 720;
   const ease = d3.easeCubicInOut;
 
@@ -126,13 +126,22 @@ function renderMindmap(mindmapData) {
   }
 
   function update(source) {
-    const treeLayout = d3.tree().nodeSize([92, 245]);
+    const treeLayout = d3.tree()
+  .nodeSize([1, depthGap])
+  .separation((a, b) => {
+    const ah = getNodeHeight(a.data.name);
+    const bh = getNodeHeight(b.data.name);
+
+    return (ah + bh) / 2 + 42;
+  });
     treeLayout(root);
 
     const nodes = root.descendants();
     const links = root.links();
 
-    nodes.forEach((d) => d.y = d.depth * 245);
+    nodes.forEach((d) => {
+  d.y = d.depth * depthGap;
+});
 
     const transition = d3.transition()
       .duration(duration)
@@ -188,16 +197,16 @@ function renderMindmap(mindmapData) {
           update(d);
         }
       })
-      .on("mouseover", function () {
+      .on("mouseover", function (event, d) {
         d3.select(this).raise();
         d3.select(this).select("rect")
           .transition()
           .duration(220)
           .ease(d3.easeCubicOut)
           .attr("x", -nodeWidth / 2 - 7)
-          .attr("y", -nodeHeight / 2 - 4)
+          .attr("y", -getNodeHeight(d.data.name) / 2 - 4)
           .attr("width", nodeWidth + 14)
-          .attr("height", nodeHeight + 8);
+          .attr("height", getNodeHeight(d.data.name) + 8);
       })
       .on("mouseout", function () {
         d3.select(this).select("rect")
@@ -205,29 +214,36 @@ function renderMindmap(mindmapData) {
           .duration(220)
           .ease(d3.easeCubicOut)
           .attr("x", -nodeWidth / 2)
-          .attr("y", -nodeHeight / 2)
+          .attr("y", (d) => -getNodeHeight(d.data.name) / 2)
           .attr("width", nodeWidth)
-          .attr("height", nodeHeight);
+          .attr("height", (d) => getNodeHeight(d.data.name));
       });
 
     nodeEnter.append("rect")
       .attr("class", "mindmap-node-card")
       .attr("x", -nodeWidth / 2)
-      .attr("y", -nodeHeight / 2)
+      .attr("y", (d) => -getNodeHeight(d.data.name) / 2)
       .attr("width", nodeWidth)
-      .attr("height", nodeHeight);
-
-    nodeEnter.append("text")
+      .attr("height", (d) => getNodeHeight(d.data.name));
+    nodeEnter.append("foreignObject")
+      .attr("x", -nodeWidth / 2)
+      .attr("y", (d) => -getNodeHeight(d.data.name) / 2)
+      .attr("width", nodeWidth)
+      .attr("height", (d) => getNodeHeight(d.data.name))
+      .append("xhtml:div")
       .attr("class", "mindmap-node-label")
-      .attr("text-anchor", "middle")
-      .attr("dy", 5)
-      .text((d) => shorten(d.data.name));
+      .html((d) => `
+    <div class="mindmap-node-label-inner">
+      ${escapeHtml(d.data.name)}
+    </div>
+  `);
 
     nodeEnter.append("text")
       .attr("class", "mindmap-arrow-text")
       .attr("text-anchor", "middle")
-      .attr("x", nodeWidth / 2 - 18)
-      .attr("dy", 5)
+      .attr("x", nodeWidth / 2 - 30)
+      .attr("dy", 6)
+      .attr("dy", 6.5)
       .style("display", (d) => d._children ? "block" : "none")
       .text("›");
 
@@ -276,17 +292,26 @@ function renderMindmap(mindmapData) {
       .duration(140)
       .ease(d3.easeCubicOut)
       .attr("x", -nodeWidth / 2 - 10)
-      .attr("y", -nodeHeight / 2 - 6)
       .attr("width", nodeWidth + 20)
-      .attr("height", nodeHeight + 12)
+      .attr("y", (d) => -getNodeHeight(d.data.name) / 2 - 6)
+      .attr("height", (d) => getNodeHeight(d.data.name) + 12)
       .transition()
       .duration(260)
       .ease(d3.easeCubicOut)
       .attr("x", -nodeWidth / 2)
-      .attr("y", -nodeHeight / 2)
+      .attr("y", (d) => -getNodeHeight(d.data.name) / 2)
       .attr("width", nodeWidth)
-      .attr("height", nodeHeight);
+      .attr("height", (d) => getNodeHeight(d.data.name));
   }
+
+  function getNodeHeight(text) {
+  const value = String(text || "").trim();
+
+  const approxCharsPerLine = 15;
+  const lines = Math.max(1, Math.ceil(value.length / approxCharsPerLine));
+
+  return Math.max(58, lines * 20 + 20);
+}
 
   function showMindmapDetail(d) {
     const childNames = [...(d.children || []), ...(d._children || [])]
@@ -343,8 +368,15 @@ function renderMindmap(mindmapData) {
     const nodes = root.descendants();
     const area = container.querySelector(".mindmap-map-area");
 
-    const minX = d3.min(nodes, (d) => d.x + 330 - nodeHeight);
-    const maxX = d3.max(nodes, (d) => d.x + 330 + nodeHeight);
+    const minX = d3.min(
+      nodes,
+      (d) => d.x + 330 - getNodeHeight(d.data.name)
+    );
+
+    const maxX = d3.max(
+      nodes,
+      (d) => d.x + 330 + getNodeHeight(d.data.name)
+    );
     const minY = d3.min(nodes, (d) => d.y + 120 - nodeWidth);
     const maxY = d3.max(nodes, (d) => d.y + 120 + nodeWidth);
 
@@ -354,11 +386,13 @@ function renderMindmap(mindmapData) {
     const areaWidth = area.clientWidth;
     const areaHeight = area.clientHeight;
 
-    const scale = Math.min(
-      areaWidth / (width + 260),
-      areaHeight / (height + 260),
-      1.35
-    );
+    const rawScale = Math.min(
+  areaWidth / (width + 260),
+  areaHeight / (height + 260),
+  1.05
+);
+
+const scale = Math.max(rawScale, 0.82);
 
     const translateX = areaWidth / 2 - ((minY + maxY) / 2) * scale;
     const translateY = areaHeight / 2 - ((minX + maxX) / 2) * scale;
@@ -377,9 +411,4 @@ function renderMindmap(mindmapData) {
   container.querySelector("#mindmapToggleAll").addEventListener("click", toggleAllMindmap);
 
   update(root);
-}
-
-function shorten(text) {
-  const value = String(text || "");
-  return value.length > 12 ? value.slice(0, 12) + "…" : value;
 }
