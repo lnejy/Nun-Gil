@@ -94,35 +94,52 @@ function normalizeQuiz(quiz) {
       .filter((index) => index >= 0 && index < options.length)
       .slice(0, 2);
 
+    let questionText = String(q.question || "");
+
+    // 문제 문장 안의 선택 안내 문구 제거
+    questionText = questionText
+      .replace(/\(?\s*하나만\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*한\s*개만\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*두\s*개\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*두\s*개를\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*모두\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/\s+([?.!])/g, "$1")
+      .trim();
+
+    // 하나만 고르시오는 문제에 표시하지 않음
+    // 정답이 2개 이상이면 문제 문장에만 확실히 표시
+    if (answerIndexes.length >= 2) {
+      questionText = `${questionText} 두 개 고르시오`;
+    }
+
     return {
-      type: answerIndexes.length >= 2 ? "두 개 고르시오" : "하나만 고르시오",
-      question: q.question || "",
-      options,
-      answerIndexes,
-      answer: answerIndexes.map((index) => options[index]).join(", "),
-      explanation: q.explanation || "",
-      optionExplanations:
-      q.optionExplanations ||
-      q.option_explanations ||
-      q.choiceExplanations ||
-      q.choice_explanations ||
-      [],
-      source_chunks: q.source_chunks || [],
-    };
+  type: "",
+  question: questionText,
+  options,
+  answerIndexes,
+  answer: answerIndexes.map((index) => options[index]).join(", "),
+  explanation: q.explanation || "",
+  optionExplanations:
+    q.optionExplanations ||
+    q.option_explanations ||
+    q.choiceExplanations ||
+    q.choice_explanations ||
+    [],
+  source_chunks: q.source_chunks || [],
+};
   });
 }
-
+  
 function getQuizTitle() {
   const rawTitle = AI_STATE.docTitle || window._docTitle || "문서";
 
   const cleanTitle = String(rawTitle)
     // 확장자 제거
     .replace(/\.(pdf|ppt|pptx)$/i, "")
-    // 앞에 붙은 숫자 제거: "6. 제목", "06_제목", "1-제목" 같은 형태 대응
-    .replace(/^\s*\d+\s*[._-]\s*/g, "")
     .trim();
 
-  return `${cleanTitle} 퀴즈`;
+  return `${cleanTitle}`;
 }
 
 function formatOptionLabel(index, option) {
@@ -173,13 +190,13 @@ function renderQuiz(quiz) {
   const normalized = normalizeQuiz(quiz);
 
   quizState = {
-    list: normalized,
-    currentIndex: 0,
-    answers: Array(normalized.length).fill(null),
-    bookmarks: Array(normalized.length).fill(false),
-    fullscreen: false,
-    showResult: false,
-  };
+  list: normalized,
+  currentIndex: 0,
+  answers: Array(normalized.length).fill(null),
+  bookmarks: Array(normalized.length).fill(false),
+  fullscreen: false,
+  showResult: false,
+};
 
   renderQuizLayout(container);
 }
@@ -211,7 +228,7 @@ function renderQuizLayout(container) {
           <div class="ng-quiz-panel">
             <div class="ng-quiz-topbar">
               <div>
-                <div class="ng-quiz-badge">${total}문제</div>
+                <div class="ng-quiz-badge">퀴즈 - ${total}문제</div>
                 <h1 class="ng-quiz-title">${escapeHtml(getQuizTitle())}</h1>
                 <p class="ng-quiz-desc">
                   문서 내용을 바탕으로 생성된 문제를 한 문제씩 풀어보세요.
@@ -328,13 +345,28 @@ function renderIndexList() {
     button.className = "ng-quiz-number-btn";
     button.textContent = index + 1;
 
+    const answer = quizState.answers[index];
     const isDone =
-      quizState.answers[index]?.selectedIndexes?.length ||
-      quizState.answers[index]?.isRevealed;
+      answer?.selectedIndexes?.length ||
+      answer?.isRevealed;
 
-    if (index === quizState.currentIndex) button.classList.add("current");
-    if (isDone) button.classList.add("done");
-    if (quizState.bookmarks[index]) button.classList.add("bookmarked");
+    if (index === quizState.currentIndex && !quizState.showResult) {
+      button.classList.add("current");
+    }
+
+    if (quizState.showResult && answer) {
+      if (answer.isCorrect) {
+        button.classList.add("correct");
+      } else {
+        button.classList.add("wrong");
+      }
+    } else if (isDone) {
+      button.classList.add("done");
+    }
+
+    if (quizState.bookmarks[index]) {
+      button.classList.add("bookmarked");
+    }
 
     button.addEventListener("click", () => {
       quizState.currentIndex = index;
@@ -355,97 +387,78 @@ function renderQuestion() {
   const isSubmitted = answerData?.isRevealed;
 
   card.innerHTML = `
-  <div class="ng-quiz-question-top">
-    <div class="ng-quiz-question-head">
-      <span class="ng-quiz-question-number">Q${quizState.currentIndex + 1}</span>
+    <div class="ng-quiz-question-top">
+      <div class="ng-quiz-question-head">
+        <span class="ng-quiz-question-number">Q${quizState.currentIndex + 1}</span>
 
-      <div class="ng-quiz-question-copy">
-        <h2 class="ng-quiz-question-text">${escapeHtml(quiz.question)}</h2>
-        <p class="ng-quiz-question-type">${escapeHtml(quiz.type)}</p>
+        <div class="ng-quiz-question-copy">
+          <h2 class="ng-quiz-question-text">${escapeHtml(quiz.question)}</h2>
+        </div>
       </div>
-    </div>
 
-    <button
-      id="ngQuizBookmarkBtn"
-      class="ng-quiz-bookmark-btn ${quizState.bookmarks[quizState.currentIndex] ? "active" : ""}"
-      type="button"
-      title="북마크"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="17"
-        height="17"
-        fill="${quizState.bookmarks[quizState.currentIndex] ? "currentColor" : "none"}"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
-      </svg>
-    </button>
-  </div>
-
-  <div id="ngQuizOptionList" class="ng-quiz-option-list"></div>
-
-  <div class="ng-quiz-answer-box ${isSubmitted ? "" : "hidden"}">
-    <p class="ng-quiz-result-text ${answerData?.isCorrect ? "correct-text" : "wrong-text"}">
-      ${isSubmitted ? (answerData.isCorrect ? "정답입니다!" : "오답입니다.") : ""}
-    </p>
-
-    <div class="ng-quiz-answer-detail">
-      <p class="ng-quiz-answer-title">정답</p>
-      <p class="ng-quiz-answer-content">
-        ${isSubmitted ? escapeHtml(getAnswerText(quiz)) : ""}
-      </p>
-    </div>
-
-    <div class="ng-quiz-answer-detail">
-      <p class="ng-quiz-answer-title">해설</p>
-      <p class="ng-quiz-answer-content">
-        ${isSubmitted ? escapeHtml(quiz.explanation) : ""}
-      </p>
-    </div>
-
-    ${
-      quiz.source_chunks?.length
-        ? `
-          <div class="ng-quiz-answer-detail">
-            <p class="ng-quiz-answer-title">근거</p>
-            <p class="ng-quiz-answer-content">
-              ${escapeHtml(sourceText(quiz.source_chunks))}
-            </p>
-          </div>
-        `
-        : ""
-    }
-  </div>
-
-  <div class="ng-quiz-card-actions">
-    <div class="ng-quiz-answer-actions">
       <button
-        id="ngQuizRevealBtn"
-        class="ng-quiz-soft-btn danger"
+        id="ngQuizBookmarkBtn"
+        class="ng-quiz-bookmark-btn ${quizState.bookmarks[quizState.currentIndex] ? "active" : ""}"
         type="button"
-        ${answerData?.isRevealed ? "disabled" : ""}
+        title="북마크"
       >
-        정답 및 해설 보기
+        <svg
+          viewBox="0 0 24 24"
+          width="17"
+          height="17"
+          fill="${quizState.bookmarks[quizState.currentIndex] ? "currentColor" : "none"}"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+        </svg>
       </button>
     </div>
 
-    <div class="ng-quiz-nav-actions right">
-      <button id="ngQuizPrevBtn" class="ng-quiz-soft-btn" type="button">이전</button>
+    <div id="ngQuizOptionList" class="ng-quiz-option-list"></div>
 
-      ${
-        quizState.currentIndex === quizState.list.length - 1
-          ? `<button id="ngQuizFinalSubmitBtn" class="ng-quiz-primary-btn" type="button">
-               제출 및 결과보기
-             </button>`
-          : `<button id="ngQuizNextBtn" class="ng-quiz-primary-btn" type="button">
-               다음
-             </button>`
-      }
-    </div>
+    <div class="ng-quiz-answer-box ${isSubmitted ? "" : "hidden"}">
+  <div class="ng-quiz-answer-detail first">
+    <p class="ng-quiz-answer-title">
+      정답 : ${isSubmitted ? escapeHtml(getAnswerNumberText(quiz)) : ""}
+    </p>
   </div>
-`;
+
+  <div class="ng-quiz-answer-detail">
+    <p class="ng-quiz-answer-title">해설</p>
+    <p class="ng-quiz-answer-content">
+      ${isSubmitted ? escapeHtml(quiz.explanation) : ""}
+    </p>
+  </div>
+</div>
+
+    <div class="ng-quiz-card-actions">
+      <div class="ng-quiz-answer-actions">
+        <button
+          id="ngQuizRevealBtn"
+          class="ng-quiz-soft-btn danger"
+          type="button"
+          ${answerData?.isRevealed ? "disabled" : ""}
+        >
+          정답 및 해설 보기
+        </button>
+      </div>
+
+      <div class="ng-quiz-nav-actions right">
+        <button id="ngQuizPrevBtn" class="ng-quiz-soft-btn" type="button">이전</button>
+
+        ${
+          quizState.currentIndex === quizState.list.length - 1
+            ? `<button id="ngQuizFinalSubmitBtn" class="ng-quiz-primary-btn" type="button">
+                 제출 및 결과보기
+               </button>`
+            : `<button id="ngQuizNextBtn" class="ng-quiz-primary-btn" type="button">
+                 다음
+               </button>`
+        }
+      </div>
+    </div>
+  `;
 
   renderOptions(quiz, answerData, isSubmitted);
   bindQuestionEvents(isSubmitted);
@@ -512,12 +525,13 @@ function renderOptions(quiz, answerData, isSubmitted) {
       }
 
       quizState.answers[quizState.currentIndex] = {
-        selectedIndexes: nextSelectedIndexes,
-        selectedAnswer: nextSelectedIndexes
-          .map((index) => formatOptionLabel(index, quiz.options[index]))
-          .join(", "),
-        isRevealed: false,
-      };
+  ...currentAnswer,
+  selectedIndexes: nextSelectedIndexes,
+  selectedAnswer: nextSelectedIndexes
+    .map((index) => formatOptionLabel(index, quiz.options[index]))
+    .join(", "),
+  isRevealed: false,
+};
 
       renderQuizLayout(getCanvas());
     });
@@ -571,6 +585,29 @@ function goNext() {
 function toggleBookmark() {
   quizState.bookmarks[quizState.currentIndex] =
     !quizState.bookmarks[quizState.currentIndex];
+
+  renderQuizLayout(getCanvas());
+}
+
+function revealAnswerAsWrong() {
+  const quiz = quizState.list[quizState.currentIndex];
+  const answerData = quizState.answers[quizState.currentIndex] || {
+    selectedIndexes: [],
+  };
+
+  const selectedIndexes = answerData.selectedIndexes || [];
+
+  quizState.answers[quizState.currentIndex] = {
+    selectedIndexes,
+    selectedAnswer: selectedIndexes.length
+      ? selectedIndexes
+          .map((index) => formatOptionLabel(index, quiz.options[index]))
+          .join(", ")
+      : "해설 확인",
+    explanation: quiz.explanation,
+    isCorrect: false,
+    isRevealed: true,
+  };
 
   renderQuizLayout(getCanvas());
 }
@@ -644,21 +681,54 @@ return `
           ${isCorrectQuestion ? "O" : "X"}
         </span>
       </div>
-
-      <p class="ng-result-question-type">${escapeHtml(quiz.type)}</p>
     </div>
+
+    <button
+      class="ng-result-bookmark-btn ${quizState.bookmarks[quizIndex] ? "active" : ""}"
+      type="button"
+      data-bookmark-index="${quizIndex}"
+      title="북마크"
+    >
+      <svg
+        viewBox="0 0 24 24"
+        width="17"
+        height="17"
+        fill="${quizState.bookmarks[quizIndex] ? "currentColor" : "none"}"
+        stroke="currentColor"
+        stroke-width="2"
+      >
+        <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+      </svg>
+    </button>
   </div>
 
-      <div class="ng-result-answer-line">
-        정답: ${escapeHtml(getAnswerNumberText(quiz))}
-      </div>
+  <div class="ng-result-option-list">
+    ${optionsHtml}
+  </div>
 
-      <div class="ng-result-option-list">
-        ${optionsHtml}
-      </div>
-    `;
+  <div class="ng-result-answer-line">
+    정답 : ${escapeHtml(getAnswerNumberText(quiz))}
+  </div>
+`;
 
     reviewList.appendChild(reviewItem);
+  });
+
+  bindResultBookmarkEvents();
+  renderIndexList();
+}
+
+function toggleResultBookmark(index) {
+  quizState.bookmarks[index] = !quizState.bookmarks[index];
+  renderQuizLayout(getCanvas());
+}
+
+function bindResultBookmarkEvents() {
+  document.querySelectorAll(".ng-result-bookmark-btn").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.bookmarkIndex);
+      toggleResultBookmark(index);
+    });
   });
 }
 
@@ -700,29 +770,6 @@ function showOriginalDocument() {
       문서를 불러올 수 없습니다.
     </div>
   `;
-}
-
-function revealAnswerAsWrong() {
-  const quiz = quizState.list[quizState.currentIndex];
-  const answerData = quizState.answers[quizState.currentIndex] || {
-    selectedIndexes: [],
-  };
-
-  const selectedIndexes = answerData.selectedIndexes || [];
-
-  quizState.answers[quizState.currentIndex] = {
-    selectedIndexes,
-    selectedAnswer: selectedIndexes.length
-      ? selectedIndexes
-          .map((index) => formatOptionLabel(index, quiz.options[index]))
-          .join(", ")
-      : "해설 확인",
-    explanation: quiz.explanation,
-    isCorrect: false,
-    isRevealed: true,
-  };
-
-  renderQuizLayout(getCanvas());
 }
 
 function finalSubmitAndShowResult() {
@@ -858,9 +905,10 @@ function injectQuizStyle() {
     }
 
     .ng-quiz-shell.fullscreen {
-      grid-template-columns: 164px 1fr;
-      gap: 14px;
-    }
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
 
     .ng-quiz-index-panel {
       display: none;
@@ -912,17 +960,40 @@ function injectQuizStyle() {
     }
 
     .ng-quiz-number-btn.done {
-      background: #f0fdf4;
-      border-color: #bbf7d0;
-      color: #15803d;
-    }
+  background: #f1f5f9;
+  border-color: #dbe3ec;
+  color: #64748b;
+  font-weight: 500;
+}
+
+    .ng-quiz-number-btn.correct {
+  background: #ecfdf3;
+  border-color: #9fe2b4;
+  color: #15803d;
+  font-weight: 600;
+}
+
+.ng-quiz-number-btn.wrong {
+  background: #fff1f1;
+  border-color: #f3b3b3;
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.ng-quiz-number-btn.correct:hover {
+  background: #dcfce7;
+}
+
+.ng-quiz-number-btn.wrong:hover {
+  background: #fee2e2;
+}
 
     .ng-quiz-number-btn.bookmarked::after {
       content: "";
       display: block;
       width: 4px;
       height: 4px;
-      margin: -2px auto 0;
+      margin: 1px auto 0;
       border-radius: 50%;
       background: #f59e0b;
     }
@@ -962,14 +1033,14 @@ function injectQuizStyle() {
       border-radius: 999px;
       background: #eef4ff;
       color: #5b84d6;
-      font-size: 10.5px;
+      font-size: 11px;
       font-weight: 500;
       line-height: 1.2;
     }
 
     .ng-quiz-title {
       margin-bottom: 6px;
-      font-size: 17px;
+      font-size: 18px;
       font-weight: 600;
       line-height: 1.35;
       color: #1f2a44;
@@ -1094,14 +1165,6 @@ function injectQuizStyle() {
       word-break: keep-all;
     }
 
-    .ng-quiz-question-type {
-      margin: 0;
-      font-size: 11.5px;
-      font-weight: 400;
-      color: #94a3b8;
-      line-height: 1.4;
-    }
-
     .ng-quiz-bookmark-btn {
       width: 30px;
       height: 30px;
@@ -1172,14 +1235,19 @@ function injectQuizStyle() {
       font-weight: 500;
     }
 
-    .ng-quiz-answer-box {
-      margin-top: 13px;
-      margin-left: var(--question-indent);
-      padding: 13px;
-      border: 1px solid #e5ecf5;
-      border-radius: 14px;
-      background: #f8fafc;
-    }
+
+    .ng-quiz-card-actions {
+  margin-top: 16px;
+  margin-left: var(--question-indent);
+  padding-top: 14px;
+  border-top: 1px solid #eef2f7;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 
     .ng-quiz-result-text {
       margin-bottom: 10px;
@@ -1196,36 +1264,39 @@ function injectQuizStyle() {
     }
 
     .ng-quiz-answer-detail {
-      padding-top: 9px;
-      margin-top: 9px;
-      border-top: 1px solid #e5ecf5;
-    }
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid #f6d5b2;
+}
 
-    .ng-quiz-answer-title {
-      margin-bottom: 4px;
-      font-size: 11.5px;
-      font-weight: 550;
-      color: #334155;
-    }
+    .ng-quiz-answer-detail.first {
+  padding-top: 0;
+  margin-top: 0;
+  border-top: none;
+}
 
-    .ng-quiz-answer-content {
-      font-size: 12px;
-      font-weight: 400;
-      line-height: 1.6;
-      color: #64748b;
-    }
+    .ng-quiz-answer-box {
+  margin-top: 13px;
+  margin-left: var(--question-indent);
+  padding: 14px 15px;
+  border: 1px solid #ffd9b0;
+  border-radius: 14px;
+  background: #fff6eb;
+}
 
-    .ng-quiz-card-actions {
-      margin-top: 16px;
-      margin-left: var(--question-indent);
-      padding-top: 14px;
-      border-top: 1px solid #eef2f7;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
+.ng-quiz-answer-title {
+  margin-bottom: 5px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: #9a5a16;
+}
+
+.ng-quiz-answer-content {
+  font-size: 12.8px;
+  font-weight: 400;
+  line-height: 1.65;
+  color: #8a5a24;
+}
 
     .ng-quiz-answer-actions,
     .ng-quiz-nav-actions,
@@ -1323,50 +1394,6 @@ function injectQuizStyle() {
   line-height: 1.45;
 }
 
-.ng-quiz-result-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin: 0 0 12px;
-  position: static;
-  transform: none;
-}
-
-    .ng-quiz-review-list {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-top: 0;
-  text-align: left;
-}
-
-.ng-quiz-review-item {
-  position: relative;
-  padding: 16px 18px 16px 20px;
-  border: 1px solid #e5ecf5;
-  border-radius: 16px;
-  background: #ffffff;
-  overflow: hidden;
-}
-
-.ng-quiz-review-item::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 5px;
-  height: 100%;
-  background: #cbd5e1;
-}
-
-.ng-quiz-review-item.correct::before {
-  background: #22c55e;
-}
-
-.ng-quiz-review-item.wrong::before {
-  background: #ef4444;
-}
-
 .ng-result-question-head {
   display: flex;
   align-items: flex-start;
@@ -1378,19 +1405,21 @@ function injectQuizStyle() {
   flex-shrink: 0;
 }
 
+.ng-result-question-copy {
+  min-width: 0;
+  flex: 1;
+}
+
 .ng-result-question-title-row {
   display: flex;
   align-items: flex-start;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .ng-result-question-title-row .ng-result-question-text {
-  flex: 1;
-}
-
-.ng-result-question-title-row .ng-result-question-mark {
-  flex-shrink: 0;
-  margin-top: 1px;
+  flex: 0 1 auto;
+  max-width: calc(100% - 34px);
 }
 
 .ng-result-question-number {
@@ -1407,14 +1436,26 @@ function injectQuizStyle() {
   justify-content: center;
 }
 
+.ng-result-question-text {
+  margin: 0 0 6px 0;
+  font-size: 15px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: #24324a;
+  letter-spacing: -0.1px;
+  word-break: keep-all;
+}
+
 .ng-result-question-mark {
+  flex-shrink: 0;
+  margin-top: 1px;
   width: 22px;
   height: 22px;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
 }
 
@@ -1426,32 +1467,86 @@ function injectQuizStyle() {
   color: #dc2626;
 }
 
-.ng-result-question-copy {
-  min-width: 0;
-  flex: 1;
+.ng-result-bookmark-btn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border: none;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #9aa7ba;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
 }
 
-.ng-result-question-text {
-  margin: 0 0 5px 0;
-  font-size: 15px;
-  line-height: 1.55;
-  font-weight: 550;
-  color: #24324a;
-  letter-spacing: -0.1px;
-  word-break: keep-all;
+.ng-result-bookmark-btn svg {
+  width: 15px;
+  height: 15px;
 }
 
-.ng-result-question-type {
-  margin: 0;
-  font-size: 11.5px;
-  font-weight: 400;
-  color: #94a3b8;
-  line-height: 1.4;
+.ng-result-bookmark-btn.active {
+  background: #fff7ed;
+  color: #f59e0b;
+}
+
+.ng-quiz-result-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin: 0 0 12px;
+  position: static;
+  transform: none;
+}
+
+.ng-quiz-review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 0;
+  text-align: left;
+  border: 1px solid #e5ecf5;
+  border-radius: 16px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.ng-quiz-review-item {
+  position: relative;
+  padding: 20px 20px 20px 40px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.ng-quiz-review-item + .ng-quiz-review-item {
+  border-top: 1px solid #edf2f7;
+}
+
+.ng-quiz-review-item::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  left: 15px;
+  width: 3px;
+  height: calc(100% - 40px);
+  border-radius: 999px;
+  background: #cbd5e1;
+}
+
+.ng-quiz-review-item.correct::before {
+  background: #22c55e;
+}
+
+.ng-quiz-review-item.wrong::before {
+  background: #ef4444;
 }
 
 .ng-result-answer-line {
   width: fit-content;
-  margin: 0 0 10px var(--question-indent);
+  margin: 12px 0 0 var(--question-indent);
   padding: 5px 10px;
   border-radius: 999px;
   background: #eef4ff;
@@ -1463,7 +1558,7 @@ function injectQuizStyle() {
 .ng-result-option-list {
   display: flex;
   flex-direction: column;
-  gap: 9px;
+  gap: 12px;
   margin-left: var(--question-indent);
 }
 
@@ -1480,18 +1575,18 @@ function injectQuizStyle() {
 }
 
 .ng-result-option.correct {
-  border-color: #9fe2b4;
+  border-color: #22c55e;
   background: #eefcf3;
 }
 
 .ng-result-option.wrong {
-  border-color: #f3b3b3;
+  border-color: #ef4444;
   background: #fff3f3;
 }
 
 .ng-result-option-title {
   margin: 0;
-  padding: 10px 12px;
+  padding: 10px 12px 6px;
   font-size: 12.5px;
   font-weight: 450;
   line-height: 1.45;
@@ -1512,7 +1607,7 @@ function injectQuizStyle() {
 
 .ng-result-option-explain {
   margin: 0;
-  padding: 9px 12px 10px;
+  padding: 6px 12px 10px 25px;
   font-size: 12px;
   line-height: 1.6;
   color: #7b8798;
@@ -1566,55 +1661,165 @@ function injectQuizStyle() {
       display: none !important;
     }
 
-    body.quiz-fullscreen-mode .sidebar,
-    body.quiz-fullscreen-mode .toolbar-wrapper,
-    body.quiz-fullscreen-mode .side-area,
-    body.quiz-fullscreen-mode #etP,
-    body.quiz-fullscreen-mode #trail-canvas,
-    body.quiz-fullscreen-mode #gaze-dot {
-      display: none !important;
-    }
+   body.quiz-fullscreen-mode {
+  background: #f6f8fb;
+}
 
-    body.quiz-fullscreen-mode .main-wrapper {
-      width: 100% !important;
-      margin-left: 0 !important;
-      padding-left: 0 !important;
-    }
+body.quiz-fullscreen-mode .sidebar,
+body.quiz-fullscreen-mode .toolbar-wrapper,
+body.quiz-fullscreen-mode .side-area,
+body.quiz-fullscreen-mode #etP,
+body.quiz-fullscreen-mode #trail-canvas,
+body.quiz-fullscreen-mode #gaze-dot {
+  display: none !important;
+}
 
-    body.quiz-fullscreen-mode .content-container {
-      margin-top: 0 !important;
-      padding: 16px 22px !important;
-    }
+body.quiz-fullscreen-mode .main-wrapper {
+  width: 100% !important;
+  margin-left: 0 !important;
+  padding-left: 0 !important;
+}
 
-    body.quiz-fullscreen-mode .center-area {
-      width: 100% !important;
-      max-width: 1120px !important;
-      margin: 0 auto !important;
-    }
+body.quiz-fullscreen-mode .content-container {
+  width: 100vw !important;
+  min-height: 100vh !important;
+  margin-top: 0 !important;
+  padding: 18px 50px !important;
+  display: flex !important;
+  justify-content: stretch !important;
+  align-items: stretch !important;
+  background: #f6f8fb !important;
+}
 
-    body.quiz-fullscreen-mode #pdfContainer {
-      width: 100% !important;
-      max-width: none !important;
-      min-height: calc(100vh - 32px) !important;
-      padding: 0 !important;
-      background: transparent !important;
-      border: none !important;
-      box-shadow: none !important;
-    }
+body.quiz-fullscreen-mode .center-area {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  align-items: stretch !important;
+  justify-content: stretch !important;
+}
 
-    body.quiz-fullscreen-mode .ng-quiz,
-    body.quiz-fullscreen-mode .ng-quiz-shell {
-      min-height: calc(100vh - 32px);
-    }
+body.quiz-fullscreen-mode #pdfContainer {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: calc(100vh - 36px) !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  flex: 1 1 auto !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
 
-    body.quiz-fullscreen-mode .ng-quiz-panel {
-      min-height: calc(100vh - 32px);
-      padding: 0;
-      background: transparent;
-      border: none;
-      border-radius: 0;
-      box-shadow: none;
-    }
+body.quiz-fullscreen-mode .ng-quiz,
+body.quiz-fullscreen-mode .ng-quiz-shell {
+  width: 100%;
+  min-height: calc(100vh - 36px);
+}
+
+body.quiz-fullscreen-mode .ng-quiz-shell.fullscreen {
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-index-panel {
+  display: block !important;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-index-card {
+  position: sticky;
+  top: 0;
+  width: 216px;
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  padding: 14px;
+  box-sizing: border-box;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e4ebf5;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+}
+
+body.quiz-fullscreen-mode .ng-quiz-index-title {
+  margin-bottom: 11px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-index-list {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-number-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  justify-self: center;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-main {
+  min-width: 0;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-panel {
+  width: 100%;
+  min-height: calc(100vh - 36px);
+  padding: 22px;
+  border: 1px solid #e4ebf5;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+}
+
+body.quiz-fullscreen-mode .ng-quiz-topbar {
+  margin-bottom: 14px;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-title {
+  font-size: 19px;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-desc {
+  font-size: 12px;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-question-card,
+body.quiz-fullscreen-mode .ng-quiz-result-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-question-card {
+  padding: 20px;
+  border-radius: 16px;
+  border: 1px solid #e6edf6;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-result-card {
+  padding: 0;
+  background: transparent;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-review-list {
+  gap: 0;
+}
+
+body.quiz-fullscreen-mode .ng-quiz-review-item {
+  padding: 18px 20px 18px 24px;
+}
 
     @media (max-width: 720px) {
       .ng-quiz-question-card,
@@ -1662,7 +1867,10 @@ function injectQuizStyle() {
 }
 
 .ng-quiz-review-item {
-  padding: 14px 14px 14px 18px;
+  padding: 16px 14px;
+}
+.ng-quiz-card-actions {
+  margin-left: 0;
 }
 
     }
