@@ -24,6 +24,7 @@ import {
 } from "./prompt.js";
 
 export async function loadSummary({ shouldRender = () => true } = {}) {
+  // 1차: sessionStorage 캐시
   const cache = getAiCache();
 
   // sessionStorage에 explanation이 모두 있는 버전이면 즉시 사용
@@ -67,7 +68,19 @@ export async function loadSummary({ shouldRender = () => true } = {}) {
   }
 }
 
+function getSummaryTitle(summary) {
+  const rawTitle = summary?.title || AI_STATE.docTitle || window._docTitle || "문서";
+
+  return String(rawTitle)
+    .replace(/^눈길\s*[-–—:]*\s*/i, "")
+    .replace(/\.(pdf|ppt|pptx)$/i, "")
+    .replace(/\s*요약\s*$/i, "")
+    .trim() || "문서";
+}
+
 function renderSummary(summary) {
+  injectSummaryCompactStyle();
+
   const container = getCanvas();
 
   container.classList.remove("mindmap-mode", "quiz-mode", "ai-loading-mode");
@@ -76,7 +89,9 @@ function renderSummary(summary) {
   container.innerHTML = `
     <div class="ai-page">
       <section class="ai-summary-hero">
-  <h1>${escapeHtml(summary.title)}</h1>
+  <div class="ng-quiz-badge ai-summary-badge">요약</div>
+
+  <h1>${escapeHtml(getSummaryTitle(summary))}</h1>
 
   <p class="ai-summary-lead">
     ${escapeHtml(summary.summary)}
@@ -85,8 +100,7 @@ function renderSummary(summary) {
 
       <div class="ai-section-head">
         <div>
-          <span>핵심 개념</span>
-          <h2>문서에서 꼭 잡아야 할 내용</h2>
+          <span>핵심 개념 - 문서에서 꼭 잡아야 할 내용</span>
         </div>
       </div>
 
@@ -98,7 +112,7 @@ function renderSummary(summary) {
         <div class="ai-result-card ai-summary-card" data-index="${index}">
           <button class="ai-summary-toggle" type="button">
             <div class="ai-card-main">
-              <div class="ai-card-kicker">핵심 ${index + 1}</div>
+              <div class="ai-card-kicker">핵심 ${index + 1}.</div>
               <h3>${escapeHtml(item.title)}</h3>
               <p class="ai-card-brief">${escapeHtml(item.description)}</p>
               <div class="ai-card-meta">

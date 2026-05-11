@@ -6,14 +6,15 @@ import {
   getAiCache,
   getCanvas,
   getChunks,
+  loadAssetFromDb,
+  saveAssetToDb,
   setAiCache,
   setAiMode,
   showAiLoading,
   sourceText,
-  saveAssetToDb,
-  loadAssetFromDb,
 } from "./common.js";
 
+import { sb } from '/src/lib/supabase.js';
 import { createQuizPrompt } from "./prompt.js";
 
 let quizState = {
@@ -28,20 +29,27 @@ let quizState = {
 export async function loadQuiz() {
   const cache = getAiCache();
 
+// ── 퀴즈 로드 (3단 캐시: sessionStorage → Supabase DB → Claude API) ──
+export async function loadQuiz({ shouldRender = () => true } = {}) {
+  // 1차: sessionStorage 캐시
+  const cache = getAiCache();
   if (cache.quiz) {
     renderQuiz(cache.quiz);
     return;
   }
 
-  // sessionStorage 없으면 DB에서 먼저 확인
-  const saved = await loadAssetFromDb('QUIZ');
-  if (saved) {
-    setAiCache({ quiz: saved });
-    renderQuiz(saved);
+
+  // 2차: Supabase DB
+  if (shouldRender()) showAiLoading("저장된 퀴즈 확인 중");
+  const dbAsset = await loadAssetFromDb('QUIZ');
+  if (dbAsset) {
+    setAiCache({ quiz: dbAsset });
+    if (shouldRender()) renderQuiz(dbAsset);
     return;
   }
 
-  showAiLoading("퀴즈 생성 중");
+  // 3차: Claude API 생성
+  if (shouldRender()) showAiLoading("퀴즈 생성 중");
 
   const chunks = await getChunks();
   const prompt = createQuizPrompt({
@@ -49,7 +57,11 @@ export async function loadQuiz() {
     context: buildContext(chunks),
   });
 
-  const quiz = await askClaudeJson(prompt);
+
+  const quiz = await askClaudeJson(prompt, "array");
+
+  setAiCache({ quiz });
+  saveAssetToDb('QUIZ', quiz);
 
   setAiCache({ quiz });
   saveAssetToDb('QUIZ', quiz);
@@ -87,6 +99,119 @@ function getQuizTitle() {
     .trim();
 
   return `${cleanTitle} 퀴즈`;
+}
+
+function normalizeQuiz(quiz) {
+  return (quiz || []).map((q) => {
+    const options = q.options || q.choices || [];
+
+    let answerIndexes = [];
+
+    if (Array.isArray(q.answerIndexes)) {
+      answerIndexes = q.answerIndexes;
+    } else if (typeof q.answerIndex === "number") {
+      answerIndexes = [q.answerIndex];
+    } else if (Array.isArray(q.answers)) {
+      answerIndexes = q.answers
+        .map((answer) =>
+          options.findIndex(
+            (option) => String(option).trim() === String(answer).trim()
+          )
+        )
+        .filter((index) => index >= 0);
+    } else if (q.answer) {
+      const index = options.findIndex(
+        (option) => String(option).trim() === String(q.answer).trim()
+      );
+      if (index >= 0) answerIndexes = [index];
+    }
+
+    if (!answerIndexes.length) {
+      answerIndexes = [0];
+    }
+
+    answerIndexes = [...new Set(answerIndexes)]
+      .filter((index) => index >= 0 && index < options.length)
+      .slice(0, 2);
+
+    let questionText = String(q.question || "");
+
+    // 문제 문장 안의 선택 안내 문구 제거
+    questionText = questionText
+      .replace(/\(?\s*하나만\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*한\s*개만\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*두\s*개\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*두\s*개를\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\(?\s*모두\s*고르시오\s*\)?\.?/g, "")
+      .replace(/\s+/g, " ")
+      .replace(/\s+([?.!])/g, "$1")
+      .trim();
+
+    // 하나만 고르시오는 문제에 표시하지 않음
+    // 정답이 2개 이상이면 문제 문장에만 확실히 표시
+    if (answerIndexes.length >= 2) {
+      questionText = `${questionText} 두 개 고르시오`;
+    }
+
+    return {
+  type: "",
+  question: questionText,
+  options,
+  answerIndexes,
+  answer: answerIndexes.map((index) => options[index]).join(", "),
+  explanation: q.explanation || "",
+  optionExplanations:
+    q.optionExplanations ||
+    q.option_explanations ||
+    q.choiceExplanations ||
+    q.choice_explanations ||
+    [],
+  source_chunks: q.source_chunks || [],
+};
+  });
+}
+  
+function getQuizTitle() {
+  const rawTitle = AI_STATE.docTitle || window._docTitle || "문서";
+
+  const cleanTitle = String(rawTitle)
+    // 확장자 제거
+    .replace(/\.(pdf|ppt|pptx)$/i, "")
+    .trim();
+
+  return `${cleanTitle}`;
+}
+
+function formatOptionLabel(index, option) {
+  return `${index + 1}. ${option}`;
+}
+
+function getAnswerText(quiz, indexes = quiz.answerIndexes) {
+  if (!indexes?.length) return "미선택";
+
+  return indexes
+    .map((index) => formatOptionLabel(index, quiz.options[index]))
+    .join(", ");
+}
+
+function getOptionExplanation(quiz, optionIndex) {
+  const explanations =
+    quiz.optionExplanations ||
+    quiz.option_explanations ||
+    quiz.choiceExplanations ||
+    quiz.choice_explanations ||
+    [];
+
+  return (
+    explanations[optionIndex] ||
+    "이 선택지에 대한 개별 해설은 생성되지 않았습니다."
+  );
+}
+
+function getAnswerNumberText(quiz) {
+  return quiz.answerIndexes
+    .map((index) => `${index + 1}번`)
+    .join(", ");
 }
 
 function renderQuiz(quiz) {

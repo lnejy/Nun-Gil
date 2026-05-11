@@ -29,8 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 메모장 복원 & 자동저장 등록
     initMemoStorage();
 
-    // 북마크 복원
-    loadBookmarks();
+    // 북마크는 viewer.html 모듈에서 pdf-rendered 이벤트 시 loadBookmarks() 호출
 });
 
 /* ══════════════════════════════════════════════════════════
@@ -115,6 +114,8 @@ function saveBookmarks() {
     localStorage.setItem(key, JSON.stringify({ count: bookmarkCount, items }));
 }
 
+
+window.loadBookmarks = loadBookmarks;
 async function loadBookmarks() {
     const docId = getDocId();
     if (!docId || docId === 'default') return;

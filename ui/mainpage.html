@@ -521,7 +521,7 @@
       line-height: 1.3;
     }
 
-    /* ── 최근 문서 삭제 버튼 ── */
+    /* ── 개인 문서 삭제 버튼 ── */
     .recent-item {
       position: relative;
     }
@@ -899,6 +899,7 @@
       </section>
 
       <section class="sidebar-group">
+
         <div class="sidebar-section-label">개인 문서</div>
         <div class="recent-list" id="sidebarRecentList">
           <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
@@ -1085,7 +1086,7 @@
         })
       }
 
-      // 최근 문서
+      // 개인 문서
       const recentDocs = await getRecentDocuments(5)
 
       if (recentDocs.length === 0) {
@@ -1196,7 +1197,7 @@
       }
     })
   </script>
-  <!-- 최근 문서 삭제 확인 모달 -->
+  <!-- 개인 문서 삭제 확인 모달 -->
   <div class="sb-delete-overlay" id="sbDeleteOverlay">
     <div class="sb-delete-modal">
       <div class="sb-delete-modal-title">문서를 삭제할까요?</div>
