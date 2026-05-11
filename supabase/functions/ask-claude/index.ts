@@ -40,8 +40,9 @@ Deno.serve(async (req: Request) => {
     if (authErr || !user) return json({ error: 'Unauthorized' }, 401)
 
     // ── 요청 파싱 ─────────────────────────────────────────
-   const { prompt, encoded, prefill } = await req.json()
+   const { prompt, encoded, prefill, mode } = await req.json()
 const decodedPrompt = encoded ? decodeURIComponent(prompt) : prompt
+const isTextMode = mode === 'text'
 
 const apiKey = Deno.env.get('Claude_API_KEY')
 if (!apiKey) return json({ error: 'Claude_API_KEY not set' }, 500)
@@ -64,7 +65,9 @@ const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
   body: JSON.stringify({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 8000,
-    system: 'You are a JSON-only API. Respond with raw JSON only — no markdown, no code fences, no commentary, no headers. Output must start with { or [ and end with } or ].',
+    system: isTextMode
+      ? 'You are a helpful study assistant. Respond in Korean markdown format only. No JSON, no code fences wrapping the entire response.'
+      : 'You are a JSON-only API. Respond with raw JSON only — no markdown, no code fences, no commentary, no headers. Output must start with { or [ and end with } or ].',
     messages,
   }),
 })

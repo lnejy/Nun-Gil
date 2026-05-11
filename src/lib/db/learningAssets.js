@@ -59,6 +59,18 @@ export async function createPendingAssets(documentId, sessionId = null) {
  * @param {object|null} content
  * @returns {Promise<Object>}
  */
+/**
+ * 지식 자산 단건 삭제
+ * @param {string} assetId
+ */
+export async function deleteAsset(assetId) {
+  const { error } = await sb
+    .from('learning_assets')
+    .delete()
+    .eq('id', assetId)
+  if (error) throw error
+}
+
 export async function updateAssetStatus(assetId, status, content = null) {
   const updates = { status }
   if (content !== null) updates.content = content

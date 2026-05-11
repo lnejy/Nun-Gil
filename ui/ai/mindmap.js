@@ -15,6 +15,7 @@ import {
   showAiLoading,
   sourceText,
   saveAssetToDb,
+  loadAssetFromDb,
 } from "./common.js";
 
 import {
@@ -27,6 +28,14 @@ export async function loadMindmap({ shouldRender = () => true } = {}) {
 
   if (cache.mindmap) {
     if (shouldRender()) renderMindmap(cache.mindmap);
+    return;
+  }
+
+  // sessionStorage 없으면 DB에서 먼저 확인
+  const saved = await loadAssetFromDb('MINDMAP');
+  if (saved) {
+    setAiCache({ mindmap: saved });
+    if (shouldRender()) renderMindmap(saved);
     return;
   }
 
