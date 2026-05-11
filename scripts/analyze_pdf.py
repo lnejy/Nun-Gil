@@ -144,8 +144,9 @@ def is_meaningful_search_text(text):
     return False
 
 
-def save_page_background(page, page_num, scale=2):
-    PAGE_DIR.mkdir(parents=True, exist_ok=True)
+def save_page_background(page, page_num, scale=2, page_dir=None):
+    d = page_dir or PAGE_DIR
+    d.mkdir(parents=True, exist_ok=True)
 
     pix = page.get_pixmap(
         matrix=fitz.Matrix(scale, scale),
@@ -153,14 +154,15 @@ def save_page_background(page, page_num, scale=2):
     )
 
     name = f"page_{page_num}.png"
-    path = PAGE_DIR / name
+    path = d / name
     pix.save(str(path))
 
     return f"/demo-pages/{name}"
 
 
-def render_page_for_ocr(page, page_num, scale=2):
-    OCR_DIR.mkdir(parents=True, exist_ok=True)
+def render_page_for_ocr(page, page_num, scale=2, ocr_dir=None):
+    d = ocr_dir or OCR_DIR
+    d.mkdir(parents=True, exist_ok=True)
 
     pix = page.get_pixmap(
         matrix=fitz.Matrix(scale, scale),
@@ -168,7 +170,7 @@ def render_page_for_ocr(page, page_num, scale=2):
     )
 
     name = f"page_{page_num}_ocr.png"
-    path = OCR_DIR / name
+    path = d / name
     pix.save(str(path))
 
     return path
@@ -826,8 +828,8 @@ def merge_overlay_group(group, page_num, idx):
     }
 
 
-def run_page_ocr_boxes(page, page_num, scale=2, use_barriers=False):
-    image_path = render_page_for_ocr(page, page_num, scale=scale)
+def run_page_ocr_boxes(page, page_num, scale=2, use_barriers=False, ocr_dir=None):
+    image_path = render_page_for_ocr(page, page_num, scale=scale, ocr_dir=ocr_dir)
     ocr = get_paddle_ocr()
 
     try:
@@ -961,7 +963,7 @@ def create_chunks(overlays, page_num, chunk_index):
     return chunks, chunk_index
 
 
-def analyze_pdf(pdf_path, docling_json_path=None):
+def analyze_pdf(pdf_path, docling_json_path=None, page_dir=None, ocr_dir=None):
     doc = fitz.open(pdf_path)
     docling_blocks = load_docling_blocks(docling_json_path)
 
@@ -986,7 +988,7 @@ def analyze_pdf(pdf_path, docling_json_path=None):
     lines_by_page = group_by_page_lines(all_lines)
 
     for page_num, page in enumerate(doc, start=1):
-        background = save_page_background(page, page_num, scale=2)
+        background = save_page_background(page, page_num, scale=2, page_dir=page_dir)
 
         text_blocks = segment_lines(
             page_num,
@@ -1020,6 +1022,7 @@ def analyze_pdf(pdf_path, docling_json_path=None):
                 page_num,
                 scale=2,
                 use_barriers=False,
+                ocr_dir=ocr_dir,
             )
 
             if looks_mixed_columns(ocr_overlays, page.rect.width):
@@ -1028,6 +1031,7 @@ def analyze_pdf(pdf_path, docling_json_path=None):
                     page_num,
                     scale=2,
                     use_barriers=True,
+                    ocr_dir=ocr_dir,
                 )
 
             ocr_total_text = clean_ocr_text(

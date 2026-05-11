@@ -11,7 +11,7 @@ import { deleteFile } from '../storage.js'
 export async function getDocuments(workspaceId) {
   let query = sb
     .from('documents')
-    .select('id, file_name, file_url, file_type, page_count, uploaded_at, workspace_id, converted_pdf_path, is_favorite')
+    .select('id, file_name, file_url, file_type, page_count, uploaded_at, workspace_id, converted_pdf_path, is_favorite, layout_path')
     .order('uploaded_at', { ascending: false })
 
   if (workspaceId === null) {
@@ -33,7 +33,7 @@ export async function getDocuments(workspaceId) {
 export async function getRecentDocuments(limit = 5) {
   const { data, error } = await sb
     .from('documents')
-    .select('id, file_name, file_type, uploaded_at, workspace_id')
+    .select('id, file_name, file_type, uploaded_at, workspace_id, layout_path')
     .order('uploaded_at', { ascending: false })
     .limit(limit)
 
@@ -143,6 +143,19 @@ export async function getFavoriteDocuments() {
     .order('uploaded_at', { ascending: false })
   if (error) throw error
   return data ?? []
+}
+
+/**
+ * 레이아웃 추출 완료 후 layout_path 저장
+ * @param {string} id
+ * @param {string} layoutPath  - Supabase Storage 내 layout.json 경로
+ */
+export async function updateLayoutPath(id, layoutPath) {
+  const { error } = await sb
+    .from('documents')
+    .update({ layout_path: layoutPath })
+    .eq('id', id)
+  if (error) throw error
 }
 
 /**

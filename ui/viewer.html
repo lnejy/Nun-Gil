@@ -363,8 +363,14 @@
     <!-- 경고 위젯 -->
     <script src="./components/warningWidget.js"></script>
 
-    <!-- pdf.js -->
+    <!-- pdf.js (layout_path 없는 문서의 폴백 렌더러) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- layoutRenderer: layout_path 있는 문서에 사용 -->
+    <script type="module">
+        import { initLayoutRenderer, renderLayout, zoomIn as layoutZoomIn, zoomOut as layoutZoomOut } from './viewer/layoutRenderer.js';
+        window._layoutRenderer = { initLayoutRenderer, renderLayout, layoutZoomIn, layoutZoomOut };
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module" src="./ai/index.js"></script>
@@ -399,7 +405,11 @@
                 window._viewerInit = true;
                 resizeCanvas();
                 // PDF 렌더링 (캘리브레이션과 병렬 진행)
-                if (window._pdfUrl) {
+                // layout_path가 있으면 layoutRenderer 우선, 없으면 pdf.js 폴백
+                if (window._layoutUrl && window._layoutRenderer) {
+                    window._layoutRenderer.initLayoutRenderer({ containerId: 'pdfContainer', zoomLabelId: 'zoomLevel' })
+                        .then(() => window._layoutRenderer.renderLayout(window._layoutUrl));
+                } else if (window._pdfUrl) {
                     renderPdf(window._pdfUrl);
                 } else if (window._pdfConversionPending) {
                     var c = document.getElementById('pdfContainer');
@@ -505,6 +515,10 @@
         }
 
         function zoomIn() {
+            if (window._layoutUrl && window._layoutRenderer) {
+                window._layoutRenderer.layoutZoomIn();
+                return;
+            }
             if (window._zoomFactor >= 2.5) return;
             window._zoomFactor = Math.round((window._zoomFactor + 0.1) * 10) / 10;
             document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
@@ -512,6 +526,10 @@
         }
 
         function zoomOut() {
+            if (window._layoutUrl && window._layoutRenderer) {
+                window._layoutRenderer.layoutZoomOut();
+                return;
+            }
             if (window._zoomFactor <= 0.5) return;
             window._zoomFactor = Math.round((window._zoomFactor - 0.1) * 10) / 10;
             document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
@@ -1103,14 +1121,23 @@
                 } else if (doc?.file_type === 'PPT') {
                     window._pdfConversionPending = true
                 }
+
+                // 레이아웃 추출 결과가 있으면 layoutRenderer 우선 사용
+                if (doc?.layout_path) {
+                    const { getPublicUrl } = await import('/src/lib/storage.js').catch(() => ({}))
+                    try {
+                        const { data } = window._sb.storage.from('documents').getPublicUrl(doc.layout_path)
+                        window._layoutUrl = data?.publicUrl ?? null
+                    } catch (_) {}
+                }
             } catch (e) {
                 console.warn('문서 조회 실패:', e.message)
             }
         }
 
-        // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
+        // ── 캘리브레이션 캐시 확인 (워크스페이스 단위, 8시간 유효) ─
         const userId = session.user.id
-        const calibKey = `nungil_calib_${userId}`
+        const calibKey = `nungil_calib_ws_${workspaceId || userId}`
         let cachedCalib = null
 
         try {
@@ -1273,11 +1300,24 @@
                     ? doc.file_url
                     : (doc?.converted_pdf_path ?? null)
 
-                if (pdfPath) {
+                // 레이아웃 JSON 우선, 없으면 pdf.js 폴백
+                if (doc?.layout_path) {
+                    try {
+                        const { data } = window._sb.storage.from('documents').getPublicUrl(doc.layout_path)
+                        const layoutUrl = data?.publicUrl ?? null
+                        if (layoutUrl && window._layoutRenderer) {
+                            window._layoutUrl = layoutUrl
+                            await window._layoutRenderer.initLayoutRenderer({ containerId: 'pdfContainer', zoomLabelId: 'zoomLevel' })
+                            await window._layoutRenderer.renderLayout(layoutUrl)
+                        }
+                    } catch (_) {}
+                }
+
+                if (!doc?.layout_path && pdfPath) {
                     const url = await getSignedUrl(pdfPath)
                     window._pdfUrl = url
                     window.renderPdf(url)
-                } else {
+                } else if (!doc?.layout_path) {
                     const c = document.getElementById('pdfContainer')
                     if (c) c.innerHTML = '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
                 }
@@ -1315,8 +1355,11 @@
                 // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
                 window.dispatchEvent(new CustomEvent('doc-changed'))
 
-                // 진행 중인 세션 종료
-                if (S.sessionId) await endSession('COMPLETED')
+                // 워크스페이스 세션은 문서 전환 시 유지 (종료하지 않음)
+                // 세션의 document_id를 현재 문서로 업데이트만 수행
+                if (S.sessionId) {
+                    updateStudySession(S.sessionId, { documentId: id }).catch(() => {})
+                }
 
             } catch (e) {
                 console.warn('문서 전환 실패:', e.message)
@@ -1431,13 +1474,14 @@
             document.getElementById('sessionEndBtn').style.display   = active ? 'flex'  : 'none'
         }
 
-        // 세션 시작
+        // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
         document.getElementById('sessionStartBtn').addEventListener('click', async () => {
-            if (S.sessionId || !docId) return
+            if (S.sessionId || !workspaceId) return
             try {
                 const sess = await createStudySession({
-                    userId:     session.user.id,
-                    documentId: docId,
+                    userId:      session.user.id,
+                    workspaceId: workspaceId,
+                    documentId:  docId ?? null,
                     calibrationData: window._cachedCalib ?? null,
                 })
                 S.sessionId  = sess.id

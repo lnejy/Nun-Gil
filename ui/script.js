@@ -9,9 +9,15 @@ window._resetBookmarks = function() {
     bookmarksData = {};
 };
 
-// ── 문서 ID (localStorage 키 구분용) ──────────────────────
+// ── ID 헬퍼 (localStorage 키 구분용) ──────────────────────
 function getDocId() {
     return new URLSearchParams(location.search).get('doc_id') || 'default';
+}
+
+// 메모/북마크 키는 워크스페이스 우선, 없으면 문서 단위 폴백
+function getMemoKey() {
+    const wsId = window._workspaceId;
+    return wsId ? `nungil_note_ws_${wsId}` : `nungil_note_${getDocId()}`;
 }
 
 // ── DOMContentLoaded ──────────────────────────────────────
@@ -51,17 +57,20 @@ function initMemoStorage() {
     if (!ta) return;
     _loadMemoContent(ta);
     ta.addEventListener('input', () => {
-        localStorage.setItem(`nungil_note_${getDocId()}`, ta.value);
+        localStorage.setItem(getMemoKey(), ta.value);
     });
 }
 
 function _loadMemoContent(ta) {
-    ta.value = localStorage.getItem(`nungil_note_${getDocId()}`) || '';
+    ta.value = localStorage.getItem(getMemoKey()) || '';
 }
 
+// 워크스페이스 메모는 문서 전환 시 내용이 유지됨 (같은 워크스페이스이므로 재로드 불필요)
 window.reloadMemoForDoc = function () {
-    const ta = document.querySelector('.note-ta');
-    if (ta) _loadMemoContent(ta);
+    if (!window._workspaceId) {
+        const ta = document.querySelector('.note-ta');
+        if (ta) _loadMemoContent(ta);
+    }
 };
 
 // 메모 저장 버튼 핸들러
@@ -69,8 +78,7 @@ function saveNote() {
     const ta  = document.querySelector('.note-ta');
     const msg = document.getElementById('noteSaveMsg');
     if (!ta || !msg) return;
-    const key = `nungil_note_${getDocId()}`;
-    localStorage.setItem(key, ta.value);
+    localStorage.setItem(getMemoKey(), ta.value);
     msg.style.display = 'block';
     setTimeout(() => { msg.style.display = 'none'; }, 2000);
 }

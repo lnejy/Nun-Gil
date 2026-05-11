@@ -2,14 +2,16 @@ import { sb } from '../supabase.js'
 
 /**
  * 학습 세션 생성 (ET 트래킹 시작 시점에 호출)
- * @param {{ userId: string, documentId: string, calibrationData?: string }} params
+ * 세션은 워크스페이스 단위로 생성됩니다. documentId는 선택적입니다.
+ * @param {{ userId: string, workspaceId?: string, documentId?: string, calibrationData?: string }} params
  * @returns {Promise<Object>} 생성된 세션
  */
-export async function createStudySession({ userId, documentId, calibrationData = null }) {
+export async function createStudySession({ userId, workspaceId = null, documentId = null, calibrationData = null }) {
   const { data, error } = await sb
     .from('study_sessions')
     .insert({
       user_id:          userId,
+      workspace_id:     workspaceId,
       document_id:      documentId,
       status:           'ONGOING',
       calibration_data: calibrationData ? { raw: calibrationData } : null,
@@ -39,12 +41,14 @@ export async function updateStudySession(id, {
   focusTimeSeconds,
   avgAlertResponseSeconds,
   status,
+  documentId,
 } = {}) {
   const payload = {}
   if (durationMinutes          !== undefined) payload.duration_minutes           = durationMinutes
   if (alertCount               !== undefined) payload.alert_count                = alertCount
   if (focusTimeSeconds         !== undefined) payload.focus_time_seconds         = focusTimeSeconds
   if (avgAlertResponseSeconds  !== undefined) payload.avg_alert_response_seconds = avgAlertResponseSeconds
+  if (documentId               !== undefined) payload.document_id               = documentId
   if (status                   !== undefined) {
     payload.status = status
     if (status === 'COMPLETED' || status === 'ABORTED') {
@@ -102,7 +106,7 @@ export async function abortStudySession(id, metrics) {
 export async function getCompletedSessions(userId, limit = 50) {
   const { data, error } = await sb
     .from('study_sessions')
-    .select('id, document_id, start_time, end_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, total_focus_score')
+    .select('id, workspace_id, document_id, start_time, end_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, total_focus_score')
     .eq('user_id', userId)
     .eq('status', 'COMPLETED')
     .order('start_time', { ascending: false })
