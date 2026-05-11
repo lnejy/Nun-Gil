@@ -26,9 +26,6 @@ let quizState = {
   showResult: false,
 };
 
-export async function loadQuiz() {
-  const cache = getAiCache();
-
 // ── 퀴즈 로드 (3단 캐시: sessionStorage → Supabase DB → Claude API) ──
 export async function loadQuiz({ shouldRender = () => true } = {}) {
   // 1차: sessionStorage 캐시
@@ -62,10 +59,7 @@ export async function loadQuiz({ shouldRender = () => true } = {}) {
 
   setAiCache({ quiz });
   saveAssetToDb('QUIZ', quiz);
-
-  setAiCache({ quiz });
-  saveAssetToDb('QUIZ', quiz);
-  renderQuiz(quiz);
+  if (shouldRender()) renderQuiz(quiz);
 }
 
 function normalizeQuiz(quiz) {
