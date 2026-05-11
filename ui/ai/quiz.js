@@ -70,39 +70,6 @@ export async function loadQuiz({ shouldRender = () => true } = {}) {
 
 function normalizeQuiz(quiz) {
   return (quiz || []).map((q) => {
-    const choices = q.choices || q.options || [];
-    const answer = q.answer ?? "";
-    const answerIndex = choices.findIndex(
-      (choice) => String(choice).trim() === String(answer).trim()
-    );
-
-    return {
-      type:
-        choices.length === 2 && choices.includes("O") && choices.includes("X")
-          ? "OX"
-          : "객관식",
-      question: q.question || "",
-      options: choices,
-      answer,
-      answerIndex: answerIndex >= 0 ? answerIndex : 0,
-      explanation: q.explanation || "",
-      source_chunks: q.source_chunks || [],
-    };
-  });
-}
-
-function getQuizTitle() {
-  const rawTitle = AI_STATE.docTitle || window._docTitle || "문서";
-
-  const cleanTitle = String(rawTitle)
-    .replace(/\.(pdf|ppt|pptx)$/i, "")
-    .trim();
-
-  return `${cleanTitle} 퀴즈`;
-}
-
-function normalizeQuiz(quiz) {
-  return (quiz || []).map((q) => {
     const options = q.options || q.choices || [];
 
     let answerIndexes = [];
