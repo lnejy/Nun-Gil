@@ -31,12 +31,12 @@
         align-items: center; justify-content: flex-start;
         padding-top: 12vh;
         height: 100%; min-height: 70vh;
-        text-align: center; color: #94a3b8; 
+        text-align: center; color: #94a3b8; gap: 12px;
       }
       .workspace-welcome h1 {
-        font-size: 28px; font-weight: 700;
+        font-size: 28px; font-weight: 650;
         color: #1e293b; letter-spacing: -0.5px;
-        margin-top: 10px;
+        margin-top: 5px;
       }
       .workspace-welcome p { font-size: 14px; color: #94a3b8; }
 
@@ -53,274 +53,87 @@
     <link rel="stylesheet" href="./ai/ai.css">
     <style>
 
-        /* ================================
-   viewer sidebar clean layout
-   - mainpage 비율
-   - 문서별 요약/마인드맵/퀴즈 상태 버튼
-   - 중복 지식 자산 리스트 제거
-================================ */
-
-#page-viewer .sidebar {
-    width: 250px;
-    background: #ffffff;
-    border-right: 1px solid #eceef2;
-    box-shadow: 0 8px 30px rgba(15, 23, 42, 0.05);
-    overflow: hidden;
-}
-
-#page-viewer .main-wrapper {
-    margin-left: 250px;
-    width: calc(100% - 250px);
-}
-
-/* 상단 */
-#page-viewer .sidebar-header {
-    height: 52px;
-    padding: 6px 16px 0;
+        #page-viewer .sb-workspace-label {
+    width: 100%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    border-bottom: none;
-    flex-shrink: 0;
-}
-
-#page-viewer .sb-brand,
-#page-viewer .sb-name {
-    font-size: 18px;
-    font-weight: 550;
-    color: #2f3440;
-    letter-spacing: -0.3px;
-}
-
-#page-viewer .sb-toggle-btn {
-    width: 38px;
-    height: 38px;
+    gap: 5px;
+    padding: 6px 8px;
     border: none;
     background: transparent;
-    cursor: pointer;
-    border-radius: 10px;
-    color: #8a9099;
-    font-size: 18px;
-    transition: background 0.18s ease, transform 0.18s ease;
-}
-
-#page-viewer .sb-toggle-btn:hover {
-    background: #f5f6f8;
-    transform: translateY(-1px);
-}
-
-/* 새 문서 추가 */
-#page-viewer .sb-add-section {
-    padding: 8px 14px 8px;
-}
-
-#page-viewer .sb-add-btn {
-    width: 100%;
-    height: 38px;
-    margin: 0 auto;
-    border-radius: 999px;
+    border-radius: 9px;
+    color: #1e293b;
+    font-weight: 500;
     font-size: 13px;
-    font-weight: 550;
-    letter-spacing: -0.2px;
-    box-shadow: 0 8px 16px rgba(120, 163, 234, 0.2);
-}
-
-/* 원본/요약/마인드맵/퀴즈 */
-#page-viewer .sb-tool-section {
-    padding: 6px 14px 12px;
-}
-
-#page-viewer .sb-tool-grid {
-    gap: 7px;
-}
-
-#page-viewer .sb-tool-item {
-    min-height: 54px;
-    padding: 8px 5px;
-    border-radius: 13px;
-    font-size: 12px;
-    font-weight: 450;
-}
-
-#page-viewer .sb-tool-item svg {
-    width: 17px;
-    height: 17px;
-}
-
-#page-viewer .sb-tool-item span {
-    font-size: 12px;
-    font-weight: 450;
-}
-
-/* 문서 영역 */
-#page-viewer .sidebar-scroll {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding: 8px 12px 12px;
-}
-
-#page-viewer .sb-doc-section {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-/* 워크스페이스 버튼 */
-#page-viewer .sb-workspace-title {
-    width: 100%;
-    min-height: 37px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 7px 8px;
-    margin: 0 0 6px;
-    border: none;
-    background: #fbfcfe;
-    border-radius: 12px;
+    font-family: inherit;
     text-align: left;
     cursor: pointer;
-    color: #3f4652;
-    transition: background 0.18s ease, transform 0.18s ease;
 }
 
-#page-viewer .sb-workspace-title:hover {
-    background: #f3f6fb;
-    transform: translateY(-1px);
+#page-viewer .sb-workspace-label:hover {
+    background: #f5f6f8;
 }
 
-#page-viewer .sb-workspace-icon {
+#page-viewer .sb-workspace-label-icon {
     width: 20px;
     height: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #78a3ea;
+    color: #4b525d;
     flex-shrink: 0;
 }
 
-#page-viewer .sb-workspace-icon svg {
+#page-viewer .sb-workspace-label-icon svg {
     width: 16px;
     height: 16px;
-    stroke: #313641;
+    stroke: currentColor;
 }
 
-#page-viewer .sb-workspace-name {
-    flex: 1;
+#page-viewer #sbWorkspaceLabel {
     min-width: 0;
-    font-size: 13px;
-    font-weight: 550;
-    line-height: 1.35;
-    letter-spacing: -0.2px;
-    color: #313641;
-    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-}
-
-/* 문서 카드 */
-#page-viewer .sb-list {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-#page-viewer .sb-doc-card {
-    width: 100%;
-    padding: 9px 8px 8px;
-    border-radius: 14px;
-    background: transparent;
-    border: 1px solid transparent;
-    cursor: pointer;
-    transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
-}
-
-#page-viewer .sb-doc-card:hover {
-    background: #f8faff;
-    border-color: #eef2f7;
-}
-
-#page-viewer .sb-doc-card.active {
-    background: #f3f7ff;
-    border-color: #dce9ff;
-}
-
-#page-viewer .sb-doc-title {
-    position: relative;
-    font-size: 13px;
-    font-weight: 450;
-    line-height: 1.35;
-    letter-spacing: -0.2px;
-    color: #3f4652;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    padding-left: 18px;
 }
 
-#page-viewer .sb-doc-title::before {
-    content: "";
-    position: absolute;
-    left: 5px;
-    top: 50%;
-    width: 4px;
-    height: 4px;
+/* 문서 목록을 워크스페이스 이름보다 살짝 오른쪽으로 */
+#page-viewer #sbDocList {
+    margin-left: 18px;
+    margin-bottom: 14px;
+}
+
+/* 문서 목록 아이템 정리 */
+#page-viewer #sbDocList .sb-item {
+    min-height: 34px;
+    padding: 6px 8px;
+}
+
+/* 지식 자산 위 구분선 */
+#page-viewer .sb-asset-divider {
+    margin: 16px 6px 9px;
+    padding-top: 14px;
+    border-top: 1px solid #eef0f3;
+    color: #64748b;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+/* 지식 자산 타입 배지 */
+#page-viewer .sb-asset-type {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: #78a3ea;
+    background: #eef5ff;
     border-radius: 999px;
-    background: #b8c2d3;
-    transform: translateY(-50%);
+    padding: 3px 7px;
 }
 
-#page-viewer .sb-doc-card.active .sb-doc-title {
-    color: #2f5fd7;
-    font-weight: 550;
-}
-
-#page-viewer .sb-doc-card.active .sb-doc-title::before {
-    background: #78a3ea;
-}
-
-/* 문서 밑 작은 자산 버튼 */
-#page-viewer .sb-doc-assets {
-    display: flex;
-    gap: 5px;
-    margin-top: 8px;
-    padding-left: 18px;
-}
-
-#page-viewer .sb-mini-asset {
-    flex: 1;
-    height: 23px;
-    border: none;
-    border-radius: 999px;
-    font-size: 10.5px;
-    font-weight: 600;
-    letter-spacing: -0.2px;
-    transition: 0.18s ease;
-}
-
-#page-viewer .sb-mini-asset.is-ready {
-    background: #eaf3ff;
-    color: #5b86e8;
-    cursor: pointer;
-}
-
-#page-viewer .sb-mini-asset.is-ready:hover {
-    background: #dcecff;
-    transform: translateY(-1px);
-}
-
-#page-viewer .sb-mini-asset.is-empty {
-    background: #f2f4f7;
-    color: #b0b8c4;
-    cursor: default;
-}
-
-/* 하단 프로필 */
+/* mainpage 프로필 영역 그대로 */
 #page-viewer .sidebar-profile {
-    margin: 0 12px 14px;
-    padding: 12px;
-    border: 1px solid #eef0f3;
-    border-radius: 18px;
+    padding: 14px 16px;
+    border-top: 1px solid #f1f3f5;
     background: #fcfcfd;
     flex-shrink: 0;
 
@@ -370,16 +183,18 @@
     width: 100%;
     max-width: 120px;
     justify-self: center;
+
     display: flex;
     flex-direction: column;
     justify-content: center;
     gap: 5px;
+
     transform: translateX(-6px);
 }
 
 #page-viewer .sidebar-profile-button {
     width: 100%;
-    height: 29px;
+    height: 28px;
     border: 1px solid #e8edf5;
     background: #f8faff;
     color: #52627c;
@@ -442,6 +257,49 @@
             font-size: 13px;
             line-height: 1.7;
         }
+
+        /* 메모장 열렸을 때 AI 화면도 겹치지 않게 */
+body:has(.note-sb.open) #page-viewer .content-container {
+    display: flex !important;
+    align-items: flex-start !important;
+    gap: 18px !important;
+    padding-right: 32px !important;
+}
+
+body:has(.note-sb.open) #page-viewer .center-area {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    justify-content: flex-start !important;
+}
+
+body:has(.note-sb.open) #page-viewer .side-area {
+    width: 300px !important;
+    flex: 0 0 300px !important;
+    min-width: 300px !important;
+    overflow: visible !important;
+}
+
+body:has(.note-sb.open) #page-viewer .note-sb {
+    position: sticky !important;
+    top: 0 !important;
+    width: 300px !important;
+}
+
+body:has(.note-sb.open) #page-viewer #pdfContainer {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
+
+/* 요약 / 마인드맵 / 퀴즈 내부 패널도 부모 너비 안에서만 */
+body:has(.note-sb.open) #page-viewer #pdfContainer.summary-mode .ai-page,
+body:has(.note-sb.open) #page-viewer #pdfContainer.mindmap-mode .mindmap-app,
+body:has(.note-sb.open) #page-viewer #pdfContainer.quiz-mode .ng-quiz-panel {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
     </style>
 </head>
 
@@ -584,24 +442,24 @@
                     </button>
                 </div>
             </div>
-            
             <div class="sidebar-scroll">
-    <div class="sb-doc-section">
-        <button class="sb-workspace-title" id="sbWorkspaceTitle" type="button">
-            <span class="sb-workspace-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
-                </svg>
-            </span>
-            <span class="sb-workspace-name" id="sbWorkspaceLabel">문서</span>
-        </button>
-
-        <div class="sb-list" id="sbDocList">
-            <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
-        </div>
-    </div>
-</div>
-
+                <button class="sb-label sb-workspace-label" id="sbWorkspaceButton" type="button">
+    <span class="sb-workspace-label-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
+        </svg>
+    </span>
+    <span id="sbWorkspaceLabel">문서</span>
+</button>
+                
+                <div class="sb-list" id="sbDocList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                </div>
+                <div class="sb-label sb-asset-divider">✦  지식 자산</div>
+                <div class="sb-list" id="sbAssetList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 생성된 자산이 표시됩니다.</div>
+                </div>
+            </div>
             <div class="sidebar-profile">
     <div class="sidebar-profile-left">
         <div class="sidebar-profile-avatar" aria-hidden="true">
@@ -725,10 +583,14 @@
 
     <!-- 페이지 초기 로딩 오버레이 (모듈 스크립트 완료 전 노출) -->
     <div id="pageLoadOverlay" style="
-        position:fixed;inset:0;background:#f8faff;
+        position:fixed;inset:0;
+        background:
+    radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+    radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+    #f8faff;
         display:flex;align-items:center;justify-content:center;
         z-index:9999;flex-direction:column;gap:14px;">
-        <div style="font-size:36px;">👀</div>
+        <div style="font-size:30px;">👀</div>
         <div style="font-size:14px;color:#94a3b8;font-family:sans-serif;">뷰어 로딩 중...</div>
     </div>
 
@@ -781,14 +643,13 @@
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = `
                         <div class="workspace-welcome">
-                            <div style="font-size:45px">📁</div>
-                            <h1>${wsName} 워크스페이스 입니다.</h1>
-                            <p style="font-size:14px;color:#94a3b8;margin-top:4px;">
-                                왼쪽에서 문서를 선택해 주세요.
-                            </p>
+                            <div style="font-size:48px">📁</div>
+                            <h1>${wsName} 워크스페이스입니다.</h1>
+                            <p>왼쪽에서 문서를 선택해 주세요.</p>
                         </div>
                     `;
-                } else {
+                }
+                    else {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
                 }
@@ -1339,14 +1200,118 @@
             overlay.classList.add('active');
             var card = document.querySelector('#calibSetup .calib-card');
             if (card) {
-                card.innerHTML = [
-                    '<div class="calib-card-icon">✓</div>',
-                    '<h2 class="calib-card-title">이전 캘리브레이션 적용 중</h2>',
-                    '<p class="calib-card-desc">같은 워크스페이스에서 진행한 보정 설정을 불러옵니다.<br>잠시만 기다려 주세요.</p>',
-                    '<div style="margin-top:20px;width:32px;height:32px;border:3px solid rgba(59,130,246,.3);',
-                    'border-top-color:#3b82f6;border-radius:50%;animation:calibSpin .7s linear infinite;margin-left:auto;margin-right:auto;"></div>',
-                    '<style>@keyframes calibSpin{to{transform:rotate(360deg)}}</style>'
-                ].join('');
+                card.innerHTML = `
+    <div class="calib-reuse-card">
+        <div class="calib-reuse-icon">👀</div>
+
+        <div class="calib-reuse-badge">CALIBRATION</div>
+
+        <h2 class="calib-card-title">이전 캘리브레이션 적용 중...</h2>
+
+        <p class="calib-card-desc">
+            저장된 시선 보정 데이터를 불러오고 있어요.<br>
+        </p>
+
+        <div class="calib-reuse-progress">
+            <div class="calib-reuse-progress-bar"></div>
+        </div>
+    </div>
+
+    <style>
+        .calib-reuse-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        #calibOverlay {
+            background: radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+            radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+            #f8faff;
+        }
+
+        #calibOverlay .calib-card {
+            background: #ffffff;
+        }
+
+        .calib-reuse-icon {
+            position: relative;
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 18px;
+            border-radius: 50%;
+            background: #eff6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #78a3ea;
+            font-size: 28px;
+        }
+
+        .calib-reuse-icon span {
+            position: relative;
+            z-index: 2;
+        }
+
+        .calib-reuse-spinner {
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 3px solid rgba(120, 163, 234, 0.18);
+            border-top-color: #78a3ea;
+            animation: calibReuseSpin .8s linear infinite;
+        }
+
+        .calib-reuse-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 26px;
+            padding: 0 12px;
+            margin-bottom: 14px;
+            border-radius: 999px;
+            background: #eef4ff;
+            color: #5b84d6;
+            font-size: 11px;
+            font-weight: 650;
+            letter-spacing: 0.04em;
+        }
+
+        .calib-reuse-progress {
+            width: 220px;
+            height: 6px;
+            margin: 4px auto 14px;
+            border-radius: 999px;
+            background: #eef2f7;
+            overflow: hidden;
+        }
+
+        .calib-reuse-progress-bar {
+            width: 42%;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #8bb5f6 0%, #73a2f0 100%);
+            animation: calibReuseBar 1.1s ease-in-out infinite;
+        }
+
+        .calib-reuse-note {
+            font-size: 11.5px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        @keyframes calibReuseSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes calibReuseBar {
+            0% { transform: translateX(-110%); }
+            55% { transform: translateX(75%); }
+            100% { transform: translateX(240%); }
+        }
+    </style>
+`;
             }
             document.getElementById('calibSetup').classList.add('active');
 
@@ -1455,111 +1420,11 @@
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
         function cleanDocTitle(name) {
-            return String(name || '문서')
-                .replace(/^눈길\s*[-–—:]*\s*/i, '')   // 앞의 눈길 -, 눈길 — 제거
-                .replace(/\.(pdf|ppt|pptx)$/i, '')    // 뒤의 확장자 제거
-                .replace(/\s*퀴즈\s*$/i, '')           // 뒤의 퀴즈 제거
-                .trim() || '문서'
-        }
-
-        async function getAssetMapForDocs(docs) {
-    const map = {}
-
-    docs.forEach(d => {
-        map[d.id] = {
-            SUMMARY: false,
-            MINDMAP: false,
-            QUIZ: false,
-        }
-    })
-
-    const docIds = docs.map(d => d.id)
-    if (!docIds.length) return map
-
-    const { data, error } = await sb
-        .from('learning_assets')
-        .select('type, status, document_id')
-        .eq('status', 'DONE')
-        .in('document_id', docIds)
-
-    if (error) {
-        console.warn('자산 상태 조회 실패:', error.message)
-        return map
-    }
-
-    ;(data || []).forEach(asset => {
-        if (!map[asset.document_id]) return
-        map[asset.document_id][asset.type] = true
-    })
-
-    return map
-}
-
-async function renderDocListWithAssets(docs) {
-    const listEl = document.getElementById('sbDocList')
-    if (!listEl) return
-
-    sidebarDocs = docs
-
-    if (!docs.length) {
-        listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
-        return
-    }
-
-    const assetMap = await getAssetMapForDocs(docs)
-
-    listEl.innerHTML = docs.map(d => {
-        const assets = assetMap[d.id] || {}
-        const activeClass = d.id === docId ? ' active' : ''
-
-        return `
-            <div class="sb-doc-card${activeClass}" data-doc-id="${d.id}">
-                <div class="sb-doc-title">${cleanDocTitle(d.file_name)}</div>
-
-                <div class="sb-doc-assets">
-                    <button class="sb-mini-asset ${assets.SUMMARY ? 'is-ready' : 'is-empty'}"
-    data-tool="summary" data-doc-id="${d.id}" data-ready="${assets.SUMMARY ? 'true' : 'false'}">
-    요약
-</button>
-
-<button class="sb-mini-asset ${assets.MINDMAP ? 'is-ready' : 'is-empty'}"
-    data-tool="mindmap" data-doc-id="${d.id}" data-ready="${assets.MINDMAP ? 'true' : 'false'}">
-    맵
-</button>
-
-<button class="sb-mini-asset ${assets.QUIZ ? 'is-ready' : 'is-empty'}"
-    data-tool="quiz" data-doc-id="${d.id}" data-ready="${assets.QUIZ ? 'true' : 'false'}">
-    퀴즈
-</button>
-                </div>
-            </div>
-        `
-    }).join('')
-
-    listEl.querySelectorAll('.sb-doc-card').forEach(card => {
-        card.addEventListener('click', () => {
-            const id = card.dataset.docId
-            if (id && id !== docId) loadDocInViewer(id)
-        })
-    })
-
-    listEl.querySelectorAll('.sb-mini-asset').forEach(btn => {
-        btn.addEventListener('click', async e => {
-            e.stopPropagation()
-
-            if (btn.dataset.ready !== 'true') return
-
-            const targetDocId = btn.dataset.docId
-            const tool = btn.dataset.tool
-
-            if (targetDocId && targetDocId !== docId) {
-                await loadDocInViewer(targetDocId)
-            }
-
-            const toolBtn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
-            if (toolBtn) toolBtn.click()
-        })
-    })
+    return String(name || '문서')
+        .replace(/^눈길\s*[-–—:]*\s*/i, '')
+        .replace(/\.(pdf|ppt|pptx)$/i, '')
+        .replace(/\s*퀴즈\s*$/i, '')
+        .trim() || '문서'
 }
 
         // ── 인증 가드 ─────────────────────────────────────
@@ -1571,12 +1436,10 @@ async function renderDocListWithAssets(docs) {
         let docId = params.get('doc_id')              // let: in-place 전환 시 갱신
         let workspaceId = params.get('workspace_id') ?? null
 
-        let sidebarDocs = []
+        const sbWorkspaceButton = document.getElementById('sbWorkspaceButton')
 
-        const sbWorkspaceTitle = document.getElementById('sbWorkspaceTitle')
-
-if (sbWorkspaceTitle) {
-    sbWorkspaceTitle.addEventListener('click', () => {
+if (sbWorkspaceButton) {
+    sbWorkspaceButton.addEventListener('click', () => {
         if (workspaceId) {
             location.href = `viewer.html?workspace_id=${workspaceId}`
         }
@@ -1597,11 +1460,7 @@ if (sbWorkspaceTitle) {
                 if (!workspaceId) workspaceId = doc?.workspace_id ?? null
 
                 // 페이지 제목
-                if (doc?.file_name) {
-                    const cleanTitle = cleanDocTitle(doc.file_name)
-                    document.title = cleanTitle
-                    window._docTitle = cleanTitle
-                }
+                if (doc?.file_name) document.title = cleanDocTitle(doc.file_name)
 
                 // PDF 경로 결정: PDF 파일이면 file_url, PPT면 converted_pdf_path
                 const pdfPath = doc?.file_type === 'PDF'
@@ -1610,7 +1469,7 @@ if (sbWorkspaceTitle) {
 
                 if (pdfPath) {
                     window._pdfUrl = await getSignedUrl(pdfPath)
-                    window._docTitle = cleanDocTitle(doc?.file_name || '문서')
+                    window._docTitle = doc?.file_name || '문서'
                 } else if (doc?.file_type === 'PPT') {
                     window._pdfConversionPending = true
                 }
@@ -1656,8 +1515,10 @@ if (sbWorkspaceTitle) {
         try {
             const result = await getCurrentUser()
             const nameEl = document.getElementById('sbProfileName')
+            const emailEl = document.getElementById('sbProfileEmail')
             if (nameEl) nameEl.textContent = result?.profile?.name ?? result?.email?.split('@')[0] ?? '—'
-            } catch (e) {
+            if (emailEl) emailEl.textContent = result?.email ?? '—'
+        } catch (e) {
             console.warn('프로필 로드 실패:', e.message)
         }
 
@@ -1679,19 +1540,109 @@ if (sbWorkspaceTitle) {
                 docs = await getRecentDocuments(5)
             }
 
-            await renderDocListWithAssets(docs)
+            if (!docs.length) {
+                listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
+            } else {
+                listEl.innerHTML = docs.map(d => `
+                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                        <span class="sb-item-text">${cleanDocTitle(d.file_name)}</span>
+                    </button>
+                `).join('')
+
+                listEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', () => {
+                        const id = el.dataset.docId
+                        if (id && id !== docId) loadDocInViewer(id)
+                    })
+                })
+            }
         } catch (e) {
             console.warn('문서 목록 로드 실패:', e.message)
         }
 
+        // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
         window.loadKnowledgeAssets = loadKnowledgeAssets
+        async function loadKnowledgeAssets(targetDocId) {
+            const assetEl = document.getElementById('sbAssetList')
+            if (!assetEl) return
 
-async function loadKnowledgeAssets() {
-    if (sidebarDocs.length) {
-        await renderDocListWithAssets(sidebarDocs)
-    }
-}
-        loadKnowledgeAssets()
+            const typeIcon = {
+                SUMMARY: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+                MINDMAP:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+                QUIZ:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            }
+            const toolName = { SUMMARY: 'summary', MINDMAP: 'mindmap', QUIZ: 'quiz' }
+
+            const typeLabel = {
+                SUMMARY: '요약',
+                MINDMAP: '마인드맵',
+                QUIZ: '퀴즈'
+            }
+
+            try {
+                let query = sb
+                    .from('learning_assets')
+                    .select('type, status, document_id, documents(file_name)')
+                    .eq('status', 'DONE')
+
+                if (targetDocId) {
+                    query = query.eq('document_id', targetDocId)
+                } else if (workspaceId) {
+                    const wsDocs = await getDocuments(workspaceId)
+                    const docIds = wsDocs.map(d => d.id)
+                    if (!docIds.length) {
+                        assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                        return
+                    }
+                    query = query.in('document_id', docIds)
+                } else {
+                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 표시됩니다.</div>'
+                    return
+                }
+
+                const { data: assets } = await query
+
+                if (!assets || !assets.length) {
+                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                    return
+                }
+
+                assetEl.innerHTML = assets.map(a => {
+                    const fname = cleanDocTitle(a.documents?.file_name ?? '')
+                    const label = typeLabel[a.type] ?? a.type
+
+                    return `
+                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" style="gap:8px;align-items:center;">
+                        <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">
+                            ${typeIcon[a.type]}
+                        </span>
+                        <span class="sb-item-text" style="font-size:12px;">
+                            ${fname} ${label}
+                        </span>
+                    </button>`
+                }).join('')
+
+                assetEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', async () => {
+                        const tool   = el.dataset.tool
+                        const dId    = el.dataset.docId
+
+                        if (dId && dId !== docId) await loadDocInViewer(dId)
+
+                        const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
+                        if (btn) btn.click()
+
+                        assetEl.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'))
+                        el.classList.add('active')
+                    })
+                })
+            } catch (e) {
+                console.warn('지식 자산 로드 실패:', e.message)
+            }
+        }
+
+        // 진입 시 자산 로드 (문서 또는 워크스페이스 기준)
+        loadKnowledgeAssets(docId || null)
 
         // ── 문서 in-place 로드 (script.js에서도 접근 가능하도록 전역 노출) ──
         window.loadDocInViewer = loadDocInViewer
@@ -1715,11 +1666,7 @@ async function loadKnowledgeAssets() {
                 window._currentDocId = id
                 window._wsOnlyMode = false
                 document.body.classList.remove('ws-only-mode')
-                if (doc?.file_name) {
-                    const cleanTitle = cleanDocTitle(doc.file_name)
-                    document.title = cleanTitle
-                    window._docTitle = cleanTitle
-                }
+                if (doc?.file_name) document.title = cleanDocTitle(doc.file_name)
 
                 // 기존 북마크 태그 제거 + 상태 초기화
                 document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
@@ -1737,12 +1684,13 @@ async function loadKnowledgeAssets() {
                 // 메모장 내용 해당 문서 것으로 갱신
                 if (typeof window.reloadMemoForDoc === 'function') window.reloadMemoForDoc()
 
-                document.querySelectorAll('#sbDocList .sb-doc-card').forEach(el => {
-    el.classList.toggle('active', el.dataset.docId === id)
-})
+                // 사이드바 활성 아이템 갱신
+                document.querySelectorAll('#sbDocList .sb-item').forEach(el => {
+                    el.classList.toggle('active', el.dataset.docId === id)
+                })
 
-// 문서별 자산 버튼 상태 새로고침
-loadKnowledgeAssets()
+                // 지식 자산 갱신
+                loadKnowledgeAssets(id)
 
                 // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
                 window.dispatchEvent(new CustomEvent('doc-changed'))
