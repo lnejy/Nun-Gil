@@ -31,14 +31,16 @@ export async function loadMindmap({ shouldRender = () => true } = {}) {
     return;
   }
 
-  // sessionStorage 없으면 DB에서 먼저 확인
-  const saved = await loadAssetFromDb('MINDMAP');
-  if (saved) {
-    setAiCache({ mindmap: saved });
-    if (shouldRender()) renderMindmap(saved);
+  // 2차: Supabase DB
+  if (shouldRender()) showAiLoading("저장된 마인드맵 확인 중");
+  const dbAsset = await loadAssetFromDb('MINDMAP');
+  if (dbAsset) {
+    setAiCache({ mindmap: dbAsset });
+    if (shouldRender()) renderMindmap(dbAsset);
     return;
   }
 
+  // 3차: Claude API 생성
   if (shouldRender()) showAiLoading("마인드맵 생성 중");
 
   await getChunks();
@@ -55,7 +57,7 @@ export async function loadMindmap({ shouldRender = () => true } = {}) {
 
   const mindmap = await askClaudeJson(prompt);
   setAiCache({ mindmap });
-  saveAssetToDb('MINDMAP', mindmap);
+  saveAssetToDb('MINDMAP', mindmap);   // DB 저장
 
   if (shouldRender()) renderMindmap(mindmap);
 }
@@ -79,7 +81,6 @@ function renderMindmap(mindmapData) {
   container.innerHTML = `
     <div class="mindmap-app">
       <main class="mindmap-map-area">
-
         <div class="mindmap-header">
           <div class="ng-quiz-badge mindmap-badge">마인드맵</div>
           <h1 class="mindmap-title">${escapeHtml(getMindmapTitle())}</h1>
@@ -104,7 +105,6 @@ function renderMindmap(mindmapData) {
   `;
 
   const nodeWidth = 260;
-
 const depthGap = 330;
 const offsetX = 120;
 const offsetY = 390;
@@ -401,16 +401,17 @@ const ease = d3.easeCubicInOut;
     const area = container.querySelector(".mindmap-map-area");
 
     const minX = d3.min(
-      nodes,
-      (d) => d.x + 330 - getNodeHeight(d.data.name)
-    );
+  nodes,
+  (d) => d.x + offsetY - getNodeHeight(d.data.name)
+);
 
-    const maxX = d3.max(
-      nodes,
-      (d) => d.x + 330 + getNodeHeight(d.data.name)
-    );
-    const minY = d3.min(nodes, (d) => d.y + 120 - nodeWidth);
-    const maxY = d3.max(nodes, (d) => d.y + 120 + nodeWidth);
+const maxX = d3.max(
+  nodes,
+  (d) => d.x + offsetY + getNodeHeight(d.data.name)
+);
+
+const minY = d3.min(nodes, (d) => d.y + offsetX - nodeWidth);
+const maxY = d3.max(nodes, (d) => d.y + offsetX + nodeWidth);
 
     const width = maxY - minY;
     const height = maxX - minX;
@@ -424,7 +425,7 @@ const ease = d3.easeCubicInOut;
   1.05
 );
 
-const scale = Math.max(rawScale, 0.82);
+const scale = Math.max(rawScale, allExpanded ? 0.45 : 0.75);
 
     const translateX = areaWidth / 2 - ((minY + maxY) / 2) * scale;
     const translateY = areaHeight / 2 - ((minX + maxX) / 2) * scale;
@@ -443,4 +444,235 @@ const scale = Math.max(rawScale, 0.82);
   container.querySelector("#mindmapToggleAll").addEventListener("click", toggleAllMindmap);
 
   update(root);
+}
+
+function injectMindmapCompactStyle() {
+  if (document.getElementById("ngMindmapCompactStyle")) return;
+
+  const style = document.createElement("style");
+  style.id = "ngMindmapCompactStyle";
+  style.textContent = `
+    body:has(#pdfContainer.mindmap-mode) {
+      --quiz-top: 90px;
+      --quiz-right: 32px;
+      --quiz-bottom: 14px;
+      --quiz-left-gap: 6px;
+      --quiz-height: calc(100vh - var(--quiz-top) - var(--quiz-bottom));
+    }
+
+    body:has(#pdfContainer.mindmap-mode) .content-container {
+      margin-top: var(--quiz-top) !important;
+      padding: 0 var(--quiz-right) var(--quiz-bottom) var(--quiz-left-gap) !important;
+      align-items: stretch !important;
+    }
+
+    body:has(#pdfContainer.mindmap-mode) .center-area {
+      width: 100% !important;
+      max-width: none !important;
+      flex: 1 1 auto !important;
+      justify-content: stretch !important;
+      align-items: stretch !important;
+      display: flex !important;
+    }
+
+    body:has(#pdfContainer.mindmap-mode) #pdfContainer {
+      width: 100% !important;
+      flex: 1 1 auto !important;
+      max-width: none !important;
+      min-height: var(--quiz-height) !important;
+      padding: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+
+    #pdfContainer.mindmap-mode .mindmap-app {
+  width: 100%;
+  min-height: var(--quiz-height);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 270px;
+  gap: 18px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #e6edf5;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 8px 26px rgba(15, 23, 42, 0.035);
+  box-sizing: border-box;
+}
+
+#pdfContainer.mindmap-mode .mindmap-map-area {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fbfcfe;
+}
+
+/* D3 svg가 위에서 배경처럼 덮어 보이는 문제 정리 */
+#pdfContainer.mindmap-mode .mindmap-map-area svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  background: transparent !important;
+}
+
+/* 상단 배지/제목/버튼은 svg보다 위 */
+#pdfContainer.mindmap-mode .mindmap-header {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+
+#pdfContainer.mindmap-mode .mindmap-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  margin-bottom: 8px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #5b84d6;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+#pdfContainer.mindmap-mode .mindmap-title {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1f2a44;
+  letter-spacing: -0.2px;
+}
+
+#pdfContainer.mindmap-mode .mindmap-toolbar {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+    #pdfContainer.mindmap-mode .mindmap-toolbar button {
+      width: 30px;
+      height: 30px;
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    #pdfContainer.mindmap-mode .mindmap-node-label {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#pdfContainer.mindmap-mode .mindmap-node-label-inner {
+  width: 100%;
+  height: 100%;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: #334155;
+  word-break: keep-all;
+}
+
+    #pdfContainer.mindmap-mode .mindmap-detail-panel {
+  width: 270px;
+  min-width: 270px;
+  padding: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+#pdfContainer.mindmap-mode .mindmap-detail-card {
+  width: 100%;
+  min-height: 220px;
+  margin: 0;
+  padding: 18px;
+  border-radius: 16px;
+  border: 1px solid #e6edf6;
+  background: #ffffff;
+  box-shadow: 0 8px 22px rgba(47, 75, 116, 0.045);
+  box-sizing: border-box;
+}
+
+    #pdfContainer.mindmap-mode .mindmap-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 9px;
+  margin-bottom: 10px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #5b84d6;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+#pdfContainer.mindmap-mode .mindmap-detail-card h2 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #1f2a44;
+}
+
+#pdfContainer.mindmap-mode .mindmap-detail-card p,
+#pdfContainer.mindmap-mode .mindmap-detail-card li {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: #526174;
+}
+
+#pdfContainer.mindmap-mode .mindmap-detail-card ul {
+  padding-left: 16px;
+  margin-top: 6px;
+}
+
+#pdfContainer.mindmap-mode .mindmap-hint {
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+#pdfContainer.mindmap-mode .ai-source {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f8fafc;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #94a3b8;
+}
+
+    @media (max-width: 900px) {
+      #pdfContainer.mindmap-mode .mindmap-app {
+        grid-template-columns: 1fr;
+      }
+
+      #pdfContainer.mindmap-mode .mindmap-detail-panel {
+        width: 100%;
+        min-width: 0;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
 }
