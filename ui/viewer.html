@@ -25,10 +25,205 @@
         min-height: 100vh;
         padding: 24px 32px;
       }
+
+      .workspace-welcome {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: flex-start;
+        padding-top: 12vh;
+        height: 100%; min-height: 70vh;
+        text-align: center; color: #94a3b8; gap: 12px;
+      }
+      .workspace-welcome h1 {
+        font-size: 28px; font-weight: 750;
+        color: #1e293b; letter-spacing: -0.5px;
+        margin-top: 10px;
+      }
+      .workspace-welcome p { font-size: 14px; color: #94a3b8; }
+
+      /* 문서 미선택 시 도구 버튼 비활성화 */
+      body.ws-only-mode .sb-tool-item,
+      body.ws-only-mode .tool-btn-main,
+      body.ws-only-mode .session-btn {
+        opacity: 0.35;
+        pointer-events: none;
+        cursor: not-allowed;
+      }
     </style>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./ai/ai.css">
     <style>
+
+        #page-viewer .sb-workspace-label {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 8px;
+    border: none;
+    background: transparent;
+    border-radius: 9px;
+    color: #1e293b;
+    font-weight: 500;
+    font-size: 13px;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+#page-viewer .sb-workspace-label:hover {
+    background: #f5f6f8;
+}
+
+#page-viewer .sb-workspace-label-icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4b525d;
+    flex-shrink: 0;
+}
+
+#page-viewer .sb-workspace-label-icon svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+}
+
+#page-viewer #sbWorkspaceLabel {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 문서 목록을 워크스페이스 이름보다 살짝 오른쪽으로 */
+#page-viewer #sbDocList {
+    margin-left: 18px;
+    margin-bottom: 14px;
+}
+
+/* 문서 목록 아이템 정리 */
+#page-viewer #sbDocList .sb-item {
+    min-height: 34px;
+    padding: 6px 8px;
+}
+
+/* 지식 자산 위 구분선 */
+#page-viewer .sb-asset-divider {
+    margin: 16px 6px 9px;
+    padding-top: 14px;
+    border-top: 1px solid #eef0f3;
+    color: #64748b;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+/* 지식 자산 타입 배지 */
+#page-viewer .sb-asset-type {
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 700;
+    color: #78a3ea;
+    background: #eef5ff;
+    border-radius: 999px;
+    padding: 3px 7px;
+}
+
+/* mainpage 프로필 영역 그대로 */
+#page-viewer .sidebar-profile {
+    padding: 14px 16px;
+    border-top: 1px solid #f1f3f5;
+    background: #fcfcfd;
+    flex-shrink: 0;
+
+    display: grid;
+    grid-template-columns: 0.7fr 1.3fr;
+    align-items: center;
+    column-gap: 12px;
+}
+
+#page-viewer .sidebar-profile-left {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+
+#page-viewer .sidebar-profile-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: #eef2f7;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+#page-viewer .sidebar-profile-avatar svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+#page-viewer .sidebar-profile-name {
+    max-width: 58px;
+    font-size: 11.5px;
+    font-weight: 550;
+    color: #313641;
+    letter-spacing: -0.2px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#page-viewer .sidebar-profile-actions {
+    width: 100%;
+    max-width: 120px;
+    justify-self: center;
+
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+
+    transform: translateX(-6px);
+}
+
+#page-viewer .sidebar-profile-button {
+    width: 100%;
+    height: 28px;
+    border: 1px solid #e8edf5;
+    background: #f8faff;
+    color: #52627c;
+    border-radius: 11px;
+    font-size: 11.5px;
+    font-weight: 550;
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+#page-viewer .sidebar-profile-button.report {
+    background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+    border: none;
+    color: #ffffff;
+    box-shadow: 0 6px 12px rgba(120, 163, 234, 0.18);
+}
+
+#page-viewer .sidebar-profile-button:hover {
+    background: #edf5ff;
+    color: #4d7fdc;
+    transform: translateY(-1px);
+}
+
+#page-viewer .sidebar-profile-button.report:hover {
+    background: linear-gradient(180deg, #82acf2 0%, #6999e8 100%);
+    color: #ffffff;
+}
+
         .pdf-page-wrapper {
             position: relative;
             margin: 0 auto 20px;
@@ -62,6 +257,29 @@
             font-size: 13px;
             line-height: 1.7;
         }
+
+        /* 사이드바 항목 삭제 버튼 */
+        .sb-item { position: relative; }
+        .sb-item-delete {
+            display: none;
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(239,68,68,0.12);
+            color: #ef4444;
+            font-size: 13px;
+            line-height: 1;
+            flex-shrink: 0;
+            z-index: 2;
+        }
+        .sb-item:hover .sb-item-delete { display: flex; }
+        .sb-item-delete:hover { background: rgba(239,68,68,0.22); }
     </style>
 </head>
 
@@ -205,13 +423,13 @@
                 </div>
             </div>
             <div class="sidebar-scroll">
-                <div class="sb-label" id="sbWorkspaceLabel">문서</div>
+                <div class="sb-label" id="sbWorkspaceLabel" style="color:#1e293b;font-weight:700;font-size:13px;">문서</div>
                 <div class="sb-list" id="sbDocList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
-                <div class="sb-label" style="margin-top:16px;">★ 즐겨찾기</div>
-                <div class="sb-list" id="sbFavList">
-                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                <div class="sb-label" style="margin-top:20px;color:#64748b;font-weight:600;font-size:12px;">✦ 지식 자산</div>
+                <div class="sb-list" id="sbAssetList">
+                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 생성된 자산이 표시됩니다.</div>
                 </div>
             </div>
             <div class="sb-profile">
@@ -228,7 +446,40 @@
                     </div>
                 </div>
             </div>
+            <div class="sidebar-profile">
+    <div class="sidebar-profile-left">
+        <div class="sidebar-profile-avatar" aria-hidden="true">
+            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <rect width="64" height="64" rx="32" fill="#edf2f8" />
+                <circle cx="32" cy="25" r="10" fill="#aab4c2" />
+                <path d="M16 52c2.5-11 9.5-17 16-17s13.5 6 16 17" fill="#aab4c2" />
+            </svg>
+        </div>
+        <div class="sidebar-profile-name" id="sbProfileName">—</div>
+    </div>
+
+    <div class="sidebar-profile-actions">
+        <button class="sidebar-profile-button" onclick="location.href='profile.html'">
+            계정 설정
+        </button>
+        <button class="sidebar-profile-button report" onclick="location.href='report.html'">
+            집중도 레포트
+        </button>
+    </div>
+</div>
         </aside><!-- /.sidebar -->
+
+        <!-- 삭제 확인 모달 -->
+        <div id="sbDeleteOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);z-index:4000;align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:20px;padding:28px 28px 24px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,0.18);display:flex;flex-direction:column;gap:14px;">
+                <div style="font-size:15px;font-weight:700;color:#1e293b;">삭제 확인</div>
+                <div id="sbDeleteMsg" style="font-size:13px;color:#475569;line-height:1.6;"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+                    <button id="sbDeleteCancelBtn" style="padding:8px 18px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">취소</button>
+                    <button id="sbDeleteConfirmBtn" style="padding:8px 18px;border:none;border-radius:10px;background:#ef4444;font-size:13px;font-weight:600;color:#fff;cursor:pointer;">삭제</button>
+                </div>
+            </div>
+        </div>
 
         <!-- 메인 콘텐츠 -->
         <main class="main-wrapper">
@@ -286,8 +537,12 @@
                 <div class="side-area">
                     <aside class="note-sb" id="noteSb">
                         <div class="note-box">
-                            <div class="note-h">메모장</div>
-                            <textarea class="note-ta" placeholder="여기에 실시간 메모를 작성하세요..."></textarea>
+                            <div class="note-h" style="display:flex;align-items:center;justify-content:space-between;">
+                                <span>메모장</span>
+                                <button id="noteSaveBtn" onclick="saveNote()" style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
+                            </div>
+                            <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
+                            <div id="noteSaveMsg" style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">✓ 저장됐어요</div>
                         </div>
                     </aside>
                 </div>
@@ -326,15 +581,19 @@
 
     <!-- 페이지 초기 로딩 오버레이 (모듈 스크립트 완료 전 노출) -->
     <div id="pageLoadOverlay" style="
-        position:fixed;inset:0;background:#f8faff;
+        position:fixed;inset:0;
+        background:
+    radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+    radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+    #f8faff;
         display:flex;align-items:center;justify-content:center;
         z-index:9999;flex-direction:column;gap:14px;">
-        <div style="font-size:36px;">👀</div>
+        <div style="font-size:30px;">👀</div>
         <div style="font-size:14px;color:#94a3b8;font-family:sans-serif;">뷰어 로딩 중...</div>
     </div>
 
     <!-- 경고 위젯 -->
-    <script src="/components/warningWidget.js"></script>
+    <script src="./components/warningWidget.js"></script>
 
     <!-- pdf.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -377,15 +636,21 @@
                 } else if (window._pdfConversionPending) {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">PPT 파일 변환 중입니다.<br>잠시 후 다시 시도해 주세요.</div>';
+                } else if (window._wsOnlyMode) {
+                    var wsName = window._wsName || '워크스페이스';
+                    var c = document.getElementById('pdfContainer');
+                    if (c) c.innerHTML = '<div class="workspace-welcome"><div style="font-size:48px">👀</div><h1>' + wsName + '</h1><p>왼쪽에서 문서를 선택해 주세요.</p></div>';
                 } else {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
                 }
-                if (window._cachedCalib) {
-                    applyAndActivate(window._cachedCalib);
-                } else if (!window._aiViewMode) {
-                    // ai 파라미터로 진입한 경우 캘리브레이션 스킵
-                    showCalibOverlay();
+                // 워크스페이스 모드(문서 미선택)엔 캘리브레이션 불필요
+                if (!window._wsOnlyMode && !window._aiViewMode) {
+                    if (window._cachedCalib) {
+                        applyAndActivate(window._cachedCalib);
+                    } else {
+                        showCalibOverlay();
+                    }
                 }
             }
         }
@@ -427,6 +692,10 @@
         }
 
         function renderPages(pdf, container, scale) {
+            // 북마크 태그 보존: 렌더 전에 떼어두고 렌더 후 다시 붙임
+            var savedTags = Array.from(container.querySelectorAll('.bookmark-tag'));
+            savedTags.forEach(function (t) { t.remove(); });
+
             container.innerHTML = '';
             var totalPages = pdf.numPages;
 
@@ -453,7 +722,12 @@
 
                     page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
                         .promise.then(function () {
-                            if (num < totalPages) renderPage(num + 1);
+                            if (num < totalPages) {
+                                renderPage(num + 1);
+                            } else {
+                                // 마지막 페이지 렌더링 완료 → 북마크 복원 트리거
+                                window.dispatchEvent(new CustomEvent('pdf-rendered'));
+                            }
                         });
                 });
             }
@@ -915,14 +1189,118 @@
             overlay.classList.add('active');
             var card = document.querySelector('#calibSetup .calib-card');
             if (card) {
-                card.innerHTML = [
-                    '<div class="calib-card-icon">✓</div>',
-                    '<h2 class="calib-card-title">이전 캘리브레이션 적용 중</h2>',
-                    '<p class="calib-card-desc">같은 워크스페이스에서 진행한 보정 설정을 불러옵니다.<br>잠시만 기다려 주세요.</p>',
-                    '<div style="margin-top:20px;width:32px;height:32px;border:3px solid rgba(59,130,246,.3);',
-                    'border-top-color:#3b82f6;border-radius:50%;animation:calibSpin .7s linear infinite;margin-left:auto;margin-right:auto;"></div>',
-                    '<style>@keyframes calibSpin{to{transform:rotate(360deg)}}</style>'
-                ].join('');
+                card.innerHTML = `
+    <div class="calib-reuse-card">
+        <div class="calib-reuse-icon">👀</div>
+
+        <div class="calib-reuse-badge">CALIBRATION</div>
+
+        <h2 class="calib-card-title">이전 캘리브레이션 적용 중...</h2>
+
+        <p class="calib-card-desc">
+            저장된 시선 보정 데이터를 불러오고 있어요.<br>
+        </p>
+
+        <div class="calib-reuse-progress">
+            <div class="calib-reuse-progress-bar"></div>
+        </div>
+    </div>
+
+    <style>
+        .calib-reuse-card {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        #calibOverlay {
+            background: radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+            radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+            #f8faff;
+        }
+
+        #calibOverlay .calib-card {
+            background: #ffffff;
+        }
+
+        .calib-reuse-icon {
+            position: relative;
+            width: 76px;
+            height: 76px;
+            margin: 0 auto 18px;
+            border-radius: 50%;
+            background: #eff6ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #78a3ea;
+            font-size: 28px;
+        }
+
+        .calib-reuse-icon span {
+            position: relative;
+            z-index: 2;
+        }
+
+        .calib-reuse-spinner {
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            border: 3px solid rgba(120, 163, 234, 0.18);
+            border-top-color: #78a3ea;
+            animation: calibReuseSpin .8s linear infinite;
+        }
+
+        .calib-reuse-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 26px;
+            padding: 0 12px;
+            margin-bottom: 14px;
+            border-radius: 999px;
+            background: #eef4ff;
+            color: #5b84d6;
+            font-size: 11px;
+            font-weight: 650;
+            letter-spacing: 0.04em;
+        }
+
+        .calib-reuse-progress {
+            width: 220px;
+            height: 6px;
+            margin: 4px auto 14px;
+            border-radius: 999px;
+            background: #eef2f7;
+            overflow: hidden;
+        }
+
+        .calib-reuse-progress-bar {
+            width: 42%;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #8bb5f6 0%, #73a2f0 100%);
+            animation: calibReuseBar 1.1s ease-in-out infinite;
+        }
+
+        .calib-reuse-note {
+            font-size: 11.5px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        @keyframes calibReuseSpin {
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes calibReuseBar {
+            0% { transform: translateX(-110%); }
+            55% { transform: translateX(75%); }
+            100% { transform: translateX(240%); }
+        }
+    </style>
+`;
             }
             document.getElementById('calibSetup').classList.add('active');
 
@@ -988,6 +1366,13 @@
         }
 
         async function activateET() {
+            if (etOn) {
+                // 이미 활성 상태 → 세션 중이면 집중시간만 재개
+                if (window._sessionActive && window._S && !window._S.focusStart) {
+                    window._S.focusStart = Date.now();
+                }
+                return;
+            }
             if (!G.calibDone || !seeso) return;
             etOn = true;
             document.getElementById('etDot').className = 'et-dot g';
@@ -999,6 +1384,10 @@
             gazeDot.classList.add('visible');
             trailCanvas.classList.add('active');
             wrapWordsInViewer();
+            // 세션 진행 중이면 집중시간 재개
+            if (window._sessionActive && window._S && !window._S.focusStart) {
+                window._S.focusStart = Date.now();
+            }
         }
 
         function deactivateET() {
@@ -1013,6 +1402,11 @@
             if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
             trail.length = 0;
             G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+            // 세션 진행 중이면 집중시간 일시중지
+            if (window._sessionActive && window._S && window._S.focusStart) {
+                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000;
+                window._S.focusStart = null;
+            }
         }
     </script>
 
@@ -1021,13 +1415,24 @@
 
     <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
     <script type="module">
+        import { sb } from '/src/lib/supabase.js'
         import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
-        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument } from '/src/lib/db/documents.js'
+        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument, deleteDocument } from '/src/lib/db/documents.js'
+        import { deleteAsset } from '/src/lib/db/learningAssets.js'
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
         import { getSignedUrl, uploadDocument } from '/src/lib/storage.js'
         import { createStudySession, updateStudySession, completeStudySession } from '/src/lib/db/studySessions.js'
+        import { sb } from '/src/lib/supabase.js'
 
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
+
+        function cleanDocTitle(name) {
+    return String(name || '문서')
+        .replace(/^눈길\s*[-–—:]*\s*/i, '')
+        .replace(/\.(pdf|ppt|pptx)$/i, '')
+        .replace(/\s*퀴즈\s*$/i, '')
+        .trim() || '문서'
+}
 
         // ── 인증 가드 ─────────────────────────────────────
         const session = await requireAuth()
@@ -1035,9 +1440,14 @@
 
         // ── URL 파라미터 ───────────────────────────────────
         const params = new URLSearchParams(location.search)
-        const docId = params.get('doc_id')
-        // URL에 workspace_id가 있으면 우선 사용 (document.html에서 넘겨줌)
+        let docId = params.get('doc_id')              // let: in-place 전환 시 갱신
         let workspaceId = params.get('workspace_id') ?? null
+
+        // 워크스페이스만 있고 문서 없으면 웰컴 모드
+        if (!docId && workspaceId) {
+            window._wsOnlyMode = true
+            document.body.classList.add('ws-only-mode')
+        }
 
         // ── 문서 조회 → PDF URL + workspace_id ────────────
         if (docId) {
@@ -1047,7 +1457,7 @@
                 if (!workspaceId) workspaceId = doc?.workspace_id ?? null
 
                 // 페이지 제목
-                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+                if (doc?.file_name) document.title = cleanDocTitle(doc.file_name)
 
                 // PDF 경로 결정: PDF 파일이면 file_url, PPT면 converted_pdf_path
                 const pdfPath = doc?.file_type === 'PDF'
@@ -1067,7 +1477,7 @@
 
         // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
         const userId = session.user.id
-        const calibKey = `nungil_calib_${userId}`
+        const calibKey = `nungil_calib_ws_${workspaceId || userId}`
         let cachedCalib = null
 
         try {
@@ -1084,7 +1494,21 @@
             console.warn('캘리브레이션 캐시 읽기 실패:', e)
         }
 
-        // ── 사이드바: 프로필 + 문서 목록 ────────────────────
+        // 워크스페이스 이름 미리 세팅 (goViewer의 웰컴화면에서 사용)
+        if (workspaceId && !docId) {
+            try {
+                const wsList = await getWorkspaces()
+                const ws = wsList.find(w => w.id === workspaceId)
+                window._wsName = ws?.title ?? ''
+            } catch (e) { console.warn('워크스페이스 이름 로드 실패:', e) }
+        }
+
+        // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
+        window.dispatchEvent(new CustomEvent('viewer-init', {
+            detail: { cachedCalib, workspaceId, calibKey }
+        }))
+
+        // ── 사이드바: 프로필 + 문서 목록 (비동기, viewer-init 이후) ────
         try {
             const result = await getCurrentUser()
             const nameEl = document.getElementById('sbProfileName')
@@ -1104,10 +1528,12 @@
             if (workspaceId) {
                 const workspaces = await getWorkspaces()
                 const ws = workspaces.find(w => w.id === workspaceId)
-                if (labelEl) labelEl.textContent = ws?.title ?? '워크스페이스 문서'
+                const wsName = ws?.title ?? '워크스페이스 문서'
+                window._wsName = wsName          // goViewer()에서 웰컴 화면에 사용
+                if (labelEl) labelEl.textContent = wsName
                 docs = await getDocuments(workspaceId)
             } else {
-                if (labelEl) labelEl.textContent = '최근 문서'
+                if (labelEl) labelEl.textContent = '개인 문서'
                 docs = await getRecentDocuments(5)
             }
 
@@ -1117,18 +1543,22 @@
                 listEl.innerHTML = docs.map(d => `
                     <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
                         <span class="sb-item-text">${d.file_name}</span>
+                        <span class="sb-item-delete" data-delete-type="doc" data-delete-id="${d.id}" data-delete-name="${d.file_name}">×</span>
                     </button>
                 `).join('')
 
                 listEl.querySelectorAll('.sb-item').forEach(el => {
-                    el.addEventListener('click', () => {
+                    el.addEventListener('click', (e) => {
+                        if (e.target.closest('.sb-item-delete')) return
                         const id = el.dataset.docId
-                        if (id && id !== docId) {
-                            const dest = workspaceId
-                                ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
-                                : `viewer.html?doc_id=${id}`
-                            location.href = dest
-                        }
+                        if (id && id !== docId) loadDocInViewer(id)
+                    })
+                })
+
+                listEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
                     })
                 })
             }
@@ -1136,32 +1566,150 @@
             console.warn('문서 목록 로드 실패:', e.message)
         }
 
-        try {
-            const favEl = document.getElementById('sbFavList')
-            const favDocs = await getFavoriteDocuments()
-            if (!favDocs.length) {
-                favEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">즐겨찾기 없음</div>'
-            } else {
-                favEl.innerHTML = favDocs.map(d => `
-                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}" data-ws-id="${d.workspace_id ?? ''}">
-                        <span class="sb-item-text">${d.file_name}</span>
-                    </button>
-                `).join('')
-                favEl.querySelectorAll('.sb-item').forEach(el => {
-                    el.addEventListener('click', () => {
-                        const id = el.dataset.docId
-                        const wsId = el.dataset.wsId
-                        if (id && id !== docId) {
-                            const dest = wsId
-                                ? `viewer.html?doc_id=${id}&workspace_id=${wsId}`
-                                : `viewer.html?doc_id=${id}`
-                            location.href = dest
-                        }
+        // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
+        window.loadKnowledgeAssets = loadKnowledgeAssets
+        async function loadKnowledgeAssets(targetDocId) {
+            const assetEl = document.getElementById('sbAssetList')
+            if (!assetEl) return
+
+            const typeIcon = {
+                SUMMARY: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+                MINDMAP:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
+                QUIZ:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            }
+            const toolName = { SUMMARY: 'summary', MINDMAP: 'mindmap', QUIZ: 'quiz' }
+
+            try {
+                let query = sb
+                    .from('learning_assets')
+                    .select('id, type, status, document_id, documents(file_name)')
+                    .eq('status', 'DONE')
+
+                if (targetDocId) {
+                    query = query.eq('document_id', targetDocId)
+                } else if (workspaceId) {
+                    // 워크스페이스 전체 문서 자산 조회
+                    const wsDocs = await getDocuments(workspaceId)
+                    const docIds = wsDocs.map(d => d.id)
+                    if (!docIds.length) {
+                        assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                        return
+                    }
+                    query = query.in('document_id', docIds)
+                } else {
+                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 표시됩니다.</div>'
+                    return
+                }
+
+                const { data: assets } = await query
+
+                if (!assets || !assets.length) {
+                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                    return
+                }
+
+                const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
+                assetEl.innerHTML = assets.map(a => {
+                    const fname = a.documents?.file_name ?? ''
+                    const label = `${fname} · ${typeLabel[a.type] ?? a.type}`
+                    return `
+                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
+                        <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
+                        <span class="sb-item-text" style="font-size:12px;">${fname}</span>
+                        <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
+                    </button>`
+                }).join('')
+
+                assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
                     })
                 })
+
+                assetEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', async (e) => {
+                        if (e.target.closest('.sb-item-delete')) return
+                        const tool   = el.dataset.tool
+                        const dId    = el.dataset.docId
+
+                        // 다른 문서 자산이면 먼저 해당 문서 로드
+                        if (dId && dId !== docId) await loadDocInViewer(dId)
+
+                        const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
+                        if (btn) btn.click()
+
+                        assetEl.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'))
+                        el.classList.add('active')
+                    })
+                })
+            } catch (e) {
+                console.warn('지식 자산 로드 실패:', e.message)
             }
-        } catch (e) {
-            console.warn('즐겨찾기 로드 실패:', e.message)
+        }
+
+        // 진입 시 자산 로드 (문서 또는 워크스페이스 기준)
+        loadKnowledgeAssets(docId || null)
+
+        // ── 문서 in-place 로드 (script.js에서도 접근 가능하도록 전역 노출) ──
+        window.loadDocInViewer = loadDocInViewer
+        async function loadDocInViewer(id) {
+            try {
+                const doc = await getDocument(id)
+                const pdfPath = doc?.file_type === 'PDF'
+                    ? doc.file_url
+                    : (doc?.converted_pdf_path ?? null)
+
+                if (pdfPath) {
+                    const url = await getSignedUrl(pdfPath)
+                    window._pdfUrl = url
+                    window.renderPdf(url)
+                } else {
+                    const c = document.getElementById('pdfContainer')
+                    if (c) c.innerHTML = '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
+                }
+
+                docId = id
+                window._currentDocId = id
+                window._wsOnlyMode = false
+                document.body.classList.remove('ws-only-mode')
+                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+
+                // 기존 북마크 태그 제거 + 상태 초기화
+                document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
+                if (typeof window._resetBookmarks === 'function') window._resetBookmarks()
+                // PDF 렌더링 완료 후 북마크 복원 (race condition 방지)
+                window.addEventListener('pdf-rendered', function() {
+                    if (typeof window.loadBookmarks === 'function') window.loadBookmarks()
+                }, { once: true })
+
+                // URL 갱신 (페이지 이동 없이)
+                history.pushState({}, '', workspaceId
+                    ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
+                    : `viewer.html?doc_id=${id}`)
+
+                // 메모장 내용 해당 문서 것으로 갱신
+                if (typeof window.reloadMemoForDoc === 'function') window.reloadMemoForDoc()
+
+                // 사이드바 활성 아이템 갱신
+                document.querySelectorAll('#sbDocList .sb-item').forEach(el => {
+                    el.classList.toggle('active', el.dataset.docId === id)
+                })
+
+                // 지식 자산 갱신
+                loadKnowledgeAssets(id)
+
+                // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
+                window.dispatchEvent(new CustomEvent('doc-changed'))
+
+                // 워크스페이스 세션은 문서 전환 시 유지 — 현재 문서만 갱신
+                if (S.sessionId) {
+                    updateStudySession(S.sessionId, { documentId: id }).catch(() => {})
+                }
+
+            } catch (e) {
+                console.warn('문서 전환 실패:', e.message)
+            }
         }
 
         // ── 새 문서 추가 버튼 ─────────────────────────────
@@ -1242,6 +1790,10 @@
         // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
         window._S = S
         window._sessionActive = false
+        // script.js에서 사용할 수 있도록 전역 노출
+        window.sb = sb
+        window._currentDocId  = docId
+        window._workspaceId   = workspaceId
 
         function calcMetrics() {
             const now = Date.now()
@@ -1268,13 +1820,14 @@
             document.getElementById('sessionEndBtn').style.display   = active ? 'flex'  : 'none'
         }
 
-        // 세션 시작
+        // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
         document.getElementById('sessionStartBtn').addEventListener('click', async () => {
-            if (S.sessionId || !docId) return
+            if (S.sessionId || !workspaceId) return
             try {
                 const sess = await createStudySession({
-                    userId:     session.user.id,
-                    documentId: docId,
+                    userId:      session.user.id,
+                    workspaceId: workspaceId,
+                    documentId:  docId ?? null,
                     calibrationData: window._cachedCalib ?? null,
                 })
                 S.sessionId  = sess.id
@@ -1285,8 +1838,14 @@
                 S.alertTimes = []
 
                 window._sessionActive = true
+                window._currentSessionId = sess.id
 
                 setSessionUI(true)
+
+                // 세션 시작 → 아이트래킹 자동 활성화 (캘리브레이션 완료 시)
+                if (typeof activateET === 'function') {
+                    await activateET()
+                }
 
                 // ① 30초 자동저장
                 S.autosaveTimer = setInterval(autosave, 30_000)
@@ -1299,14 +1858,20 @@
         async function endSession(status = 'COMPLETED') {
             if (!S.sessionId) return
             clearInterval(S.autosaveTimer)
+
+            // 세션 종료 → 아이트래킹 자동 비활성화 (_sessionActive가 아직 true인 상태에서 호출해야 집중시간 정산됨)
+            if (typeof deactivateET === 'function' && etOn) {
+                deactivateET()
+            }
+
             window._sessionActive = false
 
             // 경고창 떠 있으면 닫기 (반응 시간 미기록)
             if (window.alertActive) {
-                window.alertActive  = false  // dismissGazeWarning이 조기 리턴하도록
+                window.alertActive  = false
                 window.alertShownAt = null
                 window.awayStart    = null
-                closeWarning()               // warningWidget.js — UI 닫기
+                closeWarning()
             }
 
             const { T, F, R } = calcMetrics()
@@ -1322,6 +1887,7 @@
                 console.warn('세션 종료 실패:', e.message)
             }
             S.sessionId = null
+            window._currentSessionId = null
             setSessionUI(false)
         }
 
@@ -1339,10 +1905,60 @@
             document.body.classList.add('ai-view-mode')
         }
 
-        // ── viewer-init 이벤트 dispatch → goViewer() 실행 ─
-        window.dispatchEvent(new CustomEvent('viewer-init', {
-            detail: { cachedCalib, workspaceId, calibKey }
-        }))
+        // ── 사이드바 삭제 확인 모달 ─────────────────────────────
+        const deleteOverlay  = document.getElementById('sbDeleteOverlay')
+        const deleteMsg      = document.getElementById('sbDeleteMsg')
+        const deleteCancelBtn  = document.getElementById('sbDeleteCancelBtn')
+        const deleteConfirmBtn = document.getElementById('sbDeleteConfirmBtn')
+
+        let _pendingDelete = null  // { type: 'doc'|'asset', id: string }
+
+        function showDeleteConfirm(type, id, name) {
+            _pendingDelete = { type, id }
+            const label = type === 'doc'
+                ? `'${name}' 문서를 삭제하시겠습니까?\n지식 자산도 함께 삭제됩니다.`
+                : `'${name}' 자산을 삭제하시겠습니까?`
+            deleteMsg.style.whiteSpace = 'pre-line'
+            deleteMsg.textContent = label
+            deleteOverlay.style.display = 'flex'
+        }
+        window.showDeleteConfirm = showDeleteConfirm
+
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteOverlay.style.display = 'none'
+            _pendingDelete = null
+        })
+
+        deleteConfirmBtn.addEventListener('click', async () => {
+            if (!_pendingDelete) return
+            const { type, id } = _pendingDelete
+            deleteOverlay.style.display = 'none'
+            _pendingDelete = null
+
+            try {
+                if (type === 'doc') {
+                    await deleteDocument(id)
+                    // 현재 열려 있는 문서면 빈 화면으로
+                    if (id === docId) {
+                        document.getElementById('pdfContainer').innerHTML =
+                            '<div class="pdf-no-content">문서가 삭제됐습니다.</div>'
+                    }
+                } else {
+                    await deleteAsset(id)
+                    // sessionStorage 캐시 무효화
+                    const cache = JSON.parse(sessionStorage.getItem(`nungil_ai_${docId}`) || '{}')
+                    delete cache.summary; delete cache.mindmap; delete cache.quiz; delete cache.concepts
+                    sessionStorage.setItem(`nungil_ai_${docId}`, JSON.stringify(cache))
+                }
+                // 사이드바 갱신
+                loadKnowledgeAssets(docId || null)
+                // 문서 목록 갱신 (문서 삭제 시)
+                if (type === 'doc') location.reload()
+            } catch (e) {
+                alert('삭제 실패: ' + e.message)
+            }
+        })
+
     </script>
 
 </body>
