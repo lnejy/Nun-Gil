@@ -1377,6 +1377,13 @@ body:has(.note-sb.open) #page-viewer #pdfContainer.quiz-mode .ng-quiz-panel {
         }
 
         async function activateET() {
+            if (etOn) {
+                // 이미 활성 상태 → 세션 중이면 집중시간만 재개
+                if (window._sessionActive && window._S && !window._S.focusStart) {
+                    window._S.focusStart = Date.now();
+                }
+                return;
+            }
             if (!G.calibDone || !seeso) return;
             etOn = true;
             document.getElementById('etDot').className = 'et-dot g';
@@ -1388,6 +1395,10 @@ body:has(.note-sb.open) #page-viewer #pdfContainer.quiz-mode .ng-quiz-panel {
             gazeDot.classList.add('visible');
             trailCanvas.classList.add('active');
             wrapWordsInViewer();
+            // 세션 진행 중이면 집중시간 재개
+            if (window._sessionActive && window._S && !window._S.focusStart) {
+                window._S.focusStart = Date.now();
+            }
         }
 
         function deactivateET() {
@@ -1402,6 +1413,11 @@ body:has(.note-sb.open) #page-viewer #pdfContainer.quiz-mode .ng-quiz-panel {
             if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
             trail.length = 0;
             G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+            // 세션 진행 중이면 집중시간 일시중지
+            if (window._sessionActive && window._S && window._S.focusStart) {
+                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000;
+                window._S.focusStart = null;
+            }
         }
     </script>
 
@@ -1834,6 +1850,11 @@ if (sbWorkspaceButton) {
 
                 setSessionUI(true)
 
+                // 세션 시작 → 아이트래킹 자동 활성화 (캘리브레이션 완료 시)
+                if (typeof activateET === 'function') {
+                    await activateET()
+                }
+
                 // ① 30초 자동저장
                 S.autosaveTimer = setInterval(autosave, 30_000)
             } catch (e) {
@@ -1845,6 +1866,12 @@ if (sbWorkspaceButton) {
         async function endSession(status = 'COMPLETED') {
             if (!S.sessionId) return
             clearInterval(S.autosaveTimer)
+
+            // 세션 종료 → 아이트래킹 자동 비활성화 (_sessionActive가 아직 true인 상태에서 호출해야 집중시간 정산됨)
+            if (typeof deactivateET === 'function' && etOn) {
+                deactivateET()
+            }
+
             window._sessionActive = false
 
             // 경고창 떠 있으면 닫기 (반응 시간 미기록)
