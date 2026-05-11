@@ -34,10 +34,10 @@
         text-align: center; color: #94a3b8; gap: 12px;
       }
       .workspace-welcome h1 {
-        font-size: 28px; font-weight: 750;
+        font-size: 28px; font-weight: 650;
         color: #1e293b; letter-spacing: -0.5px;
-        margin-top: 10px;
-      }
+        margin-top: 5px;
+        }
       .workspace-welcome p { font-size: 14px; color: #94a3b8; }
 
       /* 문서 미선택 시 도구 버튼 비활성화 */
@@ -280,6 +280,49 @@
         }
         .sb-item:hover .sb-item-delete { display: flex; }
         .sb-item-delete:hover { background: rgba(239,68,68,0.22); }
+
+        /* 메모장 열렸을 때 AI 화면도 겹치지 않게 */
+        body:has(.note-sb.open) #page-viewer .content-container {
+            display: flex !important;
+            align-items: flex-start !important;
+            gap: 18px !important;
+            padding-right: 32px !important;
+        }
+
+        body:has(.note-sb.open) #page-viewer .center-area {
+            flex: 1 1 auto !important;
+            min-width: 0 !important;
+            max-width: none !important;
+            justify-content: flex-start !important;
+        }
+
+        body:has(.note-sb.open) #page-viewer .side-area {
+            width: 300px !important;
+            flex: 0 0 300px !important;
+            min-width: 300px !important;
+            overflow: visible !important;
+        }
+
+        body:has(.note-sb.open) #page-viewer .note-sb {
+            position: sticky !important;
+            top: 0 !important;
+            width: 300px !important;
+        }
+
+        body:has(.note-sb.open) #page-viewer #pdfContainer {
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 0 !important;
+        }
+
+        /* 요약 / 마인드맵 / 퀴즈 내부 패널도 부모 너비 안에서만 */
+        body:has(.note-sb.open) #page-viewer #pdfContainer.summary-mode .ai-page,
+        body:has(.note-sb.open) #page-viewer #pdfContainer.mindmap-mode .mindmap-app,
+        body:has(.note-sb.open) #page-viewer #pdfContainer.quiz-mode .ng-quiz-panel {
+            width: 100% !important;
+            max-width: none !important;
+            min-width: 0 !important;
+        }
     </style>
 </head>
 
@@ -423,29 +466,23 @@
                 </div>
             </div>
             <div class="sidebar-scroll">
-                <div class="sb-label" id="sbWorkspaceLabel" style="color:#1e293b;font-weight:700;font-size:13px;">문서</div>
+                <button class="sb-label sb-workspace-label" id="sbWorkspaceButton" type="button">
+                    <span class="sb-workspace-label-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
+                        </svg>
+                    </span>
+                    <span id="sbWorkspaceLabel">문서</span>
+                </button>
                 <div class="sb-list" id="sbDocList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
-                <div class="sb-label" style="margin-top:20px;color:#64748b;font-weight:600;font-size:12px;">✦ 지식 자산</div>
+                <div class="sb-label sb-asset-divider">✦  지식 자산</div>
                 <div class="sb-list" id="sbAssetList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 생성된 자산이 표시됩니다.</div>
                 </div>
             </div>
-            <div class="sb-profile">
-                <div class="profile-card" onclick="location.href='profile.html'" style="cursor:pointer;" title="프로필 설정">
-                    <div class="avatar">
-                        <svg viewBox="0 0 64 64" fill="currentColor" width="24">
-                            <circle cx="32" cy="24" r="10" />
-                            <path d="M18 46C18 38.268 24.268 32 32 32C39.732 32 46 38.268 46 46V48H18V46Z" />
-                        </svg>
-                    </div>
-                    <div class="profile-info">
-                        <div class="profile-name" id="sbProfileName">—</div>
-                        <div class="profile-email" id="sbProfileEmail">—</div>
-                    </div>
-                </div>
-            </div>
+        
             <div class="sidebar-profile">
     <div class="sidebar-profile-left">
         <div class="sidebar-profile-avatar" aria-hidden="true">
@@ -639,7 +676,13 @@
                 } else if (window._wsOnlyMode) {
                     var wsName = window._wsName || '워크스페이스';
                     var c = document.getElementById('pdfContainer');
-                    if (c) c.innerHTML = '<div class="workspace-welcome"><div style="font-size:48px">👀</div><h1>' + wsName + '</h1><p>왼쪽에서 문서를 선택해 주세요.</p></div>';
+                    if (c) c.innerHTML = `
+                        <div class="workspace-welcome">
+                            <div style="font-size:48px">📁</div>
+                            <h1>${wsName} 워크스페이스입니다.</h1>
+                            <p>왼쪽에서 문서를 선택해 주세요.</p>
+                        </div>
+                    `;
                 } else {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
@@ -1422,7 +1465,6 @@
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
         import { getSignedUrl, uploadDocument } from '/src/lib/storage.js'
         import { createStudySession, updateStudySession, completeStudySession } from '/src/lib/db/studySessions.js'
-        import { sb } from '/src/lib/supabase.js'
 
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
@@ -1442,6 +1484,16 @@
         const params = new URLSearchParams(location.search)
         let docId = params.get('doc_id')              // let: in-place 전환 시 갱신
         let workspaceId = params.get('workspace_id') ?? null
+
+        const sbWorkspaceButton = document.getElementById('sbWorkspaceButton')
+
+        if (sbWorkspaceButton) {
+            sbWorkspaceButton.addEventListener('click', () => {
+                if (workspaceId) {
+                    location.href = `viewer.html?workspace_id=${workspaceId}`
+                }
+            })
+        }
 
         // 워크스페이스만 있고 문서 없으면 웰컴 모드
         if (!docId && workspaceId) {
@@ -1609,13 +1661,15 @@
                 }
 
                 const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
+
                 assetEl.innerHTML = assets.map(a => {
-                    const fname = a.documents?.file_name ?? ''
-                    const label = `${fname} · ${typeLabel[a.type] ?? a.type}`
+                    const fname = cleanDocTitle(a.documents?.file_name ?? '')
+                    const label = `${fname} ${typeLabel[a.type] ?? a.type}`
+
                     return `
                     <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
                         <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
-                        <span class="sb-item-text" style="font-size:12px;">${fname}</span>
+                        <span class="sb-item-text" style="font-size:12px;">${fname} ${typeLabel[a.type] ?? a.type}</span>
                         <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
                     </button>`
                 }).join('')
