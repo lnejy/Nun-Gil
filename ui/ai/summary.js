@@ -223,3 +223,189 @@ async function preGenerateExplanations(summary) {
     setAiCache({ summary });  // sessionStorage도 explanation 포함 버전으로 갱신
   }
 }
+
+function injectSummaryCompactStyle() {
+  if (document.getElementById("ngSummaryCompactStyle")) return;
+
+  const style = document.createElement("style");
+  style.id = "ngSummaryCompactStyle";
+  style.textContent = `
+    body:has(#pdfContainer.summary-mode) {
+      --quiz-top: 90px;
+      --quiz-right: 32px;
+      --quiz-bottom: 14px;
+      --quiz-left-gap: 6px;
+      --quiz-height: calc(100vh - var(--quiz-top) - var(--quiz-bottom));
+    }
+
+    body:has(#pdfContainer.summary-mode) .content-container {
+      margin-top: var(--quiz-top) !important;
+      padding: 0 var(--quiz-right) var(--quiz-bottom) var(--quiz-left-gap) !important;
+      align-items: stretch !important;
+    }
+
+    body:has(#pdfContainer.summary-mode) .center-area {
+      width: 100% !important;
+      max-width: none !important;
+      flex: 1 1 auto !important;
+      justify-content: stretch !important;
+      align-items: stretch !important;
+      display: flex !important;
+    }
+
+    body:has(#pdfContainer.summary-mode) #pdfContainer {
+      width: 100% !important;
+      flex: 1 1 auto !important;
+      max-width: none !important;
+      min-height: var(--quiz-height) !important;
+      padding: 0 !important;
+      background: transparent !important;
+      border: none !important;
+      box-shadow: none !important;
+      border-radius: 0 !important;
+    }
+
+    #pdfContainer.summary-mode .ai-page {
+      width: 100%;
+      min-height: var(--quiz-height);
+      padding: 28px 22px;
+      overflow-y: auto;
+      border: 1px solid #e6edf5;
+      border-radius: 14px;
+      background: #ffffff;
+      box-shadow: 0 8px 26px rgba(15, 23, 42, 0.035);
+    }
+
+    #pdfContainer.summary-mode .ai-summary-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 9px;
+      margin-bottom: 10px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: #5b84d6;
+      font-size: 11px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    #pdfContainer.summary-mode .ai-summary-hero {
+      padding: 0;
+      margin: 0 0 22px;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    #pdfContainer.summary-mode .ai-summary-hero h1 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      font-weight: 600;
+      line-height: 1.35;
+      color: #1f2a44;
+      letter-spacing: -0.2px;
+    }
+
+    #pdfContainer.summary-mode .ai-summary-lead {
+      margin: 0;
+      font-size: 14.5px;
+      font-weight: 400;
+      line-height: 1.7;
+      color: #64748b;
+    }
+
+    #pdfContainer.summary-mode .ai-section-head {
+      margin: 18px 0 12px;
+      padding: 16px 0 0;
+      border-top: 1px solid #eef2f7;
+    }
+
+    #pdfContainer.summary-mode .ai-section-head span {
+      display: inline-flex;
+      align-items: center;
+      padding: 5px 10px;
+      margin-bottom: 8px;
+      border-radius: 999px;
+      background: #eef4ff;
+      color: #5b84d6;
+      font-size: 12.5px;
+      font-weight: 500;
+      line-height: 1.2;
+    }
+
+    #pdfContainer.summary-mode .ai-section-head h2 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 550;
+      color: #24324a;
+      line-height: 1.45;
+    }
+
+    #pdfContainer.summary-mode .ai-result-card {
+      margin-bottom: 10px;
+      border-radius: 13px;
+      border: 1px solid #e6edf6;
+      background: #ffffff;
+      box-shadow: 0 8px 20px rgba(47, 75, 116, 0.035);
+      overflow: hidden;
+    }
+
+    #pdfContainer.summary-mode .ai-summary-toggle {
+      padding: 15px 17px;
+    }
+
+    #pdfContainer.summary-mode .ai-card-kicker {
+      margin-bottom: 5px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #5b84d6;
+    }
+
+    #pdfContainer.summary-mode .ai-card-main h3 {
+      margin: 0 0 6px;
+      font-size: 14.5px;
+      font-weight: 550;
+      line-height: 1.45;
+      color: #24324a;
+    }
+
+    #pdfContainer.summary-mode .ai-card-brief {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.65;
+      color: #526174;
+    }
+
+    #pdfContainer.summary-mode .ai-card-meta {
+      margin-top: 8px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    #pdfContainer.summary-mode .ai-small-toggle {
+      font-size: 16px;
+    }
+
+    #pdfContainer.summary-mode .ai-inline-explain {
+      padding: 13px 16px 15px;
+      font-size: 13px;
+      line-height: 1.7;
+      color: #526174;
+      border-top: 1px solid #eef2f7;
+      background: linear-gradient(180deg, #243041 0%, #1e293b 100%);
+    }
+
+    #pdfContainer.summary-mode .ai-inline-explain p,
+    #pdfContainer.summary-mode .ai-inline-explain li {
+      font-size: 13px;
+      line-height: 1.7;
+    }
+
+    #pdfContainer.summary-mode .ai-inline-loading {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+  `;
+
+  document.head.appendChild(style);
+}
