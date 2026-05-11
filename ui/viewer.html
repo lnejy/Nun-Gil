@@ -85,6 +85,29 @@
             font-size: 13px;
             line-height: 1.7;
         }
+
+        /* 사이드바 항목 삭제 버튼 */
+        .sb-item { position: relative; }
+        .sb-item-delete {
+            display: none;
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 18px;
+            height: 18px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: rgba(239,68,68,0.12);
+            color: #ef4444;
+            font-size: 13px;
+            line-height: 1;
+            flex-shrink: 0;
+            z-index: 2;
+        }
+        .sb-item:hover .sb-item-delete { display: flex; }
+        .sb-item-delete:hover { background: rgba(239,68,68,0.22); }
     </style>
 </head>
 
@@ -252,6 +275,18 @@
                 </div>
             </div>
         </aside><!-- /.sidebar -->
+
+        <!-- 삭제 확인 모달 -->
+        <div id="sbDeleteOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);z-index:4000;align-items:center;justify-content:center;">
+            <div style="background:#fff;border-radius:20px;padding:28px 28px 24px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,0.18);display:flex;flex-direction:column;gap:14px;">
+                <div style="font-size:15px;font-weight:700;color:#1e293b;">삭제 확인</div>
+                <div id="sbDeleteMsg" style="font-size:13px;color:#475569;line-height:1.6;"></div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+                    <button id="sbDeleteCancelBtn" style="padding:8px 18px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">취소</button>
+                    <button id="sbDeleteConfirmBtn" style="padding:8px 18px;border:none;border-radius:10px;background:#ef4444;font-size:13px;font-weight:600;color:#fff;cursor:pointer;">삭제</button>
+                </div>
+            </div>
+        </div>
 
         <!-- 메인 콘텐츠 -->
         <main class="main-wrapper">
@@ -1060,10 +1095,12 @@
     <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
     <script type="module">
         import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
-        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument } from '/src/lib/db/documents.js'
+        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument, deleteDocument } from '/src/lib/db/documents.js'
+        import { deleteAsset } from '/src/lib/db/learningAssets.js'
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
         import { getSignedUrl, uploadDocument } from '/src/lib/storage.js'
         import { createStudySession, updateStudySession, completeStudySession } from '/src/lib/db/studySessions.js'
+        import { sb } from '/src/lib/supabase.js'
 
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
@@ -1110,7 +1147,7 @@
 
         // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
         const userId = session.user.id
-        const calibKey = `nungil_calib_${userId}`
+        const calibKey = `nungil_calib_ws_${workspaceId || userId}`
         let cachedCalib = null
 
         try {
@@ -1166,7 +1203,7 @@
                 if (labelEl) labelEl.textContent = wsName
                 docs = await getDocuments(workspaceId)
             } else {
-                if (labelEl) labelEl.textContent = '최근 문서'
+                if (labelEl) labelEl.textContent = '개인 문서'
                 docs = await getRecentDocuments(5)
             }
 
@@ -1176,13 +1213,22 @@
                 listEl.innerHTML = docs.map(d => `
                     <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
                         <span class="sb-item-text">${d.file_name}</span>
+                        <span class="sb-item-delete" data-delete-type="doc" data-delete-id="${d.id}" data-delete-name="${d.file_name}">×</span>
                     </button>
                 `).join('')
 
                 listEl.querySelectorAll('.sb-item').forEach(el => {
-                    el.addEventListener('click', () => {
+                    el.addEventListener('click', (e) => {
+                        if (e.target.closest('.sb-item-delete')) return
                         const id = el.dataset.docId
                         if (id && id !== docId) loadDocInViewer(id)
+                    })
+                })
+
+                listEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
                     })
                 })
             }
@@ -1206,7 +1252,7 @@
             try {
                 let query = sb
                     .from('learning_assets')
-                    .select('type, status, document_id, documents(file_name)')
+                    .select('id, type, status, document_id, documents(file_name)')
                     .eq('status', 'DONE')
 
                 if (targetDocId) {
@@ -1232,17 +1278,28 @@
                     return
                 }
 
+                const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
                 assetEl.innerHTML = assets.map(a => {
                     const fname = a.documents?.file_name ?? ''
+                    const label = `${fname} · ${typeLabel[a.type] ?? a.type}`
                     return `
-                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" style="gap:8px;align-items:center;">
+                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
                         <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
                         <span class="sb-item-text" style="font-size:12px;">${fname}</span>
+                        <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
                     </button>`
                 }).join('')
 
+                assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
+                    })
+                })
+
                 assetEl.querySelectorAll('.sb-item').forEach(el => {
-                    el.addEventListener('click', async () => {
+                    el.addEventListener('click', async (e) => {
+                        if (e.target.closest('.sb-item-delete')) return
                         const tool   = el.dataset.tool
                         const dId    = el.dataset.docId
 
@@ -1315,8 +1372,10 @@
                 // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
                 window.dispatchEvent(new CustomEvent('doc-changed'))
 
-                // 진행 중인 세션 종료
-                if (S.sessionId) await endSession('COMPLETED')
+                // 워크스페이스 세션은 문서 전환 시 유지 — 현재 문서만 갱신
+                if (S.sessionId) {
+                    updateStudySession(S.sessionId, { documentId: id }).catch(() => {})
+                }
 
             } catch (e) {
                 console.warn('문서 전환 실패:', e.message)
@@ -1431,13 +1490,14 @@
             document.getElementById('sessionEndBtn').style.display   = active ? 'flex'  : 'none'
         }
 
-        // 세션 시작
+        // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
         document.getElementById('sessionStartBtn').addEventListener('click', async () => {
-            if (S.sessionId || !docId) return
+            if (S.sessionId || !workspaceId) return
             try {
                 const sess = await createStudySession({
-                    userId:     session.user.id,
-                    documentId: docId,
+                    userId:      session.user.id,
+                    workspaceId: workspaceId,
+                    documentId:  docId ?? null,
                     calibrationData: window._cachedCalib ?? null,
                 })
                 S.sessionId  = sess.id
@@ -1502,6 +1562,59 @@
             document.body.classList.add('ai-view-mode')
         }
 
+        // ── 사이드바 삭제 확인 모달 ─────────────────────────────
+        const deleteOverlay  = document.getElementById('sbDeleteOverlay')
+        const deleteMsg      = document.getElementById('sbDeleteMsg')
+        const deleteCancelBtn  = document.getElementById('sbDeleteCancelBtn')
+        const deleteConfirmBtn = document.getElementById('sbDeleteConfirmBtn')
+
+        let _pendingDelete = null  // { type: 'doc'|'asset', id: string }
+
+        function showDeleteConfirm(type, id, name) {
+            _pendingDelete = { type, id }
+            const label = type === 'doc'
+                ? `'${name}' 문서를 삭제하시겠습니까?\n지식 자산도 함께 삭제됩니다.`
+                : `'${name}' 자산을 삭제하시겠습니까?`
+            deleteMsg.style.whiteSpace = 'pre-line'
+            deleteMsg.textContent = label
+            deleteOverlay.style.display = 'flex'
+        }
+        window.showDeleteConfirm = showDeleteConfirm
+
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteOverlay.style.display = 'none'
+            _pendingDelete = null
+        })
+
+        deleteConfirmBtn.addEventListener('click', async () => {
+            if (!_pendingDelete) return
+            const { type, id } = _pendingDelete
+            deleteOverlay.style.display = 'none'
+            _pendingDelete = null
+
+            try {
+                if (type === 'doc') {
+                    await deleteDocument(id)
+                    // 현재 열려 있는 문서면 빈 화면으로
+                    if (id === docId) {
+                        document.getElementById('pdfContainer').innerHTML =
+                            '<div class="pdf-no-content">문서가 삭제됐습니다.</div>'
+                    }
+                } else {
+                    await deleteAsset(id)
+                    // sessionStorage 캐시 무효화
+                    const cache = JSON.parse(sessionStorage.getItem(`nungil_ai_${docId}`) || '{}')
+                    delete cache.summary; delete cache.mindmap; delete cache.quiz; delete cache.concepts
+                    sessionStorage.setItem(`nungil_ai_${docId}`, JSON.stringify(cache))
+                }
+                // 사이드바 갱신
+                loadKnowledgeAssets(docId || null)
+                // 문서 목록 갱신 (문서 삭제 시)
+                if (type === 'doc') location.reload()
+            } catch (e) {
+                alert('삭제 실패: ' + e.message)
+            }
+        })
 
     </script>
 

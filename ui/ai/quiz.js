@@ -11,6 +11,7 @@ import {
   showAiLoading,
   sourceText,
   saveAssetToDb,
+  loadAssetFromDb,
 } from "./common.js";
 
 import { createQuizPrompt } from "./prompt.js";
@@ -29,6 +30,14 @@ export async function loadQuiz() {
 
   if (cache.quiz) {
     renderQuiz(cache.quiz);
+    return;
+  }
+
+  // sessionStorage 없으면 DB에서 먼저 확인
+  const saved = await loadAssetFromDb('QUIZ');
+  if (saved) {
+    setAiCache({ quiz: saved });
+    renderQuiz(saved);
     return;
   }
 

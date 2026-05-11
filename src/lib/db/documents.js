@@ -34,6 +34,7 @@ export async function getRecentDocuments(limit = 5) {
   const { data, error } = await sb
     .from('documents')
     .select('id, file_name, file_type, uploaded_at, workspace_id')
+    .is('workspace_id', null)
     .order('uploaded_at', { ascending: false })
     .limit(limit)
 

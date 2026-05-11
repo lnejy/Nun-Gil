@@ -2,6 +2,7 @@
 // AI 기능 공통 유틸: 캐시, PDF chunk, Claude 호출, 공통 렌더 보조
 
 import { SUPABASE_URL, sb } from '/src/lib/supabase.js'
+import { createConceptExtractPrompt } from './prompt.js'
 
 const ASK_CLAUDE_URL = `${SUPABASE_URL}/functions/v1/ask-claude`
 
@@ -16,6 +17,7 @@ export const AI_STATE = {
   docTitle: "문서",
   pdfUrl: null,
   canvasId: "pdfContainer",
+  pageCount: 0,
 };
 
 export function initAiState() {
@@ -112,6 +114,7 @@ async function extractPdfChunksFromUrl(url) {
     "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
   const pdf = await pdfjsLib.getDocument(url).promise;
+  AI_STATE.pageCount = pdf.numPages;
   const pages = [];
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
@@ -356,7 +359,7 @@ export async function askClaudeText(prompt) {
       "Content-Type": "application/json",
       "Authorization": await getAuthHeader(),
     },
-    body: JSON.stringify({ prompt: sanitizeForJson(prompt) }),
+    body: JSON.stringify({ prompt: sanitizeForJson(prompt), mode: 'text' }),
   });
 
   const data = await res.json();
@@ -372,35 +375,45 @@ export function sourceText(sourceChunks) {
   return sourceChunks?.length ? `근거: ${sourceChunks.join(", ")}` : "";
 }
 
-// 생성된 지식 자산을 learning_assets DB에 저장
-export async function saveAssetToDb(type, content) {
-  const sb    = window.sb;
-  const docId = window._currentDocId;
-  if (!sb || !docId) return;
+// DB에서 기존 생성 자산 불러오기 (새로고침 후 재생성 방지)
+export async function loadAssetFromDb(type) {
+  const docId = AI_STATE.docId || window._currentDocId;
+  if (!docId) return null;
 
   try {
-    const { data: existing } = await sb
+    const { data } = await sb
       .from('learning_assets')
-      .select('id')
+      .select('content')
       .eq('document_id', docId)
       .eq('type', type)
+      .eq('status', 'DONE')
       .maybeSingle();
 
-    if (existing?.id) {
-      await sb.from('learning_assets')
-        .update({ status: 'DONE', content })
-        .eq('id', existing.id);
-    } else {
-      await sb.from('learning_assets')
-        .insert({ document_id: docId, type, status: 'DONE', content });
-    }
+    return data?.content ?? null;
+  } catch {
+    return null;
+  }
+}
 
-    // 사이드바 지식 자산 갱신
-    if (typeof window.loadKnowledgeAssets === 'function') {
-      window.loadKnowledgeAssets(docId);
-    }
-  } catch (e) {
-    console.warn('지식 자산 저장 실패:', e.message);
+// 생성된 지식 자산을 learning_assets DB에 저장
+export async function saveAssetToDb(type, content) {
+  const docId = AI_STATE.docId || window._currentDocId;
+  if (!docId || docId === 'demo') return;
+
+  const { error } = await sb
+    .from('learning_assets')
+    .upsert(
+      { document_id: docId, type, status: 'DONE', content },
+      { onConflict: 'document_id,type' }
+    );
+
+  if (error) {
+    console.error('지식 자산 저장 실패:', error.message, { docId, type });
+    return;
+  }
+
+  if (typeof window.loadKnowledgeAssets === 'function') {
+    window.loadKnowledgeAssets(docId);
   }
 }
 
@@ -417,4 +430,52 @@ function sanitizeForJson(value) {
     String(value ?? "")
       .replace(/\u0000/g, "")
   );
+}
+// ── 누락된 공통 함수 ───────────────────────────────────────────────────────────
+
+// 문서 페이지 수 기반으로 출력 항목 범위 결정
+export function decideOutputRange(pageCount = 10, _type = "summary") {
+  if (pageCount <= 5)  return { min: 3, max: 4 };
+  if (pageCount <= 15) return { min: 4, max: 6 };
+  if (pageCount <= 30) return { min: 5, max: 7 };
+  return { min: 6, max: 8 };
+}
+
+// 문서 전체에서 균등하게 k개 chunk 선택
+function selectSpreadChunks(chunks, k) {
+  if (chunks.length <= k) return chunks;
+  const step = chunks.length / k;
+  return Array.from({ length: k }, (_, i) => chunks[Math.floor(i * step)]);
+}
+
+// 핵심 개념 추출 (캐시 → Claude)
+export async function getConcepts({ topK = 8, candidateK = 12 } = {}) {
+  const cache = getAiCache();
+  if (Array.isArray(cache.concepts) && cache.concepts.length > 0) {
+    return cache.concepts.slice(0, topK);
+  }
+
+  const chunks = await getChunks();
+  const selected = selectSpreadChunks(chunks, Math.min(candidateK, chunks.length));
+  const context = buildContext(selected);
+
+  showAiLoading("핵심 개념 추출 중");
+
+  const prompt = createConceptExtractPrompt({
+    title: AI_STATE.docTitle,
+    context,
+    estimatedPageCount: AI_STATE.pageCount || 10,
+  });
+
+  const concepts = await askClaudeJson(prompt);
+  const list = Array.isArray(concepts) ? concepts : [];
+  setAiCache({ concepts: list });
+
+  return list.slice(0, topK);
+}
+
+// 중요 chunk 반환 (문서 전체에서 균등 선택)
+export async function getImportantChunks({ topK = 6, candidateK = 16 } = {}) {
+  const chunks = await getChunks();
+  return selectSpreadChunks(chunks, Math.min(topK, candidateK, chunks.length));
 }
