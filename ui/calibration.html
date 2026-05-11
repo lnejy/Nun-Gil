@@ -9,7 +9,9 @@
         :root {
             --primary: #3b82f6;
             --primary-light: #eff6ff;
-            --bg: #f6f7f9;
+            --bg: radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+                    radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+                    #f8faff;
             --text: #2f3440;
             --sub: #a0a6b0;
             --border: #eceef2;
@@ -73,7 +75,7 @@
         .calib-done-icon { width: 72px; height: 72px; border-radius: 50%; background: #ecfdf5; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 32px; }
 
         /* ── 시선 점 & 궤적 (캘리브레이션 중 표시) ── */
-        #gaze-dot { position: fixed; width: 16px; height: 16px; border-radius: 50%; background: rgba(59,130,246,.7); pointer-events: none; transform: translate(-50%,-50%); z-index: 99999; box-shadow: 0 0 12px rgba(59,130,246,.4); opacity: 0; transition: left .05s linear, top .05s linear, opacity .25s; }
+        #gaze-dot { position: fixed; width: 16px; height: 16px; border-radius: 50%; background: transparent; border: 1.5px solid rgba(135,200,245,.6); pointer-events: none; transform: translate(-50%,-50%); z-index: 99999; opacity: 0; transition: left .05s linear, top .05s linear, opacity .25s; }
         #gaze-dot.visible { opacity: 1; }
         #gaze-dot.blink { opacity: .15; transition: opacity .05s; }
         #trail-canvas { position: fixed; inset: 0; pointer-events: none; z-index: 9998; display: none; }

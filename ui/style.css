@@ -147,7 +147,8 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 
 /* AI 도구 버튼 */
 .sb-tool-section {
-    padding: 0 12px 16px;
+
+    padding: 0 12px 20px;
 }
 
 .sb-tool-grid {
@@ -207,7 +208,8 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 .sb-label {
     font-size: 11.5px;
     color: var(--sub);
-    margin: 0 6px 8px;
+
+    margin: 0 6px 6px;
     font-weight: 400;
     letter-spacing: -0.1px;
 }
@@ -444,6 +446,7 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
     transition: 0.15s;
 }
 
+
 .zoom-btn:hover {
     background: #e9ecef;
     color: var(--p);
@@ -496,78 +499,141 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
     flex-shrink: 0;
 }
 
-
 /* ═══════════════════════════════════════════════════════
    컨텐츠 컨테이너
+   - 메모장 열릴 때 콘텐츠 왼쪽 시작점 고정
+   - 오른쪽만 줄어들게 처리
 ═══════════════════════════════════════════════════════ */
 .content-container {
     display: flex;
+
+    align-items: flex-start;
     width: 100%;
     margin-top: 90px;
     padding: 0 32px 70px;
+    gap: 18px;
     transition: var(--tr);
 }
 
+/* 기존 가짜 여백 제거 */
 .content-container::before {
-    content: "";
-    display: block;
-    width: 0;
-    flex-shrink: 0;
+    display: none;
+}
+
+/* 가운데 콘텐츠 영역 */
+.center-area {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    justify-content: flex-start;
     transition: var(--tr);
 }
 
-.content-container:has(.note-sb.open)::before {
-    width: 100px;
-}
-
-.center-area {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    min-width: 0;
-}
-
+/* 원본 PDF 기본 캔버스 */
 .paper-canvas {
     position: relative;
     overflow: visible;
-    flex: 0 0 850px;
+
+    width: 100%;
+    max-width: 850px;
+    flex: 1 1 auto;
+
     background: white;
     padding: 100px 80px;
     box-shadow: 0 10px 50px rgba(0, 0, 0, 0.03);
     border: 1px solid var(--border);
     border-radius: 4px;
     min-height: 1160px;
+
+    transition: width var(--tr), max-width var(--tr), flex-basis var(--tr);
 }
 
+/* 메모장 영역: 닫혔을 때는 공간 없음 */
 .side-area {
     width: 0;
-    flex-shrink: 0;
-    transition: var(--tr);
+    flex: 0 0 0;
+    min-width: 0;
+    overflow: hidden;
+    transition: flex-basis var(--tr), width var(--tr);
 }
 
+/* 메모장 열리면 오른쪽 공간 확보 */
 .content-container:has(.note-sb.open) .side-area {
     width: 300px;
+    flex: 0 0 300px;
+}
+
+/* 메모장이 열렸을 때 콘텐츠는 왼쪽 기준 유지 + 오른쪽만 줄어듦 */
+.content-container:has(.note-sb.open) .center-area {
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: flex-start;
+}
+
+.content-container:has(.note-sb.open) .paper-canvas {
+    max-width: none;
+    width: 100%;
 }
 
 /* ═══════════════════════════════════════════════════════
    메모장
+   - fixed 제거
+   - side-area 안에서 자연스럽게 자리 차지
 ═══════════════════════════════════════════════════════ */
 .note-sb {
-    position: fixed; top: 112px; right: 40px;
-    width: 0; height: calc(100vh - 160px);
-    overflow: hidden; transition: var(--tr); z-index: 1000;
-}
-.note-sb.open { width: 300px; }
-.note-box {
-    width: 300px; height: 100%;
-    background: rgba(255,255,255,0.9); backdrop-filter: blur(20px);
-    border: 1px solid var(--border); border-radius: 24px;
-    display: flex; flex-direction: column; box-shadow: var(--sh-lg);
-    position: relative;
-}
-.note-h { padding: 22px 24px 12px; font-weight: 800; border-bottom: 1px solid rgba(0,0,0,0.03); color: var(--p); }
-.note-ta { flex: 1; padding: 20px 24px; border: none; outline: none; resize: none; background: transparent; font-family: inherit; line-height: 1.8; }
 
+    position: sticky;
+    top: 0;
+
+    width: 0;
+    height: calc(100vh - 160px);
+    overflow: visible;
+
+    flex-shrink: 0;
+    transition: width var(--tr);
+    z-index: 1000;
+}
+
+.note-sb.open {
+    width: 300px;
+}
+
+.note-box {
+    width: 300px;
+    height: 100%;
+    max-height: calc(100vh - 160px);
+
+    background: rgba(255, 255, 255, 0.94);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--sh-lg);
+    position: relative;
+
+    overflow: hidden;
+}
+
+.note-h {
+    padding: 22px 24px 12px;
+    font-weight: 700;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    color: var(--p);
+}
+
+.note-ta {
+    flex: 1;
+    padding: 20px 24px;
+    border: none;
+    outline: none;
+    resize: none;
+    background: transparent;
+    font-family: inherit;
+    line-height: 1.8;
+}
+   
 
 /* ═══════════════════════════════════════════════════════
    문서 타이포그래피
@@ -709,7 +775,7 @@ body.bookmark-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www
 .calib-overlay.active { display: flex; }
 .calib-card { width: min(660px,100%); background: #fff; border-radius: 24px; border: 1px solid var(--border); box-shadow: var(--sh-lg); padding: 48px 40px; text-align: center; }
 .calib-card-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--primary-light); display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; font-size: 28px; }
-.calib-card-title { font-size: 26px; font-weight: 700; letter-spacing: -.03em; margin-bottom: 10px; }
+.calib-card-title { font-size: 26px; font-weight: 600; letter-spacing: -.03em; margin-bottom: 10px; }
 .calib-card-desc { font-size: 13px; line-height: 1.85; color: #6b7280; margin-bottom: 28px; }
 .calib-steps { border-radius: 16px; background: #f9fafb; border: 1px solid var(--border); padding: 20px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; }
 .calib-step { background: #fff; border-radius: 12px; padding: 16px; text-align: left; border: 1px solid var(--border); }

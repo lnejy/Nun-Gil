@@ -10,12 +10,12 @@ import {
   getCanvas,
   getChunks,
   getConcepts,
+  loadAssetFromDb,
+  saveAssetToDb,
   setAiCache,
   setAiMode,
   showAiLoading,
   sourceText,
-  saveAssetToDb,
-  loadAssetFromDb,
 } from "./common.js";
 
 import {
@@ -24,8 +24,8 @@ import {
 } from "./prompt.js";
 
 export async function loadMindmap({ shouldRender = () => true } = {}) {
+  // 1차: sessionStorage 캐시
   const cache = getAiCache();
-
   if (cache.mindmap) {
     if (shouldRender()) renderMindmap(cache.mindmap);
     return;
@@ -60,19 +60,35 @@ export async function loadMindmap({ shouldRender = () => true } = {}) {
   if (shouldRender()) renderMindmap(mindmap);
 }
 
+function getMindmapTitle() {
+  const rawTitle = AI_STATE.docTitle || window._docTitle || "문서";
+
+  return String(rawTitle)
+    .replace(/^눈길\s*[-–—:]*\s*/i, "")
+    .replace(/\.(pdf|ppt|pptx)$/i, "")
+    .replace(/\s*마인드맵\s*$/i, "")
+    .trim() || "문서";
+}
+
 function renderMindmap(mindmapData) {
+  injectMindmapCompactStyle();
+
   const container = getCanvas();
   setAiMode("mindmap-mode");
 
   container.innerHTML = `
     <div class="mindmap-app">
       <main class="mindmap-map-area">
-        <div class="mindmap-logo">눈길 마인드맵</div>
 
-        <div class="mindmap-toolbar">
-          <button type="button" id="mindmapZoomIn" title="확대">＋</button>
-          <button type="button" id="mindmapZoomOut" title="축소">－</button>
-          <button type="button" id="mindmapToggleAll" title="전체 펼치기">⤢</button>
+        <div class="mindmap-header">
+          <div class="ng-quiz-badge mindmap-badge">마인드맵</div>
+          <h1 class="mindmap-title">${escapeHtml(getMindmapTitle())}</h1>
+
+          <div class="mindmap-toolbar">
+            <button type="button" id="mindmapZoomIn" title="확대">＋</button>
+            <button type="button" id="mindmapZoomOut" title="축소">－</button>
+            <button type="button" id="mindmapToggleAll" title="전체 펼치기">⤢</button>
+          </div>
         </div>
       </main>
 
@@ -88,9 +104,12 @@ function renderMindmap(mindmapData) {
   `;
 
   const nodeWidth = 260;
-  const depthGap = 330;
-  const duration = 720;
-  const ease = d3.easeCubicInOut;
+
+const depthGap = 330;
+const offsetX = 120;
+const offsetY = 390;
+const duration = 720;
+const ease = d3.easeCubicInOut;
 
   let allExpanded = false;
 
@@ -190,7 +209,7 @@ function renderMindmap(mindmapData) {
     const nodeEnter = node.enter()
       .append("g")
       .attr("class", "mindmap-node")
-      .attr("transform", () => `translate(${source.y0 + 120},${source.x0 + 330}) scale(0.72)`)
+      .attr("transform", () => `translate(${source.y0 + offsetX},${source.x0 + offsetY}) scale(0.72)`)
       .style("opacity", 0)
       .on("click", function (event, d) {
         event.stopPropagation();
@@ -259,7 +278,7 @@ function renderMindmap(mindmapData) {
     const nodeUpdate = nodeEnter.merge(node);
 
     nodeUpdate.transition(transition)
-      .attr("transform", (d) => `translate(${d.y + 120},${d.x + 330}) scale(1)`)
+    .attr("transform", (d) => `translate(${d.y + offsetX},${d.x + offsetY}) scale(1)`)
       .style("opacity", 1);
 
     nodeUpdate.select(".mindmap-arrow-text")
@@ -268,7 +287,7 @@ function renderMindmap(mindmapData) {
 
     node.exit()
       .transition(transition)
-      .attr("transform", () => `translate(${source.y + 120},${source.x + 330}) scale(0.72)`)
+      .attr("transform", () => `translate(${source.y + offsetX},${source.x + offsetY}) scale(0.72)`)
       .style("opacity", 0)
       .remove();
 
@@ -284,16 +303,16 @@ function renderMindmap(mindmapData) {
   }
 
   function diagonal(d) {
-    const sx = d.source.x + 330;
-    const sy = d.source.y + 120;
-    const tx = d.target.x + 330;
-    const ty = d.target.y + 120;
+  const sx = d.source.x + offsetY;
+  const sy = d.source.y + offsetX;
+  const tx = d.target.x + offsetY;
+  const ty = d.target.y + offsetX;
 
-    return `M ${sy} ${sx}
-            C ${(sy + ty) / 2} ${sx},
-              ${(sy + ty) / 2} ${tx},
-              ${ty} ${tx}`;
-  }
+  return `M ${sy} ${sx}
+          C ${(sy + ty) / 2} ${sx},
+            ${(sy + ty) / 2} ${tx},
+            ${ty} ${tx}`;
+}
 
   function pulse(selection) {
     selection.select("rect")
@@ -356,22 +375,26 @@ function renderMindmap(mindmapData) {
   }
 
   function toggleAllMindmap() {
-    const btn = document.getElementById("mindmapToggleAll");
+  const btn = document.getElementById("mindmapToggleAll");
 
-    if (allExpanded) {
-      root.children?.forEach(collapse);
-      allExpanded = false;
-      btn.title = "전체 펼치기";
-      btn.innerHTML = "⤢";
-    } else {
-      expand(root);
-      allExpanded = true;
-      btn.title = "전체 접기";
-      btn.innerHTML = "⤡";
-    }
-
-    update(root);
+  if (allExpanded) {
+    root.children?.forEach(collapse);
+    allExpanded = false;
+    btn.title = "전체 펼치기";
+    btn.innerHTML = "⤢";
+  } else {
+    expand(root);
+    allExpanded = true;
+    btn.title = "전체 접기";
+    btn.innerHTML = "⤡";
   }
+
+  update(root);
+
+  requestAnimationFrame(() => {
+    fitToVisibleNodes();
+  });
+}
 
   function fitToVisibleNodes() {
     const nodes = root.descendants();
