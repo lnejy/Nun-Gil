@@ -329,8 +329,8 @@ function injectSummaryCompactStyle() {
     }
 
     #pdfContainer.summary-mode .ai-summary-toggle {
-    padding: 15px 17px;
-  }
+      padding: 15px 17px;
+    }
 
     #pdfContainer.summary-mode .ai-card-kicker {
       margin-bottom: 5px;
@@ -370,7 +370,7 @@ function injectSummaryCompactStyle() {
       line-height: 1.7;
       color: #526174;
       border-top: 1px solid #eef2f7;
-      background: #fbfdff;
+      background: linear-gradient(180deg, #243041 0%, #1e293b 100%);
     }
 
     #pdfContainer.summary-mode .ai-inline-explain p,
