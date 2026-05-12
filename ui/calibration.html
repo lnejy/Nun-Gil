@@ -175,7 +175,7 @@
     resizeCanvas();
 
     /* ── 스무딩 ── */
-    var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 80, WARMUP_FRAMES = 5;
+    var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 100, WARMUP_FRAMES = 5;
 
     function smoothGaze(rx, ry, isBlink) {
         if (isBlink) { G.blinkFrames++; return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY }; }
