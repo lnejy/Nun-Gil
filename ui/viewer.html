@@ -74,25 +74,29 @@
     <link rel="stylesheet" href="./ai/ai.css">
     <style>
         #page-viewer .sb-workspace-label {
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            padding: 6px 8px;
-            border: none;
-            background: transparent;
-            border-radius: 9px;
-            color: #1e293b;
-            font-weight: 500;
-            font-size: 13px;
-            font-family: inherit;
-            text-align: left;
-            cursor: pointer;
-        }
+    width: calc(100% - 12px) !important;
+    box-sizing: border-box !important;
 
-        #page-viewer .sb-workspace-label:hover {
-            background: #f5f6f8;
-        }
+    margin: 0 6px 9px !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+
+    border: none !important;
+    background: transparent !important;
+    border-radius: 9px !important;
+
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+
+#page-viewer .sb-workspace-label:hover {
+    background: #f5f6f8;
+}
 
         #page-viewer .sb-workspace-label-icon {
             width: 20px;
@@ -110,34 +114,50 @@
             stroke: currentColor;
         }
 
-        #page-viewer #sbWorkspaceLabel {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
+/* 워크스페이스 이름 */
+#page-viewer #sbWorkspaceLabel {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #4b525d !important;
 
-        /* 문서 목록을 워크스페이스 이름보다 살짝 오른쪽으로 */
-        #page-viewer #sbDocList {
-            margin-left: 18px;
-            margin-bottom: 14px;
-        }
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
-        /* 문서 목록 아이템 정리 */
-        #page-viewer #sbDocList .sb-item {
-            min-height: 34px;
-            padding: 6px 8px;
-        }
+/* 지식 자산 제목 */
+#page-viewer .sb-asset-divider {
+    width: calc(100% - 12px) !important;
+    box-sizing: border-box !important;
 
-        /* 지식 자산 위 구분선 */
-        #page-viewer .sb-asset-divider {
-            margin: 16px 6px 9px;
-            padding-top: 14px;
-            border-top: 1px solid #eef0f3;
-            color: #64748b;
-            font-weight: 500;
-            font-size: 13px;
-        }
+    margin: 16px 6px 9px !important;
+    padding-top: 14px !important;
+
+    border-top: 1px solid #e5e7eb !important;
+
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: #111827 !important;
+}
+
+
+/* 문서 목록 아이템 */
+#page-viewer #sbDocList .sb-item {
+    width: 100% !important;
+    box-sizing: border-box !important;
+    padding: 6px 8px !important;
+}
+
+/* 지식 자산 목록도 같은 기준 */
+#page-viewer #sbAssetList {
+    width: calc(100% - 12px) !important;
+    box-sizing: border-box !important;
+
+    margin-left: 6px !important;
+    margin-right: 6px !important;
+}
+
 
         /* 지식 자산 타입 배지 */
         #page-viewer .sb-asset-type {
@@ -431,6 +451,283 @@
             max-width: none !important;
             min-width: 0 !important;
         }
+
+/* 사이드바 너비 +60px 확장 */
+#page-viewer .sidebar {
+    width: 330px !important;
+}
+
+/* 본문 영역 오른쪽 여백: 사이드바 외곽 여백과 맞춤 */
+/* AI 화면 공통 본문 레이아웃 */
+body:has(#pdfContainer.summary-mode) #page-viewer .content-container,
+body:has(#pdfContainer.mindmap-mode) #page-viewer .content-container,
+body.quiz-inline-mode:not(.quiz-fullscreen-mode) #page-viewer .content-container {
+    margin-top: 90px !important;
+    padding-right: 32px !important;
+    padding-bottom: 14px !important;
+}
+
+/* main-wrapper는 margin-left가 아니라 기존 구조처럼 padding-left로 조정 */
+#page-viewer .main-wrapper {
+    margin-left: 0 !important;
+    padding-left: 358px !important;
+}
+
+#page-viewer .floating-toolbar .group-left,
+#page-viewer .floating-toolbar .group-right {
+    flex: 0 0 auto !important;
+}
+
+/* 왼쪽/오른쪽 그룹 자체는 늘리지 않음 */
+#page-viewer .floating-toolbar .group-left,
+#page-viewer .floating-toolbar .group-right {
+    flex: 0 0 auto !important;
+}
+
+/* 상단바 영역: 뒤로가기 버튼 + 기존 상단바 */
+#page-viewer .toolbar-wrapper {
+    left: 364px !important;
+    right: 32px !important;
+    width: auto !important;
+    max-width: none !important;
+
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+/* workspace.html의 뒤로 버튼 스타일 그대로 */
+#page-viewer .workspace-back-btn {
+    flex: 0 0 auto;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    background: transparent;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 9px 16px;
+
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+#page-viewer .workspace-back-btn:hover {
+    background: #ffffff;
+    color: #111827;
+}
+
+/* 기존 상단바는 남은 공간만 차지 */
+#page-viewer .floating-toolbar {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    max-width: none !important;
+    margin: 0 !important;
+    justify-content: space-between !important;
+}
+
+/* 상단바 안쪽 그룹은 늘어나지 않음 */
+#page-viewer .floating-toolbar .group-left,
+#page-viewer .floating-toolbar .group-right {
+    flex: 0 0 auto !important;
+}
+
+/* 접혔을 때도 뒤로가기 + 상단바 유지 */
+#page-viewer:has(.sidebar.collapsed) .toolbar-wrapper,
+body.sidebar-collapsed #page-viewer .toolbar-wrapper {
+    left: 106px !important;
+    right: 32px !important;
+    width: auto !important;
+
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+#page-viewer:has(.sidebar.collapsed) .floating-toolbar,
+body.sidebar-collapsed #page-viewer .floating-toolbar {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    margin: 0 !important;
+}
+
+/* 눈길 로고는 기존처럼 왼쪽 16px 유지 */
+#page-viewer .sidebar-header {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+/* 새 문서 추가 버튼: 기존 양쪽 여백 유지 + 가운데 정렬 */
+#page-viewer .sb-add-section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+#page-viewer .sb-add-btn {
+    width: 100% !important;
+    margin: 0 auto !important;
+}
+
+/* 원본/요약/마인드맵/퀴즈: 기존 양쪽 여백 유지 + 가운데 */
+#page-viewer .sb-tool-section {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+}
+
+#page-viewer .sb-tool-grid {
+    width: 100% !important;
+    margin: 0 auto !important;
+}
+
+/* 사이드바 스크롤 영역: 왼쪽 여백은 기존처럼, 오른쪽만 넓어진 너비에 맞춤 */
+#page-viewer .sidebar-scroll {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+    padding-bottom: 0 !important;
+}
+
+/* 워크스페이스/문서/지식자산 항목은 늘어난 영역 안에서 자연스럽게 채우기 */
+#page-viewer #sbDocList,
+#page-viewer #sbAssetList,
+#page-viewer .sb-asset-divider {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+
+/* 문서 목록도 지식 자산 목록과 같은 위치로 */
+#page-viewer #sbDocList {
+    width: calc(100% - 12px) !important;
+    box-sizing: border-box !important;
+
+    margin-left: 6px !important;
+    margin-right: 6px !important;
+    margin-bottom: 14px !important;
+}
+
+/* 왼쪽 프로필 영역은 커지지 않게 고정 */
+#page-viewer .sidebar-profile-left {
+    width: 58px !important;
+    min-width: 58px !important;
+    max-width: 58px !important;
+}
+
+/* 오른쪽 버튼 영역만 늘어나게 */
+#page-viewer .sidebar-profile-actions {
+    width: 100% !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+    transform: none !important;
+}
+
+/* 버튼은 오른쪽 영역 안에서만 가로로 늘어남 */
+#page-viewer .sidebar-profile-button {
+    width: 100% !important;
+}
+
+/* 사이드바 접힘 상태 보정 */
+#page-viewer:has(.sidebar.collapsed) .sidebar,
+body.sidebar-collapsed #page-viewer .sidebar {
+    width: 72px !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+#page-viewer:has(.sidebar.collapsed) .main-wrapper,
+body.sidebar-collapsed #page-viewer .main-wrapper {
+    margin-left: 0 !important;
+    padding-left: 92px !important;
+}
+
+/* 접혔을 때 스크롤 영역이 남는 공간을 차지해서 프로필을 아래로 밀어줌 */
+#page-viewer:has(.sidebar.collapsed) .sidebar-scroll,
+body.sidebar-collapsed #page-viewer .sidebar-scroll {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    padding-bottom: 0 !important;
+}
+
+/* 접혔을 때 프로필은 사이드바 맨 아래에 고정 */
+#page-viewer:has(.sidebar.collapsed) .sidebar-profile,
+body.sidebar-collapsed #page-viewer .sidebar-profile {
+    margin-top: auto !important;
+    padding: 12px 0 14px !important;
+    width: 72px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    grid-template-columns: none !important;
+    column-gap: 0 !important;
+    border-top: 1px solid #f1f3f5 !important;
+    background: #fcfcfd !important;
+    flex-shrink: 0 !important;
+}
+
+/* 접혔을 때는 프로필 아이콘 + 이름만 보이게 */
+#page-viewer:has(.sidebar.collapsed) .sidebar-profile-left,
+body.sidebar-collapsed #page-viewer .sidebar-profile-left {
+    width: 58px !important;
+    min-width: 58px !important;
+    max-width: 58px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 5px !important;
+}
+
+/* 접혔을 때 오른쪽 버튼 영역 숨김 */
+#page-viewer:has(.sidebar.collapsed) .sidebar-profile-actions,
+body.sidebar-collapsed #page-viewer .sidebar-profile-actions {
+    display: none !important;
+}
+
+/* 접혔을 때 아이콘 크기 유지 */
+#page-viewer:has(.sidebar.collapsed) .sidebar-profile-avatar,
+body.sidebar-collapsed #page-viewer .sidebar-profile-avatar {
+    width: 38px !important;
+    height: 38px !important;
+    flex-shrink: 0 !important;
+}
+
+/* 접혔을 때 이름만 짧게 표시 */
+#page-viewer:has(.sidebar.collapsed) .sidebar-profile-name,
+body.sidebar-collapsed #page-viewer .sidebar-profile-name {
+    display: block !important;
+    max-width: 54px !important;
+    font-size: 10.5px !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+}
+
+#page-viewer #pdfContainer.ai-mode {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+#page-viewer #pdfContainer.ai-mode .ai-page,
+#page-viewer #pdfContainer.mindmap-mode .mindmap-app,
+#page-viewer #pdfContainer.quiz-mode .ng-quiz {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+}
     </style>
 </head>
 
@@ -642,6 +939,10 @@
         <!-- 메인 콘텐츠 -->
         <main class="main-wrapper">
             <div class="toolbar-wrapper">
+                <button id="workspaceBackBtn" class="workspace-back-btn" type="button">
+                    ← 뒤로
+                </button>
+
                 <header class="floating-toolbar">
                     <div class="group-left">
                         <div class="font-island">
@@ -1620,6 +1921,14 @@
                 if (workspaceId) {
                     location.href = `viewer.html?workspace_id=${workspaceId}`
                 }
+            })
+        }
+
+        const workspaceBackBtn = document.getElementById('workspaceBackBtn')
+
+        if (workspaceBackBtn) {
+            workspaceBackBtn.addEventListener('click', () => {
+                location.href = 'workspace.html'
             })
         }
 

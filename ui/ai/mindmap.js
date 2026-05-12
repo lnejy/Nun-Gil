@@ -14,6 +14,7 @@ import {
   saveAssetToDb,
   setAiCache,
   setAiMode,
+  setCanvasMode,
   showAiLoading,
   sourceText,
 } from "./common.js";
@@ -75,8 +76,7 @@ function getMindmapTitle() {
 function renderMindmap(mindmapData) {
   injectMindmapCompactStyle();
 
-  const container = getCanvas();
-  setAiMode("mindmap-mode");
+  const container = setCanvasMode("mindmap");
 
   container.innerHTML = `
     <div class="mindmap-app">
@@ -453,17 +453,11 @@ function injectMindmapCompactStyle() {
   style.id = "ngMindmapCompactStyle";
   style.textContent = `
     body:has(#pdfContainer.mindmap-mode) {
-      --quiz-top: 90px;
-      --quiz-right: 32px;
-      --quiz-bottom: 14px;
-      --quiz-left-gap: 6px;
-      --quiz-height: calc(100vh - var(--quiz-top) - var(--quiz-bottom));
-    }
-
-    body:has(#pdfContainer.mindmap-mode) .content-container {
-      margin-top: var(--quiz-top) !important;
-      padding: 0 var(--quiz-right) var(--quiz-bottom) var(--quiz-left-gap) !important;
-      align-items: stretch !important;
+      --ai-top: 90px;
+      --ai-right: 12px;
+      --ai-bottom: 14px;
+      --ai-left: 12px;
+      --ai-height: calc(100vh - var(--ai-top) - var(--ai-bottom));
     }
 
     body:has(#pdfContainer.mindmap-mode) .center-area {
@@ -479,7 +473,7 @@ function injectMindmapCompactStyle() {
       width: 100% !important;
       flex: 1 1 auto !important;
       max-width: none !important;
-      min-height: var(--quiz-height) !important;
+      min-height: var(--ai-height) !important;
       padding: 0 !important;
       background: transparent !important;
       border: none !important;
@@ -489,7 +483,7 @@ function injectMindmapCompactStyle() {
 
     #pdfContainer.mindmap-mode .mindmap-app {
   width: 100%;
-  min-height: var(--quiz-height);
+  min-height: var(--ai-height);
   display: grid;
   grid-template-columns: minmax(0, 1fr) 270px;
   gap: 18px;

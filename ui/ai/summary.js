@@ -15,6 +15,7 @@ import {
   setAiCache,
   setAiMode,
   showAiLoading,
+  setCanvasMode,
   sourceText,
 } from "./common.js";
 
@@ -81,11 +82,8 @@ function getSummaryTitle(summary) {
 function renderSummary(summary) {
   injectSummaryCompactStyle();
 
-  const container = getCanvas();
-
-  container.classList.remove("mindmap-mode", "quiz-mode", "ai-loading-mode");
-  container.classList.add("ai-mode", "summary-mode");
-
+  const container = setCanvasMode("summary");
+  
   container.innerHTML = `
     <div class="ai-page">
       <section class="ai-summary-hero">
@@ -231,17 +229,11 @@ function injectSummaryCompactStyle() {
   style.id = "ngSummaryCompactStyle";
   style.textContent = `
     body:has(#pdfContainer.summary-mode) {
-      --quiz-top: 90px;
-      --quiz-right: 32px;
-      --quiz-bottom: 14px;
-      --quiz-left-gap: 6px;
-      --quiz-height: calc(100vh - var(--quiz-top) - var(--quiz-bottom));
-    }
-
-    body:has(#pdfContainer.summary-mode) .content-container {
-      margin-top: var(--quiz-top) !important;
-      padding: 0 var(--quiz-right) var(--quiz-bottom) var(--quiz-left-gap) !important;
-      align-items: stretch !important;
+      --ai-top: 90px;
+      --ai-right: 12px;
+      --ai-bottom: 14px;
+      --ai-left: 12px;
+      --ai-height: calc(100vh - var(--ai-top) - var(--ai-bottom));
     }
 
     body:has(#pdfContainer.summary-mode) .center-area {
@@ -257,7 +249,7 @@ function injectSummaryCompactStyle() {
       width: 100% !important;
       flex: 1 1 auto !important;
       max-width: none !important;
-      min-height: var(--quiz-height) !important;
+      min-height: var(--ai-height) !important;
       padding: 0 !important;
       background: transparent !important;
       border: none !important;
@@ -267,7 +259,7 @@ function injectSummaryCompactStyle() {
 
     #pdfContainer.summary-mode .ai-page {
       width: 100%;
-      min-height: var(--quiz-height);
+      min-height: var(--ai-height);
       padding: 28px 22px;
       overflow-y: auto;
       border: 1px solid #e6edf5;
