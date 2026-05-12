@@ -1858,7 +1858,7 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
         import { getSignedUrl, uploadDocument } from '/src/lib/storage.js'
         import { createStudySession, updateStudySession, completeStudySession } from '/src/lib/db/studySessions.js'
 
-        const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
+        const CALIB_TTL = 1 * 60 * 60 * 1000  // 1시간
 
         function cleanDocTitle(name) {
             return String(name || '문서')
@@ -1927,7 +1927,7 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
             }
         }
 
-        // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
+        // ── 캘리브레이션 캐시 확인 (사용자 전역, 1시간 유효) ─
         const userId = session.user.id
         const calibKey = `nungil_calib_ws_${workspaceId || userId}`
         let cachedCalib = null
