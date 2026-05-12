@@ -28,20 +28,17 @@ export async function loadSummary({ shouldRender = () => true } = {}) {
   // 1차: sessionStorage 캐시
   const cache = getAiCache();
 
-  // sessionStorage에 explanation이 모두 있는 버전이면 즉시 사용
-  if (cache.summary && cache.summary.key_points?.every(p => p.explanation)) {
+  // sessionStorage 캐시 있으면 즉시 사용
+  if (cache.summary) {
     if (shouldRender()) renderSummary(cache.summary);
     return;
   }
 
-  // sessionStorage가 없거나 explanation이 빠진 버전이면 DB에서 불러오기
+  // DB에서 불러오기
   const saved = await loadAssetFromDb('SUMMARY');
   if (saved) {
     setAiCache({ summary: saved });
-    if (shouldRender()) {
-      renderSummary(saved);
-      preGenerateExplanations(saved);
-    }
+    if (shouldRender()) renderSummary(saved);
     return;
   }
 
@@ -60,13 +57,15 @@ export async function loadSummary({ shouldRender = () => true } = {}) {
   });
 
   const summary = await askClaudeJson(prompt);
-  setAiCache({ summary });
-  saveAssetToDb('SUMMARY', summary);
 
-  if (shouldRender()) {
-    renderSummary(summary);
-    preGenerateExplanations(summary);  // 백그라운드에서 설명 미리 생성
-  }
+  // 세부 설명까지 모두 생성한 후 한번에 렌더링
+  if (shouldRender()) showAiLoading("세부 설명 생성 중");
+  await preGenerateExplanations(summary);
+
+  setAiCache({ summary });
+  saveAssetToDb('SUMMARY', summary);  // 세부 설명 포함 버전으로 저장
+
+  if (shouldRender()) renderSummary(summary);
 }
 
 function getSummaryTitle(summary) {
