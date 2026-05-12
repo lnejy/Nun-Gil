@@ -2143,6 +2143,11 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
                     if (c) c.innerHTML = '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
                 }
 
+                // 세션 활성 중 문서 전환 → 현재 문서 일시정지
+                if (window._sessionActive && S.sessionId) {
+                    await pauseCurrentDocSession()
+                }
+
                 docId = id
                 window._currentDocId = id
                 window._wsOnlyMode = false
@@ -2176,9 +2181,9 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
                 // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
                 window.dispatchEvent(new CustomEvent('doc-changed'))
 
-                // 워크스페이스 세션은 문서 전환 시 유지 — 현재 문서만 갱신
-                if (S.sessionId) {
-                    updateStudySession(S.sessionId, { documentId: id }).catch(() => { })
+                // 세션 활성 중 문서 전환 → 대상 문서 세션 재개/생성
+                if (window._sessionActive) {
+                    await resumeOrCreateDocSession(id)
                 }
 
             } catch (e) {
@@ -2254,13 +2259,16 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
         // ── 세션 상태 ──────────────────────────────────────
         const S = {
             sessionId: null,
-            startTime: null,
+            stintStart: null,    // 현재 측정 구간 시작 시각
+            durationBase: 0,     // 이전 구간 누적 시간(초)
             focusStart: null,
             focusTotal: 0,
             alertCount: 0,
             alertTimes: [],
             autosaveTimer: null,
         }
+        // 문서별 세션 캐시 (docId → S 스냅샷)
+        const docSessions = {}
         // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
         window._S = S
         window._sessionActive = false
@@ -2271,7 +2279,7 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
 
         function calcMetrics() {
             const now = Date.now()
-            const T = S.startTime ? (now - S.startTime) / 1000 : 0
+            const T = S.durationBase + (S.stintStart ? (now - S.stintStart) / 1000 : 0)
             const F = S.focusTotal + (S.focusStart ? (now - S.focusStart) / 1000 : 0)
             const R = S.alertTimes.length
                 ? S.alertTimes.reduce((a, b) => a + b, 0) / S.alertTimes.length : 0
@@ -2294,9 +2302,74 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
             document.getElementById('sessionEndBtn').style.display = active ? 'flex' : 'none'
         }
 
-        // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
+        // ── 문서 전환 시 세션 일시정지 / 재개 헬퍼 ──────────────
+
+        function snapshotS() {
+            return {
+                sessionId: S.sessionId,
+                durationBase: S.durationBase,
+                focusTotal: S.focusTotal,
+                alertCount: S.alertCount,
+                alertTimes: [...S.alertTimes],
+            }
+        }
+
+        async function pauseCurrentDocSession() {
+            if (!S.sessionId) return
+            // 측정 시간 누적
+            if (S.stintStart) {
+                S.durationBase += (Date.now() - S.stintStart) / 1000
+                S.stintStart = null
+            }
+            // 집중시간 누적
+            if (S.focusStart) {
+                S.focusTotal += (Date.now() - S.focusStart) / 1000
+                S.focusStart = null
+            }
+            // DB 저장
+            const { T, F, R } = calcMetrics()
+            await updateStudySession(S.sessionId, {
+                durationMinutes: T / 60,
+                alertCount: S.alertCount,
+                focusTimeSeconds: F,
+                avgAlertResponseSeconds: R,
+            }).catch(e => console.warn('세션 일시저장 실패:', e.message))
+            // 로컬 캐시
+            docSessions[window._currentDocId] = snapshotS()
+        }
+
+        async function resumeOrCreateDocSession(targetDocId) {
+            const cached = docSessions[targetDocId]
+            if (cached) {
+                // 로컬 캐시에서 복원 (가장 정확)
+                S.sessionId = cached.sessionId
+                S.durationBase = cached.durationBase
+                S.focusTotal = cached.focusTotal
+                S.alertCount = cached.alertCount
+                S.alertTimes = [...cached.alertTimes]
+            } else {
+                // 최초 방문 문서 → 새 세션 생성
+                const sess = await createStudySession({
+                    userId: session.user.id,
+                    workspaceId: workspaceId,
+                    documentId: targetDocId,
+                    calibrationData: window._cachedCalib ?? null,
+                })
+                S.sessionId = sess.id
+                S.durationBase = 0
+                S.focusTotal = 0
+                S.alertCount = 0
+                S.alertTimes = []
+            }
+            S.stintStart = Date.now()
+            S.focusStart = Date.now()
+            window._currentSessionId = S.sessionId
+        }
+
+        // ── 세션 시작 ──────────────────────────────────────
+
         document.getElementById('sessionStartBtn').addEventListener('click', async () => {
-            if (S.sessionId || !workspaceId) return
+            if (window._sessionActive) return
             try {
                 const sess = await createStudySession({
                     userId: session.user.id,
@@ -2305,7 +2378,8 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
                     calibrationData: window._cachedCalib ?? null,
                 })
                 S.sessionId = sess.id
-                S.startTime = Date.now()
+                S.stintStart = Date.now()
+                S.durationBase = 0
                 S.focusStart = Date.now()
                 S.focusTotal = 0
                 S.alertCount = 0
@@ -2328,7 +2402,8 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
             }
         })
 
-        // 세션 종료
+        // ── 세션 종료 ──────────────────────────────────────
+
         async function endSession(status = 'COMPLETED') {
             if (!S.sessionId) return
             clearInterval(S.autosaveTimer)
@@ -2348,20 +2423,36 @@ body.sidebar-collapsed #page-viewer .sidebar-profile-name {
                 closeWarning()
             }
 
+            // 현재 문서 세션 완료
             const { T, F, R } = calcMetrics()
             try {
-                await completeStudySession(S.sessionId, {
-                    startTime: S.startTime,
-                    focusTotal: S.focusTotal,
+                await updateStudySession(S.sessionId, {
+                    durationMinutes: T / 60,
                     alertCount: S.alertCount,
-                    alertTimes: S.alertTimes,
-                    focusStart: S.focusStart,
+                    focusTimeSeconds: F,
+                    avgAlertResponseSeconds: R,
+                    status: 'COMPLETED',
                 })
             } catch (e) {
                 console.warn('세션 종료 실패:', e.message)
             }
+
+            // 다른 문서의 일시정지된 세션들도 모두 완료 처리
+            for (const [dId, snap] of Object.entries(docSessions)) {
+                if (snap.sessionId && snap.sessionId !== S.sessionId) {
+                    try {
+                        await updateStudySession(snap.sessionId, { status: 'COMPLETED' })
+                    } catch (e) {
+                        console.warn(`세션 종료 실패 (${dId}):`, e.message)
+                    }
+                }
+            }
+
             S.sessionId = null
+            S.stintStart = null
+            S.durationBase = 0
             window._currentSessionId = null
+            Object.keys(docSessions).forEach(k => delete docSessions[k])
             setSessionUI(false)
         }
 
