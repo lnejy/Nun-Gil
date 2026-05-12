@@ -433,12 +433,56 @@ async function togBookmarkList() {
         } catch (e) { console.warn('자산 북마크 로드 실패:', e.message); }
     }
 
+    // ── 퀴즈 북마크 조회 (quiz_attempts.bookmarked_indexes) ──
+    let quizBookmarks = [];
+    if (sb) {
+        try {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) {
+                const targetDocIds = [];
+                if (window._workspaceId) {
+                    const { data: docs } = await sb.from('documents').select('id').eq('workspace_id', window._workspaceId);
+                    (docs || []).forEach(d => targetDocIds.push(d.id));
+                } else if (window._currentDocId) {
+                    targetDocIds.push(window._currentDocId);
+                }
+                if (targetDocIds.length) {
+                    // 문서별 최신 attempt만 가져오기
+                    const { data: attempts } = await sb
+                        .from('quiz_attempts')
+                        .select('id, document_id, bookmarked_indexes, answers, documents(file_name)')
+                        .eq('user_id', user.id)
+                        .in('document_id', targetDocIds)
+                        .order('attempted_at', { ascending: false });
+                    // 문서별 최신 1개만
+                    const seen = new Set();
+                    (attempts || []).forEach(a => {
+                        if (!seen.has(a.document_id) && Array.isArray(a.bookmarked_indexes) && a.bookmarked_indexes.length) {
+                            seen.add(a.document_id);
+                            a.bookmarked_indexes.forEach(qi => {
+                                const qText = Array.isArray(a.answers) ? (a.answers[qi]?.question || '') : '';
+                                quizBookmarks.push({
+                                    document_id: a.document_id,
+                                    question_index: qi,
+                                    question_text: qText,
+                                    attempt_id: a.id,
+                                    file_name: a.documents?.file_name || '문서',
+                                });
+                            });
+                        }
+                    });
+                }
+            }
+        } catch (e) { console.warn('퀴즈 북마크 로드 실패:', e.message); }
+    }
+
     grid.innerHTML = '';
 
     const hasDocBm = allBookmarks.length > 0;
     const hasAssetBm = assetBookmarks.length > 0;
+    const hasQuizBm = quizBookmarks.length > 0;
 
-    if (!hasDocBm && !hasAssetBm) {
+    if (!hasDocBm && !hasAssetBm && !hasQuizBm) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
         return;
     }
@@ -522,9 +566,77 @@ async function togBookmarkList() {
         });
     }
 
+    // ── 퀴즈 북마크 섹션 ──
+    if (hasQuizBm) {
+        const qbHeader = document.createElement('div');
+        qbHeader.className = 'bm-section-header';
+        qbHeader.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="#6366f1" stroke="#6366f1" stroke-width="2" width="16" height="16">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+            </svg>
+            <span>퀴즈 북마크</span>
+            <span style="font-size:11px;font-weight:500;color:#94a3b8;">${quizBookmarks.length}개</span>
+        `;
+        grid.appendChild(qbHeader);
+
+        quizBookmarks.forEach(qb => {
+            const fname = (qb.file_name ?? '문서')
+                .replace(/^눈길\s*[-–—:]*\s*/i, '')
+                .replace(/\.(pdf|ppt|pptx)$/i, '').trim() || '문서';
+            const card = document.createElement('div');
+            card.className = 'bm-card quiz-bm-card';
+            card.innerHTML = `
+                <div class="bm-card-top">
+                    <span class="bm-asset-badge" style="color:#6366f1;background:#eef2ff;">
+                        <svg viewBox="0 0 24 24" fill="#6366f1" stroke="#6366f1" stroke-width="2" width="11" height="11">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Q${qb.question_index + 1}
+                    </span>
+                    <button class="bm-delete-btn qb-del" data-attempt-id="${qb.attempt_id}" data-qi="${qb.question_index}" title="북마크 해제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
+                </div>
+                <div class="bm-body">
+                    <h3 class="bm-title" style="font-size:12px;">${fname}</h3>
+                    <p class="bm-content">${qb.question_text || '퀴즈 문제'}</p>
+                </div>
+            `;
+
+            card.querySelector('.qb-del').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const attemptId = e.currentTarget.dataset.attemptId;
+                const qi = Number(e.currentTarget.dataset.qi);
+                try {
+                    const { data: row } = await sb.from('quiz_attempts').select('bookmarked_indexes').eq('id', attemptId).maybeSingle();
+                    if (row) {
+                        const updated = (row.bookmarked_indexes || []).filter(i => i !== qi);
+                        await sb.from('quiz_attempts').update({ bookmarked_indexes: updated }).eq('id', attemptId);
+                    }
+                } catch {}
+                card.remove();
+                if (!grid.querySelector('.quiz-bm-card')) qbHeader.remove();
+                if (!grid.querySelector('.bm-card')) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
+                }
+            });
+
+            card.onclick = async () => {
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+                if (qb.document_id !== window._currentDocId && typeof window.loadDocInViewer === 'function') {
+                    await window.loadDocInViewer(qb.document_id);
+                }
+                setTimeout(() => {
+                    const toolBtn = document.querySelector('.sb-tool-item[data-ai-tool="quiz"]');
+                    if (toolBtn) toolBtn.click();
+                }, 300);
+            };
+            grid.appendChild(card);
+        });
+    }
+
     // ── 문서 북마크 섹션 ──
     if (hasDocBm) {
-        if (hasAssetBm) {
+        if (hasAssetBm || hasQuizBm) {
             const docHeader = document.createElement('div');
             docHeader.className = 'bm-section-header';
             docHeader.innerHTML = `
@@ -572,21 +684,20 @@ async function togBookmarkList() {
             card.onclick = async () => {
                 overlay.classList.remove('show');
                 document.body.style.overflow = '';
+
+                // AI 모드(퀴즈/요약/마인드맵)면 먼저 원본으로 전환
+                const pdfContainer = document.getElementById('pdfContainer');
+                const isAiMode = pdfContainer?.classList.contains('ai-mode');
+                if (isAiMode) {
+                    const origBtn = document.querySelector('.sb-tool-item[data-ai-tool="original"]');
+                    if (origBtn) origBtn.click();
+                }
+
                 if (isOtherDoc && typeof window.loadDocInViewer === 'function') {
                     await window.loadDocInViewer(bm.document_id);
-                    const waitAndScroll = (retries = 0) => {
-                        const tagEl = document.querySelector(`.bookmark-tag[data-db-id="${bm.id}"]`);
-                        if (tagEl) {
-                            tagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        } else if (retries < 8) {
-                            setTimeout(() => waitAndScroll(retries + 1), 300);
-                        } else {
-                            const wrapper = document.querySelector('.main-wrapper');
-                            if (wrapper) wrapper.scrollTo({ top: bm.position_y, behavior: 'smooth' });
-                        }
-                    };
-                    setTimeout(() => waitAndScroll(), 500);
-                } else {
+                }
+
+                const waitAndScroll = (retries = 0) => {
                     const tagEl = document.querySelector(`.bookmark-tag[data-db-id="${bm.id}"]`)
                                || (() => {
                                    const localEntry = Object.values(bookmarksData).find(d => d.dbId === bm.id);
@@ -594,11 +705,14 @@ async function togBookmarkList() {
                                })();
                     if (tagEl) {
                         tagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else if (retries < 10) {
+                        setTimeout(() => waitAndScroll(retries + 1), 300);
                     } else {
                         const wrapper = document.querySelector('.main-wrapper');
                         if (wrapper) wrapper.scrollTo({ top: bm.position_y, behavior: 'smooth' });
                     }
-                }
+                };
+                setTimeout(() => waitAndScroll(), isAiMode || isOtherDoc ? 500 : 50);
             };
             grid.appendChild(card);
         });
