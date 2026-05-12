@@ -435,10 +435,46 @@ async function togBookmarkList() {
 
     grid.innerHTML = '';
 
+    // ── 퀴즈 북마크 조회 ──
+    let quizBookmarks = [];
+    if (sb) {
+        try {
+            const { data: { user } } = await sb.auth.getUser();
+            if (user) {
+                let qbQuery;
+                if (window._workspaceId) {
+                    const { data: docs } = await sb
+                        .from('documents')
+                        .select('id')
+                        .eq('workspace_id', window._workspaceId);
+                    const wDocIds = (docs || []).map(d => d.id);
+                    if (wDocIds.length > 0) {
+                        const { data } = await sb
+                            .from('quiz_bookmarks')
+                            .select('*, documents(file_name)')
+                            .eq('user_id', user.id)
+                            .in('document_id', wDocIds)
+                            .order('created_at', { ascending: false });
+                        quizBookmarks = data || [];
+                    }
+                } else if (window._currentDocId) {
+                    const { data } = await sb
+                        .from('quiz_bookmarks')
+                        .select('*, documents(file_name)')
+                        .eq('user_id', user.id)
+                        .eq('document_id', window._currentDocId)
+                        .order('created_at', { ascending: false });
+                    quizBookmarks = data || [];
+                }
+            }
+        } catch (e) { console.warn('퀴즈 북마크 로드 실패:', e.message); }
+    }
+
     const hasDocBm = allBookmarks.length > 0;
     const hasAssetBm = assetBookmarks.length > 0;
+    const hasQuizBm = quizBookmarks.length > 0;
 
-    if (!hasDocBm && !hasAssetBm) {
+    if (!hasDocBm && !hasAssetBm && !hasQuizBm) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
         return;
     }
@@ -522,9 +558,72 @@ async function togBookmarkList() {
         });
     }
 
+    // ── 퀴즈 북마크 섹션 ──
+    if (hasQuizBm) {
+        const qbHeader = document.createElement('div');
+        qbHeader.className = 'bm-section-header';
+        qbHeader.innerHTML = `
+            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" width="16" height="16">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="#6366f1"/>
+            </svg>
+            <span>퀴즈 북마크</span>
+            <span style="font-size:11px;font-weight:500;color:#94a3b8;">${quizBookmarks.length}개</span>
+        `;
+        grid.appendChild(qbHeader);
+
+        quizBookmarks.forEach(qb => {
+            const fname = (qb.documents?.file_name ?? '문서')
+                .replace(/^눈길\s*[-–—:]*\s*/i, '')
+                .replace(/\.(pdf|ppt|pptx)$/i, '').trim() || '문서';
+            const card = document.createElement('div');
+            card.className = 'bm-card quiz-bm-card';
+            card.innerHTML = `
+                <div class="bm-card-top">
+                    <span class="bm-asset-badge" style="color:#6366f1;background:#eef2ff;">
+                        <svg viewBox="0 0 24 24" fill="#6366f1" stroke="#6366f1" stroke-width="2" width="11" height="11">
+                            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        Q${qb.question_index + 1}
+                    </span>
+                    <button class="bm-delete-btn qb-del" data-qb-id="${qb.id}" title="북마크 해제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
+                </div>
+                <div class="bm-body">
+                    <h3 class="bm-title" style="font-size:12px;">${fname}</h3>
+                    <p class="bm-content">${qb.question_text || '퀴즈 문제'}</p>
+                </div>
+            `;
+
+            card.querySelector('.qb-del').addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const id = e.currentTarget.dataset.qbId;
+                try { await sb.from('quiz_bookmarks').delete().eq('id', id); } catch {}
+                card.remove();
+                if (!grid.querySelector('.quiz-bm-card')) {
+                    qbHeader.remove();
+                }
+                if (!grid.querySelector('.bm-card')) {
+                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
+                }
+            });
+
+            card.onclick = async () => {
+                overlay.classList.remove('show');
+                document.body.style.overflow = '';
+                if (qb.document_id !== window._currentDocId && typeof window.loadDocInViewer === 'function') {
+                    await window.loadDocInViewer(qb.document_id);
+                }
+                setTimeout(() => {
+                    const toolBtn = document.querySelector('.sb-tool-item[data-ai-tool="quiz"]');
+                    if (toolBtn) toolBtn.click();
+                }, 300);
+            };
+            grid.appendChild(card);
+        });
+    }
+
     // ── 문서 북마크 섹션 ──
     if (hasDocBm) {
-        if (hasAssetBm) {
+        if (hasAssetBm || hasQuizBm) {
             const docHeader = document.createElement('div');
             docHeader.className = 'bm-section-header';
             docHeader.innerHTML = `
