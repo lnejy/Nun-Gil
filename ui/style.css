@@ -7,7 +7,7 @@
     --primary: #3b82f6;
     --primary-light: #eff6ff;
     --primary-dark: #1d4ed8;
-    --bg: #f6f7f9;
+    --bg: linear-gradient(180deg, #eef5ff 0%, #ffffff 55%, #ffffff 100%);
     --white: #ffffff;
     --text: #2f3440;
     --sub: #a0a6b0;
