@@ -684,21 +684,20 @@ async function togBookmarkList() {
             card.onclick = async () => {
                 overlay.classList.remove('show');
                 document.body.style.overflow = '';
+
+                // AI 모드(퀴즈/요약/마인드맵)면 먼저 원본으로 전환
+                const pdfContainer = document.getElementById('pdfContainer');
+                const isAiMode = pdfContainer?.classList.contains('ai-mode');
+                if (isAiMode) {
+                    const origBtn = document.querySelector('.sb-tool-item[data-ai-tool="original"]');
+                    if (origBtn) origBtn.click();
+                }
+
                 if (isOtherDoc && typeof window.loadDocInViewer === 'function') {
                     await window.loadDocInViewer(bm.document_id);
-                    const waitAndScroll = (retries = 0) => {
-                        const tagEl = document.querySelector(`.bookmark-tag[data-db-id="${bm.id}"]`);
-                        if (tagEl) {
-                            tagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        } else if (retries < 8) {
-                            setTimeout(() => waitAndScroll(retries + 1), 300);
-                        } else {
-                            const wrapper = document.querySelector('.main-wrapper');
-                            if (wrapper) wrapper.scrollTo({ top: bm.position_y, behavior: 'smooth' });
-                        }
-                    };
-                    setTimeout(() => waitAndScroll(), 500);
-                } else {
+                }
+
+                const waitAndScroll = (retries = 0) => {
                     const tagEl = document.querySelector(`.bookmark-tag[data-db-id="${bm.id}"]`)
                                || (() => {
                                    const localEntry = Object.values(bookmarksData).find(d => d.dbId === bm.id);
@@ -706,11 +705,14 @@ async function togBookmarkList() {
                                })();
                     if (tagEl) {
                         tagEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else if (retries < 10) {
+                        setTimeout(() => waitAndScroll(retries + 1), 300);
                     } else {
                         const wrapper = document.querySelector('.main-wrapper');
                         if (wrapper) wrapper.scrollTo({ top: bm.position_y, behavior: 'smooth' });
                     }
-                }
+                };
+                setTimeout(() => waitAndScroll(), isAiMode || isOtherDoc ? 500 : 50);
             };
             grid.appendChild(card);
         });
