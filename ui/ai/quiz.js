@@ -11,6 +11,7 @@ import {
   setAiCache,
   setAiMode,
   showAiLoading,
+  setCanvasMode,
   sourceText,
 } from "./common.js";
 
@@ -146,14 +147,6 @@ function formatOptionLabel(index, option) {
   return `${index + 1}. ${option}`;
 }
 
-function getAnswerText(quiz, indexes = quiz.answerIndexes) {
-  if (!indexes?.length) return "미선택";
-
-  return indexes
-    .map((index) => formatOptionLabel(index, quiz.options[index]))
-    .join(", ");
-}
-
 function getOptionExplanation(quiz, optionIndex) {
   const explanations =
     quiz.optionExplanations ||
@@ -177,10 +170,7 @@ function getAnswerNumberText(quiz) {
 function renderQuiz(quiz) {
   injectQuizStyle();
 
-  const container = getCanvas();
-
-  // 기존 AI 문서 기반 퀴즈 생성 기능 유지
-  setAiMode();
+  const container = setCanvasMode("quiz");
 
   // 기본 퀴즈 모드: viewer 사이드바/상단바 유지
   document.body.classList.remove("ai-view-mode");
@@ -461,7 +451,7 @@ function renderQuestion() {
   `;
 
   renderOptions(quiz, answerData, isSubmitted);
-  bindQuestionEvents(isSubmitted);
+  bindQuestionEvents();
 }
 
 function renderOptions(quiz, answerData, isSubmitted) {
@@ -540,7 +530,7 @@ function renderOptions(quiz, answerData, isSubmitted) {
   });
 }
 
-function bindQuestionEvents(isSubmitted) {
+function bindQuestionEvents() {
   document
     .getElementById("ngQuizBookmarkBtn")
     ?.addEventListener("click", toggleBookmark);
@@ -764,7 +754,7 @@ function showOriginalDocument() {
     return;
   }
 
-  const container = getCanvas();
+  const container = setCanvasMode("quiz");
   container.innerHTML = `
     <div class="pdf-no-content">
       문서를 불러올 수 없습니다.
@@ -884,9 +874,8 @@ function injectQuizStyle() {
   style.textContent = `
     body.quiz-inline-mode {
       --quiz-top: 90px;
-      --quiz-right: 32px;
-      --quiz-bottom: 14px;
-      --quiz-left-gap: 6px;
+      --quiz-side: 12px;
+      --quiz-bottom: 12px;
       --quiz-height: calc(100vh - var(--quiz-top) - var(--quiz-bottom));
     }
 
@@ -1569,11 +1558,6 @@ function injectQuizStyle() {
   overflow: hidden;
 }
 
-.ng-result-option.selected {
-  border-color: #7ea8ef;
-  background: #edf4ff;
-}
-
 .ng-result-option.correct {
   border-color: #22c55e;
   background: #eefcf3;
@@ -1591,12 +1575,6 @@ function injectQuizStyle() {
   font-weight: 450;
   line-height: 1.45;
   color: #526174;
-}
-
-
-.ng-result-option.selected .ng-result-option-title {
-  color: #315fae;
-  font-weight: 550;
 }
 
 .ng-result-explain-divider {
@@ -1628,12 +1606,6 @@ function injectQuizStyle() {
 
     .hidden {
       display: none !important;
-    }
-
-    body.quiz-inline-mode:not(.quiz-fullscreen-mode) .content-container {
-      margin-top: var(--quiz-top) !important;
-      padding: 0 var(--quiz-right) var(--quiz-bottom) var(--quiz-left-gap) !important;
-      align-items: stretch !important;
     }
 
     body.quiz-inline-mode:not(.quiz-fullscreen-mode) .center-area {
