@@ -1344,24 +1344,6 @@
             console.warn('문서 목록 로드 실패:', e.message)
         }
 
-        // ── 지식 자산 북마크 (localStorage) ────────────────
-        const ASSET_BM_KEY = `nungil_asset_bm_${userId}`
-
-        function getAssetBookmarks() {
-            try {
-                const raw = localStorage.getItem(ASSET_BM_KEY)
-                return new Set(raw ? JSON.parse(raw) : [])
-            } catch { return new Set() }
-        }
-
-        function saveAssetBookmarks(bmSet) {
-            localStorage.setItem(ASSET_BM_KEY, JSON.stringify([...bmSet]))
-        }
-
-        // 전역 노출: script.js(북마크함 모달)에서 접근
-        window._getAssetBookmarks = getAssetBookmarks
-        window._saveAssetBookmarks = saveAssetBookmarks
-
         // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
         window.loadKnowledgeAssets = loadKnowledgeAssets
         async function loadKnowledgeAssets(targetDocId) {
@@ -1425,49 +1407,17 @@
 
                 const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
 
-                // 북마크 상태 로드 & 북마크된 자산 상단 정렬
-                const assetBm = getAssetBookmarks()
-                assets.sort((a, b) => {
-                    const aKey = `${a.document_id}_${a.type}`
-                    const bKey = `${b.document_id}_${b.type}`
-                    return (assetBm.has(bKey) ? 1 : 0) - (assetBm.has(aKey) ? 1 : 0)
-                })
-
                 assetEl.innerHTML = assets.map(a => {
                     const fname = cleanDocTitle(a.documents?.file_name ?? '')
                     const label = `${fname} ${typeLabel[a.type] ?? a.type}`
-                    const assetKey = `${a.document_id}_${a.type}`
-                    const isBm = assetBm.has(assetKey)
 
                     return `
-                    <button class="sb-item${isBm ? ' asset-bookmarked' : ''}" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" data-asset-key="${assetKey}" style="gap:8px;align-items:center;">
+                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
                         <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
                         <span class="sb-item-text" style="font-size:12px;">${fname} ${typeLabel[a.type] ?? a.type}</span>
-                        <span class="sb-asset-bookmark${isBm ? ' active' : ''}" data-asset-key="${assetKey}" title="북마크">${isBm ? '★' : '☆'}</span>
                         <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
                     </button>`
                 }).join('')
-
-                // 북마크 별표 클릭 이벤트
-                assetEl.querySelectorAll('.sb-asset-bookmark').forEach(star => {
-                    star.addEventListener('click', (e) => {
-                        e.stopPropagation()
-                        const key = star.dataset.assetKey
-                        const currentBm = getAssetBookmarks()
-                        if (currentBm.has(key)) {
-                            currentBm.delete(key)
-                            star.classList.remove('active')
-                            star.textContent = '☆'
-                            star.closest('.sb-item')?.classList.remove('asset-bookmarked')
-                        } else {
-                            currentBm.add(key)
-                            star.classList.add('active')
-                            star.textContent = '★'
-                            star.closest('.sb-item')?.classList.add('asset-bookmarked')
-                        }
-                        saveAssetBookmarks(currentBm)
-                    })
-                })
 
                 assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1479,7 +1429,7 @@
                 // 자산 항목 클릭 → AI 도구 열기
                 assetEl.querySelectorAll('.sb-item').forEach(el => {
                     el.addEventListener('click', async (e) => {
-                        if (e.target.closest('.sb-item-delete') || e.target.closest('.sb-asset-bookmark')) return
+                        if (e.target.closest('.sb-item-delete')) return
                         const tool = el.dataset.tool
                         const dId = el.dataset.docId
 
