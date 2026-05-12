@@ -7,222 +7,321 @@
     <title>눈길</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
     <style>
-      /* ai-view-mode: 사이드바·툴바·ET패널 숨기고 AI 콘텐츠만 표시 */
-      body.ai-view-mode .sidebar,
-      body.ai-view-mode .toolbar-wrapper,
-      body.ai-view-mode #etP,
-      body.ai-view-mode #trail-canvas,
-      body.ai-view-mode #gaze-dot,
-      body.ai-view-mode .side-area { display: none !important; }
-
-      body.ai-view-mode .main-wrapper { margin-left: 0 !important; }
-      body.ai-view-mode .center-area {
-        max-width: 100% !important;
-        padding: 0 !important;
-      }
-      body.ai-view-mode .content-container { padding-top: 0 !important; }
-      body.ai-view-mode #pdfContainer {
-        min-height: 100vh;
-        padding: 24px 32px;
-      }
-
-      .workspace-welcome {
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: flex-start;
-        padding-top: 12vh;
-        height: 100%; min-height: 70vh;
-        text-align: center; color: #94a3b8; gap: 12px;
-      }
-      .workspace-welcome h1 {
-        font-size: 28px; font-weight: 650;
-        color: #1e293b; letter-spacing: -0.5px;
-        margin-top: 5px;
+        /* ai-view-mode: 사이드바·툴바·ET패널 숨기고 AI 콘텐츠만 표시 */
+        body.ai-view-mode .sidebar,
+        body.ai-view-mode .toolbar-wrapper,
+        body.ai-view-mode #etP,
+        body.ai-view-mode #trail-canvas,
+        body.ai-view-mode #gaze-dot,
+        body.ai-view-mode .side-area {
+            display: none !important;
         }
-      .workspace-welcome p { font-size: 14px; color: #94a3b8; }
 
-      /* 문서 미선택 시 도구 버튼 비활성화 */
-      body.ws-only-mode .sb-tool-item,
-      body.ws-only-mode .tool-btn-main,
-      body.ws-only-mode .session-btn {
-        opacity: 0.35;
-        pointer-events: none;
-        cursor: not-allowed;
-      }
+        body.ai-view-mode .main-wrapper {
+            margin-left: 0 !important;
+        }
+
+        body.ai-view-mode .center-area {
+            max-width: 100% !important;
+            padding: 0 !important;
+        }
+
+        body.ai-view-mode .content-container {
+            padding-top: 0 !important;
+        }
+
+        body.ai-view-mode #pdfContainer {
+            min-height: 100vh;
+            padding: 24px 32px;
+        }
+
+        .workspace-welcome {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 12vh;
+            height: 100%;
+            min-height: 70vh;
+            text-align: center;
+            color: #94a3b8;
+            gap: 12px;
+        }
+
+        .workspace-welcome h1 {
+            font-size: 28px;
+            font-weight: 650;
+            color: #1e293b;
+            letter-spacing: -0.5px;
+            margin-top: 5px;
+        }
+
+        .workspace-welcome p {
+            font-size: 14px;
+            color: #94a3b8;
+        }
+
+        /* 문서 미선택 시 도구 버튼 비활성화 */
+        body.ws-only-mode .sb-tool-item,
+        body.ws-only-mode .tool-btn-main,
+        body.ws-only-mode .session-btn {
+            opacity: 0.35;
+            pointer-events: none;
+            cursor: not-allowed;
+        }
     </style>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./ai/ai.css">
     <style>
-
         #page-viewer .sb-workspace-label {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    padding: 6px 8px;
-    border: none;
-    background: transparent;
-    border-radius: 9px;
-    color: #1e293b;
-    font-weight: 500;
-    font-size: 13px;
-    font-family: inherit;
-    text-align: left;
-    cursor: pointer;
-}
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            padding: 6px 8px;
+            border: none;
+            background: transparent;
+            border-radius: 9px;
+            color: #1e293b;
+            font-weight: 500;
+            font-size: 13px;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+        }
 
-#page-viewer .sb-workspace-label:hover {
-    background: #f5f6f8;
-}
+        #page-viewer .sb-workspace-label:hover {
+            background: #f5f6f8;
+        }
 
-#page-viewer .sb-workspace-label-icon {
-    width: 20px;
-    height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #4b525d;
-    flex-shrink: 0;
-}
+        #page-viewer .sb-workspace-label-icon {
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #4b525d;
+            flex-shrink: 0;
+        }
 
-#page-viewer .sb-workspace-label-icon svg {
-    width: 16px;
-    height: 16px;
-    stroke: currentColor;
-}
+        #page-viewer .sb-workspace-label-icon svg {
+            width: 16px;
+            height: 16px;
+            stroke: currentColor;
+        }
 
-#page-viewer #sbWorkspaceLabel {
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
+        #page-viewer #sbWorkspaceLabel {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
 
-/* 문서 목록을 워크스페이스 이름보다 살짝 오른쪽으로 */
-#page-viewer #sbDocList {
-    margin-left: 18px;
-    margin-bottom: 14px;
-}
+        /* 문서 목록을 워크스페이스 이름보다 살짝 오른쪽으로 */
+        #page-viewer #sbDocList {
+            margin-left: 18px;
+            margin-bottom: 14px;
+        }
 
-/* 문서 목록 아이템 정리 */
-#page-viewer #sbDocList .sb-item {
-    min-height: 34px;
-    padding: 6px 8px;
-}
+        /* 문서 목록 아이템 정리 */
+        #page-viewer #sbDocList .sb-item {
+            min-height: 34px;
+            padding: 6px 8px;
+        }
 
-/* 지식 자산 위 구분선 */
-#page-viewer .sb-asset-divider {
-    margin: 16px 6px 9px;
-    padding-top: 14px;
-    border-top: 1px solid #eef0f3;
-    color: #64748b;
-    font-weight: 500;
-    font-size: 13px;
-}
+        /* 지식 자산 위 구분선 */
+        #page-viewer .sb-asset-divider {
+            margin: 16px 6px 9px;
+            padding-top: 14px;
+            border-top: 1px solid #eef0f3;
+            color: #64748b;
+            font-weight: 500;
+            font-size: 13px;
+        }
 
-/* 지식 자산 타입 배지 */
-#page-viewer .sb-asset-type {
-    flex-shrink: 0;
-    font-size: 10px;
-    font-weight: 700;
-    color: #78a3ea;
-    background: #eef5ff;
-    border-radius: 999px;
-    padding: 3px 7px;
-}
+        /* 지식 자산 타입 배지 */
+        #page-viewer .sb-asset-type {
+            flex-shrink: 0;
+            font-size: 10px;
+            font-weight: 700;
+            color: #78a3ea;
+            background: #eef5ff;
+            border-radius: 999px;
+            padding: 3px 7px;
+        }
 
-/* mainpage 프로필 영역 그대로 */
-#page-viewer .sidebar-profile {
-    padding: 14px 16px;
-    border-top: 1px solid #f1f3f5;
-    background: #fcfcfd;
-    flex-shrink: 0;
+        /* 지식 자산 북마크 별표 */
+        #page-viewer .sb-asset-bookmark {
+            flex-shrink: 0;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 2px 4px;
+            color: #d4d9e1;
+            font-size: 13px;
+            line-height: 1;
+            transition: color 0.15s, transform 0.15s;
+            border-radius: 4px;
+            opacity: 0;
+        }
 
-    display: grid;
-    grid-template-columns: 0.7fr 1.3fr;
-    align-items: center;
-    column-gap: 12px;
-}
+        #page-viewer .sb-item:hover .sb-asset-bookmark,
+        #page-viewer .sb-asset-bookmark.active {
+            opacity: 1;
+        }
 
-#page-viewer .sidebar-profile-left {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-}
+        #page-viewer .sb-asset-bookmark:hover {
+            color: #fbbf24;
+            transform: scale(1.2);
+        }
 
-#page-viewer .sidebar-profile-avatar {
-    width: 38px;
-    height: 38px;
-    border-radius: 50%;
-    background: #eef2f7;
-    overflow: hidden;
-    flex-shrink: 0;
-}
+        #page-viewer .sb-asset-bookmark.active {
+            color: #f59e0b;
+        }
 
-#page-viewer .sidebar-profile-avatar svg {
-    width: 100%;
-    height: 100%;
-    display: block;
-}
+        #page-viewer .sb-item.asset-bookmarked {
+            background: linear-gradient(90deg, #fffbeb 0%, #fff 100%);
+            border-left: 2px solid #f59e0b;
+            padding-left: 6px;
+        }
 
-#page-viewer .sidebar-profile-name {
-    max-width: 58px;
-    font-size: 11.5px;
-    font-weight: 550;
-    color: #313641;
-    letter-spacing: -0.2px;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+        /* 북마크함 모달: 섹션 헤더 */
+        .bm-section-header {
+            grid-column: 1 / -1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0 8px;
+            font-size: 14px;
+            font-weight: 700;
+            color: #64748b;
+            border-bottom: 1px solid #eef0f3;
+        }
 
-#page-viewer .sidebar-profile-actions {
-    width: 100%;
-    max-width: 120px;
-    justify-self: center;
+        .bm-section-header svg {
+            flex-shrink: 0;
+        }
 
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 5px;
+        .bm-section-header:first-child {
+            padding-top: 0;
+        }
 
-    transform: translateX(-6px);
-}
+        /* 북마크함: 자산 카드 스타일 */
+        .bm-card.asset-card {
+            border-left: 3px solid #f59e0b;
+            background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%);
+        }
 
-#page-viewer .sidebar-profile-button {
-    width: 100%;
-    height: 28px;
-    border: 1px solid #e8edf5;
-    background: #f8faff;
-    color: #52627c;
-    border-radius: 11px;
-    font-size: 11.5px;
-    font-weight: 550;
-    letter-spacing: -0.2px;
-    cursor: pointer;
-    transition: 0.18s ease;
-}
+        .bm-card.asset-card:hover {
+            border-color: #f59e0b;
+            box-shadow: 0 20px 40px rgba(245, 158, 11, 0.1);
+        }
 
-#page-viewer .sidebar-profile-button.report {
-    background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
-    border: none;
-    color: #ffffff;
-    box-shadow: 0 6px 12px rgba(120, 163, 234, 0.18);
-}
+        .bm-asset-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            font-weight: 700;
+            color: #78a3ea;
+            background: #eef5ff;
+            border-radius: 999px;
+            padding: 3px 8px;
+        }
 
-#page-viewer .sidebar-profile-button:hover {
-    background: #edf5ff;
-    color: #4d7fdc;
-    transform: translateY(-1px);
-}
+        /* mainpage 프로필 영역 그대로 */
+        #page-viewer .sidebar-profile {
+            padding: 14px 16px;
+            border-top: 1px solid #f1f3f5;
+            background: #fcfcfd;
+            flex-shrink: 0;
 
-#page-viewer .sidebar-profile-button.report:hover {
-    background: linear-gradient(180deg, #82acf2 0%, #6999e8 100%);
-    color: #ffffff;
-}
+            display: grid;
+            grid-template-columns: 0.7fr 1.3fr;
+            align-items: center;
+            column-gap: 12px;
+        }
+
+        #page-viewer .sidebar-profile-left {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        #page-viewer .sidebar-profile-avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: #eef2f7;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        #page-viewer .sidebar-profile-avatar svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #page-viewer .sidebar-profile-name {
+            max-width: 58px;
+            font-size: 11.5px;
+            font-weight: 550;
+            color: #313641;
+            letter-spacing: -0.2px;
+            text-align: center;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #page-viewer .sidebar-profile-actions {
+            width: 100%;
+            max-width: 120px;
+            justify-self: center;
+
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px;
+
+            transform: translateX(-6px);
+        }
+
+        #page-viewer .sidebar-profile-button {
+            width: 100%;
+            height: 28px;
+            border: 1px solid #e8edf5;
+            background: #f8faff;
+            color: #52627c;
+            border-radius: 11px;
+            font-size: 11.5px;
+            font-weight: 550;
+            letter-spacing: -0.2px;
+            cursor: pointer;
+            transition: 0.18s ease;
+        }
+
+        #page-viewer .sidebar-profile-button.report {
+            background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+            border: none;
+            color: #ffffff;
+            box-shadow: 0 6px 12px rgba(120, 163, 234, 0.18);
+        }
+
+        #page-viewer .sidebar-profile-button:hover {
+            background: #edf5ff;
+            color: #4d7fdc;
+            transform: translateY(-1px);
+        }
+
+        #page-viewer .sidebar-profile-button.report:hover {
+            background: linear-gradient(180deg, #82acf2 0%, #6999e8 100%);
+            color: #ffffff;
+        }
 
         .pdf-page-wrapper {
             position: relative;
@@ -259,7 +358,10 @@
         }
 
         /* 사이드바 항목 삭제 버튼 */
-        .sb-item { position: relative; }
+        .sb-item {
+            position: relative;
+        }
+
         .sb-item-delete {
             display: none;
             position: absolute;
@@ -271,15 +373,21 @@
             align-items: center;
             justify-content: center;
             border-radius: 50%;
-            background: rgba(239,68,68,0.12);
+            background: rgba(239, 68, 68, 0.12);
             color: #ef4444;
             font-size: 13px;
             line-height: 1;
             flex-shrink: 0;
             z-index: 2;
         }
-        .sb-item:hover .sb-item-delete { display: flex; }
-        .sb-item-delete:hover { background: rgba(239,68,68,0.22); }
+
+        .sb-item:hover .sb-item-delete {
+            display: flex;
+        }
+
+        .sb-item-delete:hover {
+            background: rgba(239, 68, 68, 0.22);
+        }
 
         /* 메모장 열렸을 때 AI 화면도 겹치지 않게 */
         body:has(.note-sb.open) #page-viewer .content-container {
@@ -448,12 +556,19 @@
                         <span>요약</span>
                     </button>
                     <button class="sb-tool-item" data-ai-tool="mindmap">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="2" y1="12" x2="22" y2="12" />
-                            <path
-                                d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+                            stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
+
+                            <!-- 연결선 -->
+                            <line x1="9" y1="12" x2="16" y2="7.5"></line>
+                            <line x1="9" y1="12" x2="16" y2="16.5"></line>
+
+                            <!-- 노드 -->
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="7" r="3"></circle>
+                            <circle cx="18" cy="17" r="3"></circle>
                         </svg>
+
                         <span>마인드맵</span>
                     </button>
                     <button class="sb-tool-item" data-ai-tool="quiz">
@@ -468,8 +583,10 @@
             <div class="sidebar-scroll">
                 <button class="sb-label sb-workspace-label" id="sbWorkspaceButton" type="button">
                     <span class="sb-workspace-label-icon">
-                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path>
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z">
+                            </path>
                         </svg>
                     </span>
                     <span id="sbWorkspaceLabel">문서</span>
@@ -477,43 +594,47 @@
                 <div class="sb-list" id="sbDocList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
                 </div>
-                <div class="sb-label sb-asset-divider">✦  지식 자산</div>
+                <div class="sb-label sb-asset-divider">✦ 지식 자산</div>
                 <div class="sb-list" id="sbAssetList">
                     <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 생성된 자산이 표시됩니다.</div>
                 </div>
             </div>
-        
-            <div class="sidebar-profile">
-    <div class="sidebar-profile-left">
-        <div class="sidebar-profile-avatar" aria-hidden="true">
-            <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-                <rect width="64" height="64" rx="32" fill="#edf2f8" />
-                <circle cx="32" cy="25" r="10" fill="#aab4c2" />
-                <path d="M16 52c2.5-11 9.5-17 16-17s13.5 6 16 17" fill="#aab4c2" />
-            </svg>
-        </div>
-        <div class="sidebar-profile-name" id="sbProfileName">—</div>
-    </div>
 
-    <div class="sidebar-profile-actions">
-        <button class="sidebar-profile-button" onclick="location.href='profile.html'">
-            계정 설정
-        </button>
-        <button class="sidebar-profile-button report" onclick="location.href='report.html'">
-            집중도 레포트
-        </button>
-    </div>
-</div>
+            <div class="sidebar-profile">
+                <div class="sidebar-profile-left">
+                    <div class="sidebar-profile-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="64" height="64" rx="32" fill="#edf2f8" />
+                            <circle cx="32" cy="25" r="10" fill="#aab4c2" />
+                            <path d="M16 52c2.5-11 9.5-17 16-17s13.5 6 16 17" fill="#aab4c2" />
+                        </svg>
+                    </div>
+                    <div class="sidebar-profile-name" id="sbProfileName">—</div>
+                </div>
+
+                <div class="sidebar-profile-actions">
+                    <button class="sidebar-profile-button" onclick="location.href='profile.html'">
+                        계정 설정
+                    </button>
+                    <button class="sidebar-profile-button report" onclick="location.href='report.html'">
+                        집중도 레포트
+                    </button>
+                </div>
+            </div>
         </aside><!-- /.sidebar -->
 
         <!-- 삭제 확인 모달 -->
-        <div id="sbDeleteOverlay" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);z-index:4000;align-items:center;justify-content:center;">
-            <div style="background:#fff;border-radius:20px;padding:28px 28px 24px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,0.18);display:flex;flex-direction:column;gap:14px;">
+        <div id="sbDeleteOverlay"
+            style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);z-index:4000;align-items:center;justify-content:center;">
+            <div
+                style="background:#fff;border-radius:20px;padding:28px 28px 24px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,0.18);display:flex;flex-direction:column;gap:14px;">
                 <div style="font-size:15px;font-weight:700;color:#1e293b;">삭제 확인</div>
                 <div id="sbDeleteMsg" style="font-size:13px;color:#475569;line-height:1.6;"></div>
                 <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-                    <button id="sbDeleteCancelBtn" style="padding:8px 18px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">취소</button>
-                    <button id="sbDeleteConfirmBtn" style="padding:8px 18px;border:none;border-radius:10px;background:#ef4444;font-size:13px;font-weight:600;color:#fff;cursor:pointer;">삭제</button>
+                    <button id="sbDeleteCancelBtn"
+                        style="padding:8px 18px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">취소</button>
+                    <button id="sbDeleteConfirmBtn"
+                        style="padding:8px 18px;border:none;border-radius:10px;background:#ef4444;font-size:13px;font-weight:600;color:#fff;cursor:pointer;">삭제</button>
                 </div>
             </div>
         </div>
@@ -533,11 +654,15 @@
                     </div>
                     <div class="group-right">
                         <button class="session-btn start" id="sessionStartBtn">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21"/></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <polygon points="5,3 19,12 5,21" />
+                            </svg>
                             <span>세션 시작</span>
                         </button>
                         <button class="session-btn end" id="sessionEndBtn" style="display:none;">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
+                                <rect x="4" y="4" width="16" height="16" rx="2" />
+                            </svg>
                             <span>세션 종료</span>
                         </button>
                         <div class="toolbar-sep"></div>
@@ -576,10 +701,13 @@
                         <div class="note-box">
                             <div class="note-h" style="display:flex;align-items:center;justify-content:space-between;">
                                 <span>메모장</span>
-                                <button id="noteSaveBtn" onclick="saveNote()" style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
+                                <button id="noteSaveBtn" onclick="saveNote()"
+                                    style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
                             </div>
                             <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
-                            <div id="noteSaveMsg" style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">✓ 저장됐어요</div>
+                            <div id="noteSaveMsg"
+                                style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">
+                                ✓ 저장됐어요</div>
                         </div>
                     </aside>
                 </div>
@@ -638,7 +766,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script type="module" src="./ai/index.js"></script>
 
-    
+
 
     <!-- EyeDID: SDK 로드 -->
     <script type="module">
@@ -822,10 +950,10 @@
 
         /* ── 경고창 상태 ── */
         var AWAY_THRESH_MS = 5000;   // 5초 이탈 시 경고
-        var AWAY_MARGIN    = -50;    // 경계 여유값(px): 50px 더 나가야 이탈로 판단
-        var awayStart      = null;   // 이탈 시작 시각 (null = 화면 보는 중)
-        var alertActive    = false;  // 경고창이 현재 떠 있는지
-        var alertShownAt   = null;   // 경고창이 뜬 시각
+        var AWAY_MARGIN = -50;    // 경계 여유값(px): 50px 더 나가야 이탈로 판단
+        var awayStart = null;   // 이탈 시작 시각 (null = 화면 보는 중)
+        var alertActive = false;  // 경고창이 현재 떠 있는지
+        var alertShownAt = null;   // 경고창이 뜬 시각
 
         var LICENSE_KEY = 'dev_mfa3ddd5031an00kfrmu7qlufvyg27h8pra7pl0w';
         var seeso = null;
@@ -915,7 +1043,7 @@
                 // 블링크는 이탈로 판단하지 않음
                 if (!isBlink && G.blinkFrames === 0) {
                     var isOnScreen = G.gx > AWAY_MARGIN
-                        && G.gx < window.innerWidth  - AWAY_MARGIN
+                        && G.gx < window.innerWidth - AWAY_MARGIN
                         && G.gy > AWAY_MARGIN
                         && G.gy < window.innerHeight - AWAY_MARGIN;
 
@@ -947,7 +1075,7 @@
         }
 
         function showGazeWarning() {
-            alertActive  = true;
+            alertActive = true;
             alertShownAt = Date.now();
             if (window._S) window._S.alertCount++;
             showWarning(); // warningWidget.js
@@ -957,9 +1085,9 @@
             if (!alertActive) return;
             var responseTime = (Date.now() - alertShownAt) / 1000;
             if (window._S) window._S.alertTimes.push(responseTime);
-            alertActive  = false;
+            alertActive = false;
             alertShownAt = null;
-            awayStart    = null;
+            awayStart = null;
             if (window._S) window._S.focusStart = Date.now();
             // UI 닫기는 closeWarning()이 콜백 호출 전에 처리하므로 생략
         }
@@ -1469,12 +1597,12 @@
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
         function cleanDocTitle(name) {
-    return String(name || '문서')
-        .replace(/^눈길\s*[-–—:]*\s*/i, '')
-        .replace(/\.(pdf|ppt|pptx)$/i, '')
-        .replace(/\s*퀴즈\s*$/i, '')
-        .trim() || '문서'
-}
+            return String(name || '문서')
+                .replace(/^눈길\s*[-–—:]*\s*/i, '')
+                .replace(/\.(pdf|ppt|pptx)$/i, '')
+                .replace(/\s*퀴즈\s*$/i, '')
+                .trim() || '문서'
+        }
 
         // ── 인증 가드 ─────────────────────────────────────
         const session = await requireAuth()
@@ -1618,6 +1746,24 @@
             console.warn('문서 목록 로드 실패:', e.message)
         }
 
+        // ── 지식 자산 북마크 (localStorage) ────────────────
+        const ASSET_BM_KEY = `nungil_asset_bm_${userId}`
+
+        function getAssetBookmarks() {
+            try {
+                const raw = localStorage.getItem(ASSET_BM_KEY)
+                return new Set(raw ? JSON.parse(raw) : [])
+            } catch { return new Set() }
+        }
+
+        function saveAssetBookmarks(bmSet) {
+            localStorage.setItem(ASSET_BM_KEY, JSON.stringify([...bmSet]))
+        }
+
+        // 전역 노출: script.js(북마크함 모달)에서 접근
+        window._getAssetBookmarks = getAssetBookmarks
+        window._saveAssetBookmarks = saveAssetBookmarks
+
         // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
         window.loadKnowledgeAssets = loadKnowledgeAssets
         async function loadKnowledgeAssets(targetDocId) {
@@ -1626,8 +1772,27 @@
 
             const typeIcon = {
                 SUMMARY: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
-                MINDMAP:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>`,
-                QUIZ:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+                MINDMAP: `
+                <svg viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    width="14"
+                    height="14">
+
+                    <!-- 연결선 -->
+                    <line x1="9" y1="12" x2="16" y2="7.5"></line>
+                    <line x1="9" y1="12" x2="16" y2="16.5"></line>
+
+                    <!-- 노드 -->
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="7" r="3"></circle>
+                    <circle cx="18" cy="17" r="3"></circle>
+                </svg>
+                `,
+                QUIZ: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
             }
             const toolName = { SUMMARY: 'summary', MINDMAP: 'mindmap', QUIZ: 'quiz' }
 
@@ -1662,17 +1827,49 @@
 
                 const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
 
+                // 북마크 상태 로드 & 북마크된 자산 상단 정렬
+                const assetBm = getAssetBookmarks()
+                assets.sort((a, b) => {
+                    const aKey = `${a.document_id}_${a.type}`
+                    const bKey = `${b.document_id}_${b.type}`
+                    return (assetBm.has(bKey) ? 1 : 0) - (assetBm.has(aKey) ? 1 : 0)
+                })
+
                 assetEl.innerHTML = assets.map(a => {
                     const fname = cleanDocTitle(a.documents?.file_name ?? '')
                     const label = `${fname} ${typeLabel[a.type] ?? a.type}`
+                    const assetKey = `${a.document_id}_${a.type}`
+                    const isBm = assetBm.has(assetKey)
 
                     return `
-                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
+                    <button class="sb-item${isBm ? ' asset-bookmarked' : ''}" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" data-asset-key="${assetKey}" style="gap:8px;align-items:center;">
                         <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
                         <span class="sb-item-text" style="font-size:12px;">${fname} ${typeLabel[a.type] ?? a.type}</span>
+                        <span class="sb-asset-bookmark${isBm ? ' active' : ''}" data-asset-key="${assetKey}" title="북마크">${isBm ? '★' : '☆'}</span>
                         <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
                     </button>`
                 }).join('')
+
+                // 북마크 별표 클릭 이벤트
+                assetEl.querySelectorAll('.sb-asset-bookmark').forEach(star => {
+                    star.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        const key = star.dataset.assetKey
+                        const currentBm = getAssetBookmarks()
+                        if (currentBm.has(key)) {
+                            currentBm.delete(key)
+                            star.classList.remove('active')
+                            star.textContent = '☆'
+                            star.closest('.sb-item')?.classList.remove('asset-bookmarked')
+                        } else {
+                            currentBm.add(key)
+                            star.classList.add('active')
+                            star.textContent = '★'
+                            star.closest('.sb-item')?.classList.add('asset-bookmarked')
+                        }
+                        saveAssetBookmarks(currentBm)
+                    })
+                })
 
                 assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1681,11 +1878,12 @@
                     })
                 })
 
+                // 자산 항목 클릭 → AI 도구 열기
                 assetEl.querySelectorAll('.sb-item').forEach(el => {
                     el.addEventListener('click', async (e) => {
-                        if (e.target.closest('.sb-item-delete')) return
-                        const tool   = el.dataset.tool
-                        const dId    = el.dataset.docId
+                        if (e.target.closest('.sb-item-delete') || e.target.closest('.sb-asset-bookmark')) return
+                        const tool = el.dataset.tool
+                        const dId = el.dataset.docId
 
                         // 다른 문서 자산이면 먼저 해당 문서 로드
                         if (dId && dId !== docId) await loadDocInViewer(dId)
@@ -1733,7 +1931,7 @@
                 document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
                 if (typeof window._resetBookmarks === 'function') window._resetBookmarks()
                 // PDF 렌더링 완료 후 북마크 복원 (race condition 방지)
-                window.addEventListener('pdf-rendered', function() {
+                window.addEventListener('pdf-rendered', function () {
                     if (typeof window.loadBookmarks === 'function') window.loadBookmarks()
                 }, { once: true })
 
@@ -1758,7 +1956,7 @@
 
                 // 워크스페이스 세션은 문서 전환 시 유지 — 현재 문서만 갱신
                 if (S.sessionId) {
-                    updateStudySession(S.sessionId, { documentId: id }).catch(() => {})
+                    updateStudySession(S.sessionId, { documentId: id }).catch(() => { })
                 }
 
             } catch (e) {
@@ -1833,12 +2031,12 @@
 
         // ── 세션 상태 ──────────────────────────────────────
         const S = {
-            sessionId:    null,
-            startTime:    null,
-            focusStart:   null,
-            focusTotal:   0,
-            alertCount:   0,
-            alertTimes:   [],
+            sessionId: null,
+            startTime: null,
+            focusStart: null,
+            focusTotal: 0,
+            alertCount: 0,
+            alertTimes: [],
             autosaveTimer: null,
         }
         // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
@@ -1846,14 +2044,14 @@
         window._sessionActive = false
         // script.js에서 사용할 수 있도록 전역 노출
         window.sb = sb
-        window._currentDocId  = docId
-        window._workspaceId   = workspaceId
+        window._currentDocId = docId
+        window._workspaceId = workspaceId
 
         function calcMetrics() {
             const now = Date.now()
-            const T   = S.startTime ? (now - S.startTime) / 1000 : 0
-            const F   = S.focusTotal + (S.focusStart ? (now - S.focusStart) / 1000 : 0)
-            const R   = S.alertTimes.length
+            const T = S.startTime ? (now - S.startTime) / 1000 : 0
+            const F = S.focusTotal + (S.focusStart ? (now - S.focusStart) / 1000 : 0)
+            const R = S.alertTimes.length
                 ? S.alertTimes.reduce((a, b) => a + b, 0) / S.alertTimes.length : 0
             return { T, F, R }
         }
@@ -1862,16 +2060,16 @@
             if (!S.sessionId) return
             const { T, F, R } = calcMetrics()
             await updateStudySession(S.sessionId, {
-                durationMinutes:         T / 60,
-                alertCount:              S.alertCount,
-                focusTimeSeconds:        F,
+                durationMinutes: T / 60,
+                alertCount: S.alertCount,
+                focusTimeSeconds: F,
                 avgAlertResponseSeconds: R,
             }).catch(e => console.warn('자동저장 실패:', e.message))
         }
 
         function setSessionUI(active) {
-            document.getElementById('sessionStartBtn').style.display = active ? 'none'  : 'flex'
-            document.getElementById('sessionEndBtn').style.display   = active ? 'flex'  : 'none'
+            document.getElementById('sessionStartBtn').style.display = active ? 'none' : 'flex'
+            document.getElementById('sessionEndBtn').style.display = active ? 'flex' : 'none'
         }
 
         // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
@@ -1879,13 +2077,13 @@
             if (S.sessionId || !workspaceId) return
             try {
                 const sess = await createStudySession({
-                    userId:      session.user.id,
+                    userId: session.user.id,
                     workspaceId: workspaceId,
-                    documentId:  docId ?? null,
+                    documentId: docId ?? null,
                     calibrationData: window._cachedCalib ?? null,
                 })
-                S.sessionId  = sess.id
-                S.startTime  = Date.now()
+                S.sessionId = sess.id
+                S.startTime = Date.now()
                 S.focusStart = Date.now()
                 S.focusTotal = 0
                 S.alertCount = 0
@@ -1922,16 +2120,16 @@
 
             // 경고창 떠 있으면 닫기 (반응 시간 미기록)
             if (window.alertActive) {
-                window.alertActive  = false
+                window.alertActive = false
                 window.alertShownAt = null
-                window.awayStart    = null
+                window.awayStart = null
                 closeWarning()
             }
 
             const { T, F, R } = calcMetrics()
             try {
                 await completeStudySession(S.sessionId, {
-                    startTime:  S.startTime,
+                    startTime: S.startTime,
                     focusTotal: S.focusTotal,
                     alertCount: S.alertCount,
                     alertTimes: S.alertTimes,
@@ -1960,9 +2158,9 @@
         }
 
         // ── 사이드바 삭제 확인 모달 ─────────────────────────────
-        const deleteOverlay  = document.getElementById('sbDeleteOverlay')
-        const deleteMsg      = document.getElementById('sbDeleteMsg')
-        const deleteCancelBtn  = document.getElementById('sbDeleteCancelBtn')
+        const deleteOverlay = document.getElementById('sbDeleteOverlay')
+        const deleteMsg = document.getElementById('sbDeleteMsg')
+        const deleteCancelBtn = document.getElementById('sbDeleteCancelBtn')
         const deleteConfirmBtn = document.getElementById('sbDeleteConfirmBtn')
 
         let _pendingDelete = null  // { type: 'doc'|'asset', id: string }
