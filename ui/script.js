@@ -224,16 +224,24 @@ const colorPalette = [
     { name: 'purple', code: '#be4bdb' },
 ];
 
+function getNextBookmarkId() {
+    // 1부터 시작해서 빈 번호를 찾아 반환
+    let id = 1;
+    while (bookmarksData[id]) id++;
+    return id;
+}
+
 function createBookmarkIndexTag(topPosition, targetSpan) {
-    bookmarkCount++;
+    const newId = getNextBookmarkId();
+    bookmarkCount = Math.max(bookmarkCount, newId);
     const canvas       = document.querySelector('.paper-canvas');
     const initialColor = 'blue';
-    const tagId        = `tag-id-${bookmarkCount}`;
+    const tagId        = `tag-id-${newId}`;
 
     const tag         = document.createElement('div');
     tag.id            = tagId;
     tag.className     = `bookmark-tag tag-${initialColor}`;
-    tag.dataset.id    = bookmarkCount;
+    tag.dataset.id    = newId;
     tag.dataset.color = initialColor;
 
     // 중첩 방지
@@ -250,9 +258,9 @@ function createBookmarkIndexTag(topPosition, targetSpan) {
         }
     }
     tag.style.top = `${finalTop}px`;
-    tag.innerText = `[${bookmarkCount}]`;
+    tag.innerText = `[${newId}]`;
 
-    bookmarksData[bookmarkCount] = {
+    bookmarksData[newId] = {
         title: '', content: '', color: initialColor, tagElementId: tagId,
     };
 
@@ -268,7 +276,7 @@ function createBookmarkIndexTag(topPosition, targetSpan) {
     showBookmarkPopup(tag);
     saveBookmarks();
     // Supabase에도 저장
-    saveBookmarkToDb(bookmarkCount, bookmarksData[bookmarkCount], finalTop);
+    saveBookmarkToDb(newId, bookmarksData[newId], finalTop);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -410,29 +418,6 @@ async function togBookmarkList() {
         }));
     }
 
-    // ── 지식 자산 북마크 조회 ──
-    let assetBookmarks = [];
-    const getAssetBm = window._getAssetBookmarks;
-    if (sb && getAssetBm) {
-        try {
-            const bmSet = getAssetBm();
-            if (bmSet.size > 0) {
-                const bmKeys = [...bmSet];
-                const assetDocIds = [...new Set(bmKeys.map(k => k.slice(0, k.lastIndexOf('_'))))];
-                if (assetDocIds.length > 0) {
-                    const { data: assets } = await sb
-                        .from('learning_assets')
-                        .select('id, type, document_id, documents(file_name)')
-                        .eq('status', 'DONE')
-                        .in('document_id', assetDocIds);
-                    if (assets) {
-                        assetBookmarks = assets.filter(a => bmSet.has(`${a.document_id}_${a.type}`));
-                    }
-                }
-            }
-        } catch (e) { console.warn('자산 북마크 로드 실패:', e.message); }
-    }
-
     // ── 퀴즈 북마크 조회 (quiz_attempts.bookmarked_indexes) ──
     let quizBookmarks = [];
     if (sb) {
@@ -479,91 +464,11 @@ async function togBookmarkList() {
     grid.innerHTML = '';
 
     const hasDocBm = allBookmarks.length > 0;
-    const hasAssetBm = assetBookmarks.length > 0;
     const hasQuizBm = quizBookmarks.length > 0;
 
-    if (!hasDocBm && !hasAssetBm && !hasQuizBm) {
+    if (!hasDocBm && !hasQuizBm) {
         grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
         return;
-    }
-
-    // ── 지식 자산 북마크 섹션 ──
-    if (hasAssetBm) {
-        const assetHeader = document.createElement('div');
-        assetHeader.className = 'bm-section-header';
-        assetHeader.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2" width="16" height="16">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" fill="#f59e0b"/>
-            </svg>
-            <span>지식 자산 북마크</span>
-            <span style="font-size:11px;font-weight:500;color:#94a3b8;">${assetBookmarks.length}개</span>
-        `;
-        grid.appendChild(assetHeader);
-
-        const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' };
-        const toolName  = { SUMMARY: 'summary', MINDMAP: 'mindmap', QUIZ: 'quiz' };
-
-        assetBookmarks.forEach(asset => {
-            const fname = (asset.documents?.file_name ?? '문서')
-                .replace(/^눈길\s*[-–—:]*\s*/i, '')
-                .replace(/\.(pdf|ppt|pptx)$/i, '').trim() || '문서';
-            const label = typeLabel[asset.type] ?? asset.type;
-            const assetKey = `${asset.document_id}_${asset.type}`;
-
-            const card = document.createElement('div');
-            card.className = 'bm-card asset-card';
-            card.innerHTML = `
-                <div class="bm-card-top">
-                    <span class="bm-asset-badge">
-                        <svg viewBox="0 0 24 24" fill="#f59e0b" stroke="#f59e0b" stroke-width="2" width="11" height="11">
-                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-                        </svg>
-                        ${label}
-                    </span>
-                    <button class="bm-delete-btn" title="북마크 해제" data-asset-key="${assetKey}" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
-                </div>
-                <div class="bm-body">
-                    <h3 class="bm-title">${fname}</h3>
-                    <p class="bm-content">${label} 자산을 열어 학습 내용을 확인하세요.</p>
-                </div>
-            `;
-
-            card.querySelector('.bm-delete-btn').addEventListener('click', (e) => {
-                e.stopPropagation();
-                const key = e.currentTarget.dataset.assetKey;
-                const saveFn = window._saveAssetBookmarks;
-                const getFn  = window._getAssetBookmarks;
-                if (saveFn && getFn) {
-                    const set = getFn(); set.delete(key); saveFn(set);
-                }
-                const sidebarStar = document.querySelector(`.sb-asset-bookmark[data-asset-key="${key}"]`);
-                if (sidebarStar) {
-                    sidebarStar.classList.remove('active');
-                    sidebarStar.textContent = '☆';
-                    sidebarStar.closest('.sb-item')?.classList.remove('asset-bookmarked');
-                }
-                card.remove();
-                if (!grid.querySelector('.bm-card.asset-card')) {
-                    grid.querySelector('.bm-section-header')?.remove();
-                }
-                if (!grid.querySelector('.bm-card')) {
-                    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
-                }
-            });
-
-            card.onclick = async () => {
-                overlay.classList.remove('show');
-                document.body.style.overflow = '';
-                if (asset.document_id !== window._currentDocId && typeof window.loadDocInViewer === 'function') {
-                    await window.loadDocInViewer(asset.document_id);
-                }
-                setTimeout(() => {
-                    const toolBtn = document.querySelector(`.sb-tool-item[data-ai-tool="${toolName[asset.type]}"]`);
-                    if (toolBtn) toolBtn.click();
-                }, 300);
-            };
-            grid.appendChild(card);
-        });
     }
 
     // ── 퀴즈 북마크 섹션 ──
@@ -636,7 +541,7 @@ async function togBookmarkList() {
 
     // ── 문서 북마크 섹션 ──
     if (hasDocBm) {
-        if (hasAssetBm || hasQuizBm) {
+        if (hasQuizBm) {
             const docHeader = document.createElement('div');
             docHeader.className = 'bm-section-header';
             docHeader.innerHTML = `
