@@ -26,48 +26,70 @@ let quizState = {
   showResult: false,
 };
 
-// ── 퀴즈 북마크 DB 헬퍼 ──────────────────────────────────────────────
+// ── 퀴즈 북마크 DB 헬퍼 (quiz_attempts.bookmarked_indexes) ──────────
 
-async function loadQuizBookmarksFromDb() {
+async function loadBookmarkedIndexes() {
   try {
     const docId = AI_STATE.docId || window._currentDocId;
     if (!sb || !docId) return [];
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return [];
     const { data } = await sb
-      .from('quiz_bookmarks')
-      .select('question_index')
-      .eq('document_id', docId);
-    return (data || []).map(r => r.question_index);
+      .from('quiz_attempts')
+      .select('bookmarked_indexes')
+      .eq('user_id', user.id)
+      .eq('document_id', docId)
+      .order('attempted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return Array.isArray(data?.bookmarked_indexes) ? data.bookmarked_indexes : [];
   } catch { return []; }
 }
 
-async function upsertQuizBookmark(index) {
+async function saveBookmarkedIndexes() {
+  const indexes = quizState.bookmarks
+    .map((v, i) => v ? i : -1)
+    .filter(i => i >= 0);
   try {
     const docId = AI_STATE.docId || window._currentDocId;
     if (!sb || !docId) return;
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return;
-    const questionText = quizState.list[index]?.question || '';
-    await sb.from('quiz_bookmarks').upsert({
-      user_id: user.id,
-      document_id: docId,
-      question_index: index,
-      question_text: questionText,
-    }, { onConflict: 'user_id,document_id,question_index' });
-  } catch (e) { console.warn('퀴즈 북마크 저장 실패:', e.message); }
-}
 
-async function deleteQuizBookmark(index) {
-  try {
-    const docId = AI_STATE.docId || window._currentDocId;
-    if (!sb || !docId) return;
-    const { data: { user } } = await sb.auth.getUser();
-    if (!user) return;
-    await sb.from('quiz_bookmarks')
-      .delete()
+    // 최신 attempt 가져오기
+    const { data: row } = await sb
+      .from('quiz_attempts')
+      .select('id')
       .eq('user_id', user.id)
       .eq('document_id', docId)
-      .eq('question_index', index);
-  } catch (e) { console.warn('퀴즈 북마크 삭제 실패:', e.message); }
+      .order('attempted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (row) {
+      await sb.from('quiz_attempts')
+        .update({ bookmarked_indexes: indexes })
+        .eq('id', row.id);
+    } else {
+      // attempt가 아직 없으면 북마크 전용 레코드 생성
+      const { data: asset } = await sb
+        .from('learning_assets')
+        .select('id')
+        .eq('document_id', docId)
+        .eq('type', 'QUIZ')
+        .eq('status', 'DONE')
+        .maybeSingle();
+      await sb.from('quiz_attempts').insert({
+        user_id: user.id,
+        document_id: docId,
+        asset_id: asset?.id ?? null,
+        total_questions: quizState.list.length,
+        correct_count: 0,
+        score: 0,
+        bookmarked_indexes: indexes,
+      });
+    }
+  } catch (e) { console.warn('퀴즈 북마크 저장 실패:', e.message); }
 }
 
 // ── 퀴즈 로드 (3단 캐시: sessionStorage → Supabase DB → Claude API) ──
@@ -234,7 +256,7 @@ async function renderQuiz(quiz) {
   const normalized = normalizeQuiz(quiz);
 
   // DB에서 북마크 복원
-  const savedIndexes = await loadQuizBookmarksFromDb();
+  const savedIndexes = await loadBookmarkedIndexes();
   const bookmarks = Array(normalized.length).fill(false);
   savedIndexes.forEach(i => { if (i >= 0 && i < bookmarks.length) bookmarks[i] = true; });
 
@@ -632,15 +654,9 @@ function goNext() {
 }
 
 function toggleBookmark() {
-  const idx = quizState.currentIndex;
-  quizState.bookmarks[idx] = !quizState.bookmarks[idx];
-
-  if (quizState.bookmarks[idx]) {
-    upsertQuizBookmark(idx);
-  } else {
-    deleteQuizBookmark(idx);
-  }
-
+  quizState.bookmarks[quizState.currentIndex] =
+    !quizState.bookmarks[quizState.currentIndex];
+  saveBookmarkedIndexes();
   renderQuizLayout(getCanvas());
 }
 
@@ -775,13 +791,7 @@ return `
 
 function toggleResultBookmark(index) {
   quizState.bookmarks[index] = !quizState.bookmarks[index];
-
-  if (quizState.bookmarks[index]) {
-    upsertQuizBookmark(index);
-  } else {
-    deleteQuizBookmark(index);
-  }
-
+  saveBookmarkedIndexes();
   renderQuizLayout(getCanvas());
 }
 
@@ -794,25 +804,12 @@ function bindResultBookmarkEvents() {
   });
 }
 
-async function restartQuiz() {
-  // DB에서 이 문서의 퀴즈 북마크 전부 삭제
-  try {
-    const docId = AI_STATE.docId || window._currentDocId;
-    if (sb && docId) {
-      const { data: { user } } = await sb.auth.getUser();
-      if (user) {
-        await sb.from('quiz_bookmarks')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('document_id', docId);
-      }
-    }
-  } catch {}
-
+function restartQuiz() {
   quizState.currentIndex = 0;
   quizState.answers = Array(quizState.list.length).fill(null);
   quizState.bookmarks = Array(quizState.list.length).fill(false);
   quizState.showResult = false;
+  saveBookmarkedIndexes();   // DB 북마크도 초기화
 
   renderQuizLayout(getCanvas());
 }
@@ -935,6 +932,10 @@ async function saveAttemptToDb() {
       optionExplanations: q.optionExplanations || [],
     }));
 
+    const bookmarkedIndexes = quizState.bookmarks
+      .map((v, i) => v ? i : -1)
+      .filter(i => i >= 0);
+
     await sb.from('quiz_attempts').insert({
       user_id: user.id,
       document_id: docId,
@@ -944,6 +945,7 @@ async function saveAttemptToDb() {
       correct_count: correct,
       score: Math.round((correct / total) * 100),
       answers: answerRecords,
+      bookmarked_indexes: bookmarkedIndexes,
     });
 
     console.log('퀴즈 결과 저장 완료');

@@ -433,42 +433,50 @@ async function togBookmarkList() {
         } catch (e) { console.warn('자산 북마크 로드 실패:', e.message); }
     }
 
-    grid.innerHTML = '';
-
-    // ── 퀴즈 북마크 조회 ──
+    // ── 퀴즈 북마크 조회 (quiz_attempts.bookmarked_indexes) ──
     let quizBookmarks = [];
     if (sb) {
         try {
             const { data: { user } } = await sb.auth.getUser();
             if (user) {
-                let qbQuery;
+                const targetDocIds = [];
                 if (window._workspaceId) {
-                    const { data: docs } = await sb
-                        .from('documents')
-                        .select('id')
-                        .eq('workspace_id', window._workspaceId);
-                    const wDocIds = (docs || []).map(d => d.id);
-                    if (wDocIds.length > 0) {
-                        const { data } = await sb
-                            .from('quiz_bookmarks')
-                            .select('*, documents(file_name)')
-                            .eq('user_id', user.id)
-                            .in('document_id', wDocIds)
-                            .order('created_at', { ascending: false });
-                        quizBookmarks = data || [];
-                    }
+                    const { data: docs } = await sb.from('documents').select('id').eq('workspace_id', window._workspaceId);
+                    (docs || []).forEach(d => targetDocIds.push(d.id));
                 } else if (window._currentDocId) {
-                    const { data } = await sb
-                        .from('quiz_bookmarks')
-                        .select('*, documents(file_name)')
+                    targetDocIds.push(window._currentDocId);
+                }
+                if (targetDocIds.length) {
+                    // 문서별 최신 attempt만 가져오기
+                    const { data: attempts } = await sb
+                        .from('quiz_attempts')
+                        .select('id, document_id, bookmarked_indexes, answers, documents(file_name)')
                         .eq('user_id', user.id)
-                        .eq('document_id', window._currentDocId)
-                        .order('created_at', { ascending: false });
-                    quizBookmarks = data || [];
+                        .in('document_id', targetDocIds)
+                        .order('attempted_at', { ascending: false });
+                    // 문서별 최신 1개만
+                    const seen = new Set();
+                    (attempts || []).forEach(a => {
+                        if (!seen.has(a.document_id) && Array.isArray(a.bookmarked_indexes) && a.bookmarked_indexes.length) {
+                            seen.add(a.document_id);
+                            a.bookmarked_indexes.forEach(qi => {
+                                const qText = Array.isArray(a.answers) ? (a.answers[qi]?.question || '') : '';
+                                quizBookmarks.push({
+                                    document_id: a.document_id,
+                                    question_index: qi,
+                                    question_text: qText,
+                                    attempt_id: a.id,
+                                    file_name: a.documents?.file_name || '문서',
+                                });
+                            });
+                        }
+                    });
                 }
             }
         } catch (e) { console.warn('퀴즈 북마크 로드 실패:', e.message); }
     }
+
+    grid.innerHTML = '';
 
     const hasDocBm = allBookmarks.length > 0;
     const hasAssetBm = assetBookmarks.length > 0;
@@ -563,8 +571,8 @@ async function togBookmarkList() {
         const qbHeader = document.createElement('div');
         qbHeader.className = 'bm-section-header';
         qbHeader.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2" width="16" height="16">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" fill="#6366f1"/>
+            <svg viewBox="0 0 24 24" fill="#6366f1" stroke="#6366f1" stroke-width="2" width="16" height="16">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
             <span>퀴즈 북마크</span>
             <span style="font-size:11px;font-weight:500;color:#94a3b8;">${quizBookmarks.length}개</span>
@@ -572,7 +580,7 @@ async function togBookmarkList() {
         grid.appendChild(qbHeader);
 
         quizBookmarks.forEach(qb => {
-            const fname = (qb.documents?.file_name ?? '문서')
+            const fname = (qb.file_name ?? '문서')
                 .replace(/^눈길\s*[-–—:]*\s*/i, '')
                 .replace(/\.(pdf|ppt|pptx)$/i, '').trim() || '문서';
             const card = document.createElement('div');
@@ -585,7 +593,7 @@ async function togBookmarkList() {
                         </svg>
                         Q${qb.question_index + 1}
                     </span>
-                    <button class="bm-delete-btn qb-del" data-qb-id="${qb.id}" title="북마크 해제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
+                    <button class="bm-delete-btn qb-del" data-attempt-id="${qb.attempt_id}" data-qi="${qb.question_index}" title="북마크 해제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
                 </div>
                 <div class="bm-body">
                     <h3 class="bm-title" style="font-size:12px;">${fname}</h3>
@@ -595,12 +603,17 @@ async function togBookmarkList() {
 
             card.querySelector('.qb-del').addEventListener('click', async (e) => {
                 e.stopPropagation();
-                const id = e.currentTarget.dataset.qbId;
-                try { await sb.from('quiz_bookmarks').delete().eq('id', id); } catch {}
+                const attemptId = e.currentTarget.dataset.attemptId;
+                const qi = Number(e.currentTarget.dataset.qi);
+                try {
+                    const { data: row } = await sb.from('quiz_attempts').select('bookmarked_indexes').eq('id', attemptId).maybeSingle();
+                    if (row) {
+                        const updated = (row.bookmarked_indexes || []).filter(i => i !== qi);
+                        await sb.from('quiz_attempts').update({ bookmarked_indexes: updated }).eq('id', attemptId);
+                    }
+                } catch {}
                 card.remove();
-                if (!grid.querySelector('.quiz-bm-card')) {
-                    qbHeader.remove();
-                }
+                if (!grid.querySelector('.quiz-bm-card')) qbHeader.remove();
                 if (!grid.querySelector('.bm-card')) {
                     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#a0a6b0;padding:40px;">저장된 북마크가 없습니다.</div>';
                 }
