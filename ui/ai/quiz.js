@@ -11,6 +11,7 @@ import {
   setAiCache,
   setAiMode,
   showAiLoading,
+  setCanvasMode,
   sourceText,
 } from "./common.js";
 
@@ -25,6 +26,72 @@ let quizState = {
   fullscreen: false,
   showResult: false,
 };
+
+// ── 퀴즈 북마크 DB 헬퍼 (quiz_attempts.bookmarked_indexes) ──────────
+
+async function loadBookmarkedIndexes() {
+  try {
+    const docId = AI_STATE.docId || window._currentDocId;
+    if (!sb || !docId) return [];
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return [];
+    const { data } = await sb
+      .from('quiz_attempts')
+      .select('bookmarked_indexes')
+      .eq('user_id', user.id)
+      .eq('document_id', docId)
+      .order('attempted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return Array.isArray(data?.bookmarked_indexes) ? data.bookmarked_indexes : [];
+  } catch { return []; }
+}
+
+async function saveBookmarkedIndexes() {
+  const indexes = quizState.bookmarks
+    .map((v, i) => v ? i : -1)
+    .filter(i => i >= 0);
+  try {
+    const docId = AI_STATE.docId || window._currentDocId;
+    if (!sb || !docId) return;
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+
+    // 최신 attempt 가져오기
+    const { data: row } = await sb
+      .from('quiz_attempts')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('document_id', docId)
+      .order('attempted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (row) {
+      await sb.from('quiz_attempts')
+        .update({ bookmarked_indexes: indexes })
+        .eq('id', row.id);
+    } else {
+      // attempt가 아직 없으면 북마크 전용 레코드 생성
+      const { data: asset } = await sb
+        .from('learning_assets')
+        .select('id')
+        .eq('document_id', docId)
+        .eq('type', 'QUIZ')
+        .eq('status', 'DONE')
+        .maybeSingle();
+      await sb.from('quiz_attempts').insert({
+        user_id: user.id,
+        document_id: docId,
+        asset_id: asset?.id ?? null,
+        total_questions: quizState.list.length,
+        correct_count: 0,
+        score: 0,
+        bookmarked_indexes: indexes,
+      });
+    }
+  } catch (e) { console.warn('퀴즈 북마크 저장 실패:', e.message); }
+}
 
 // ── 퀴즈 로드 (3단 캐시: sessionStorage → Supabase DB → Claude API) ──
 export async function loadQuiz({ shouldRender = () => true } = {}) {
@@ -146,14 +213,6 @@ function formatOptionLabel(index, option) {
   return `${index + 1}. ${option}`;
 }
 
-function getAnswerText(quiz, indexes = quiz.answerIndexes) {
-  if (!indexes?.length) return "미선택";
-
-  return indexes
-    .map((index) => formatOptionLabel(index, quiz.options[index]))
-    .join(", ");
-}
-
 function getOptionExplanation(quiz, optionIndex) {
   const explanations =
     quiz.optionExplanations ||
@@ -174,13 +233,10 @@ function getAnswerNumberText(quiz) {
     .join(", ");
 }
 
-function renderQuiz(quiz) {
+async function renderQuiz(quiz) {
   injectQuizStyle();
 
-  const container = getCanvas();
-
-  // 기존 AI 문서 기반 퀴즈 생성 기능 유지
-  setAiMode();
+  const container = setCanvasMode("quiz");
 
   // 기본 퀴즈 모드: viewer 사이드바/상단바 유지
   document.body.classList.remove("ai-view-mode");
@@ -189,11 +245,16 @@ function renderQuiz(quiz) {
 
   const normalized = normalizeQuiz(quiz);
 
+  // DB에서 북마크 복원
+  const savedIndexes = await loadBookmarkedIndexes();
+  const bookmarks = Array(normalized.length).fill(false);
+  savedIndexes.forEach(i => { if (i >= 0 && i < bookmarks.length) bookmarks[i] = true; });
+
   quizState = {
   list: normalized,
   currentIndex: 0,
   answers: Array(normalized.length).fill(null),
-  bookmarks: Array(normalized.length).fill(false),
+  bookmarks,
   fullscreen: false,
   showResult: false,
 };
@@ -461,7 +522,7 @@ function renderQuestion() {
   `;
 
   renderOptions(quiz, answerData, isSubmitted);
-  bindQuestionEvents(isSubmitted);
+  bindQuestionEvents();
 }
 
 function renderOptions(quiz, answerData, isSubmitted) {
@@ -540,7 +601,7 @@ function renderOptions(quiz, answerData, isSubmitted) {
   });
 }
 
-function bindQuestionEvents(isSubmitted) {
+function bindQuestionEvents() {
   document
     .getElementById("ngQuizBookmarkBtn")
     ?.addEventListener("click", toggleBookmark);
@@ -585,7 +646,7 @@ function goNext() {
 function toggleBookmark() {
   quizState.bookmarks[quizState.currentIndex] =
     !quizState.bookmarks[quizState.currentIndex];
-
+  saveBookmarkedIndexes();
   renderQuizLayout(getCanvas());
 }
 
@@ -720,6 +781,7 @@ return `
 
 function toggleResultBookmark(index) {
   quizState.bookmarks[index] = !quizState.bookmarks[index];
+  saveBookmarkedIndexes();
   renderQuizLayout(getCanvas());
 }
 
@@ -737,6 +799,7 @@ function restartQuiz() {
   quizState.answers = Array(quizState.list.length).fill(null);
   quizState.bookmarks = Array(quizState.list.length).fill(false);
   quizState.showResult = false;
+  saveBookmarkedIndexes();   // DB 북마크도 초기화
 
   renderQuizLayout(getCanvas());
 }
@@ -749,27 +812,59 @@ function toggleFullscreen() {
 }
 
 function showOriginalDocument() {
-  document.body.classList.remove("quiz-fullscreen-mode");
-  document.body.classList.remove("quiz-inline-mode");
+  document.body.classList.remove(
+    "quiz-fullscreen-mode",
+    "quiz-inline-mode"
+  );
 
   quizState.fullscreen = false;
 
-  if (window._pdfDoc && typeof window.reRenderPdf === "function") {
-    window.reRenderPdf();
-    return;
+  const pdfContainer = document.getElementById("pdfContainer");
+
+  if (pdfContainer) {
+    pdfContainer.classList.remove(
+      "quiz-mode",
+      "ai-mode",
+      "mindmap-mode",
+      "summary-mode"
+    );
+
+    pdfContainer.style.width = "";
+    pdfContainer.style.maxWidth = "";
+    pdfContainer.style.flex = "";
   }
 
-  if (window._pdfUrl && typeof window.renderPdf === "function") {
-    window.renderPdf(window._pdfUrl);
-    return;
+  const centerArea = document.querySelector(
+    "#page-viewer .center-area"
+  );
+
+  if (centerArea) {
+    centerArea.style.width = "";
+    centerArea.style.maxWidth = "";
+    centerArea.style.flex = "";
+    centerArea.style.justifyContent = "";
+    centerArea.style.alignItems = "";
   }
 
-  const container = getCanvas();
-  container.innerHTML = `
-    <div class="pdf-no-content">
-      문서를 불러올 수 없습니다.
-    </div>
-  `;
+  requestAnimationFrame(() => {
+    if (window._pdfDoc && typeof window.reRenderPdf === "function") {
+      window.reRenderPdf();
+      return;
+    }
+
+    if (window._pdfUrl && typeof window.renderPdf === "function") {
+      window.renderPdf(window._pdfUrl);
+      return;
+    }
+
+    const container = setCanvasMode("pdf");
+
+    container.innerHTML = `
+      <div class="pdf-no-content">
+        문서를 불러올 수 없습니다.
+      </div>
+    `;
+  });
 }
 
 function finalSubmitAndShowResult() {
@@ -859,6 +954,10 @@ async function saveAttemptToDb() {
       optionExplanations: q.optionExplanations || [],
     }));
 
+    const bookmarkedIndexes = quizState.bookmarks
+      .map((v, i) => v ? i : -1)
+      .filter(i => i >= 0);
+
     await sb.from('quiz_attempts').insert({
       user_id: user.id,
       document_id: docId,
@@ -868,6 +967,7 @@ async function saveAttemptToDb() {
       correct_count: correct,
       score: Math.round((correct / total) * 100),
       answers: answerRecords,
+      bookmarked_indexes: bookmarkedIndexes,
     });
 
     console.log('퀴즈 결과 저장 완료');
@@ -884,9 +984,8 @@ function injectQuizStyle() {
   style.textContent = `
     body.quiz-inline-mode {
       --quiz-top: 90px;
-      --quiz-right: 32px;
-      --quiz-bottom: 14px;
-      --quiz-left-gap: 6px;
+      --quiz-side: 12px;
+      --quiz-bottom: 12px;
       --quiz-height: calc(100vh - var(--quiz-top) - var(--quiz-bottom));
     }
 
@@ -1569,11 +1668,6 @@ function injectQuizStyle() {
   overflow: hidden;
 }
 
-.ng-result-option.selected {
-  border-color: #7ea8ef;
-  background: #edf4ff;
-}
-
 .ng-result-option.correct {
   border-color: #22c55e;
   background: #eefcf3;
@@ -1591,12 +1685,6 @@ function injectQuizStyle() {
   font-weight: 450;
   line-height: 1.45;
   color: #526174;
-}
-
-
-.ng-result-option.selected .ng-result-option-title {
-  color: #315fae;
-  font-weight: 550;
 }
 
 .ng-result-explain-divider {
@@ -1630,13 +1718,8 @@ function injectQuizStyle() {
       display: none !important;
     }
 
-    body.quiz-inline-mode:not(.quiz-fullscreen-mode) .content-container {
-      margin-top: var(--quiz-top) !important;
-      padding: 0 var(--quiz-right) var(--quiz-bottom) var(--quiz-left-gap) !important;
-      align-items: stretch !important;
-    }
-
-    body.quiz-inline-mode:not(.quiz-fullscreen-mode) .center-area {
+    body.quiz-inline-mode:not(.quiz-fullscreen-mode)
+#page-viewer #pdfContainer.quiz-mode ~ .center-area {
       width: 100% !important;
       max-width: none !important;
       flex: 1 1 auto !important;
