@@ -812,27 +812,59 @@ function toggleFullscreen() {
 }
 
 function showOriginalDocument() {
-  document.body.classList.remove("quiz-fullscreen-mode");
-  document.body.classList.remove("quiz-inline-mode");
+  document.body.classList.remove(
+    "quiz-fullscreen-mode",
+    "quiz-inline-mode"
+  );
 
   quizState.fullscreen = false;
 
-  if (window._pdfDoc && typeof window.reRenderPdf === "function") {
-    window.reRenderPdf();
-    return;
+  const pdfContainer = document.getElementById("pdfContainer");
+
+  if (pdfContainer) {
+    pdfContainer.classList.remove(
+      "quiz-mode",
+      "ai-mode",
+      "mindmap-mode",
+      "summary-mode"
+    );
+
+    pdfContainer.style.width = "";
+    pdfContainer.style.maxWidth = "";
+    pdfContainer.style.flex = "";
   }
 
-  if (window._pdfUrl && typeof window.renderPdf === "function") {
-    window.renderPdf(window._pdfUrl);
-    return;
+  const centerArea = document.querySelector(
+    "#page-viewer .center-area"
+  );
+
+  if (centerArea) {
+    centerArea.style.width = "";
+    centerArea.style.maxWidth = "";
+    centerArea.style.flex = "";
+    centerArea.style.justifyContent = "";
+    centerArea.style.alignItems = "";
   }
 
-  const container = setCanvasMode("quiz");
-  container.innerHTML = `
-    <div class="pdf-no-content">
-      문서를 불러올 수 없습니다.
-    </div>
-  `;
+  requestAnimationFrame(() => {
+    if (window._pdfDoc && typeof window.reRenderPdf === "function") {
+      window.reRenderPdf();
+      return;
+    }
+
+    if (window._pdfUrl && typeof window.renderPdf === "function") {
+      window.renderPdf(window._pdfUrl);
+      return;
+    }
+
+    const container = setCanvasMode("pdf");
+
+    container.innerHTML = `
+      <div class="pdf-no-content">
+        문서를 불러올 수 없습니다.
+      </div>
+    `;
+  });
 }
 
 function finalSubmitAndShowResult() {
@@ -1686,7 +1718,8 @@ function injectQuizStyle() {
       display: none !important;
     }
 
-    body.quiz-inline-mode:not(.quiz-fullscreen-mode) .center-area {
+    body.quiz-inline-mode:not(.quiz-fullscreen-mode)
+#page-viewer #pdfContainer.quiz-mode ~ .center-area {
       width: 100% !important;
       max-width: none !important;
       flex: 1 1 auto !important;
