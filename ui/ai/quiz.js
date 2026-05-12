@@ -27,6 +27,72 @@ let quizState = {
   showResult: false,
 };
 
+// ── 퀴즈 북마크 DB 헬퍼 (quiz_attempts.bookmarked_indexes) ──────────
+
+async function loadBookmarkedIndexes() {
+  try {
+    const docId = AI_STATE.docId || window._currentDocId;
+    if (!sb || !docId) return [];
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return [];
+    const { data } = await sb
+      .from('quiz_attempts')
+      .select('bookmarked_indexes')
+      .eq('user_id', user.id)
+      .eq('document_id', docId)
+      .order('attempted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return Array.isArray(data?.bookmarked_indexes) ? data.bookmarked_indexes : [];
+  } catch { return []; }
+}
+
+async function saveBookmarkedIndexes() {
+  const indexes = quizState.bookmarks
+    .map((v, i) => v ? i : -1)
+    .filter(i => i >= 0);
+  try {
+    const docId = AI_STATE.docId || window._currentDocId;
+    if (!sb || !docId) return;
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return;
+
+    // 최신 attempt 가져오기
+    const { data: row } = await sb
+      .from('quiz_attempts')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('document_id', docId)
+      .order('attempted_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (row) {
+      await sb.from('quiz_attempts')
+        .update({ bookmarked_indexes: indexes })
+        .eq('id', row.id);
+    } else {
+      // attempt가 아직 없으면 북마크 전용 레코드 생성
+      const { data: asset } = await sb
+        .from('learning_assets')
+        .select('id')
+        .eq('document_id', docId)
+        .eq('type', 'QUIZ')
+        .eq('status', 'DONE')
+        .maybeSingle();
+      await sb.from('quiz_attempts').insert({
+        user_id: user.id,
+        document_id: docId,
+        asset_id: asset?.id ?? null,
+        total_questions: quizState.list.length,
+        correct_count: 0,
+        score: 0,
+        bookmarked_indexes: indexes,
+      });
+    }
+  } catch (e) { console.warn('퀴즈 북마크 저장 실패:', e.message); }
+}
+
 // ── 퀴즈 로드 (3단 캐시: sessionStorage → Supabase DB → Claude API) ──
 export async function loadQuiz({ shouldRender = () => true } = {}) {
   // 1차: sessionStorage 캐시
@@ -167,7 +233,7 @@ function getAnswerNumberText(quiz) {
     .join(", ");
 }
 
-function renderQuiz(quiz) {
+async function renderQuiz(quiz) {
   injectQuizStyle();
 
   const container = setCanvasMode("quiz");
@@ -179,11 +245,16 @@ function renderQuiz(quiz) {
 
   const normalized = normalizeQuiz(quiz);
 
+  // DB에서 북마크 복원
+  const savedIndexes = await loadBookmarkedIndexes();
+  const bookmarks = Array(normalized.length).fill(false);
+  savedIndexes.forEach(i => { if (i >= 0 && i < bookmarks.length) bookmarks[i] = true; });
+
   quizState = {
   list: normalized,
   currentIndex: 0,
   answers: Array(normalized.length).fill(null),
-  bookmarks: Array(normalized.length).fill(false),
+  bookmarks,
   fullscreen: false,
   showResult: false,
 };
@@ -575,7 +646,7 @@ function goNext() {
 function toggleBookmark() {
   quizState.bookmarks[quizState.currentIndex] =
     !quizState.bookmarks[quizState.currentIndex];
-
+  saveBookmarkedIndexes();
   renderQuizLayout(getCanvas());
 }
 
@@ -710,6 +781,7 @@ return `
 
 function toggleResultBookmark(index) {
   quizState.bookmarks[index] = !quizState.bookmarks[index];
+  saveBookmarkedIndexes();
   renderQuizLayout(getCanvas());
 }
 
@@ -727,6 +799,7 @@ function restartQuiz() {
   quizState.answers = Array(quizState.list.length).fill(null);
   quizState.bookmarks = Array(quizState.list.length).fill(false);
   quizState.showResult = false;
+  saveBookmarkedIndexes();   // DB 북마크도 초기화
 
   renderQuizLayout(getCanvas());
 }
@@ -849,6 +922,10 @@ async function saveAttemptToDb() {
       optionExplanations: q.optionExplanations || [],
     }));
 
+    const bookmarkedIndexes = quizState.bookmarks
+      .map((v, i) => v ? i : -1)
+      .filter(i => i >= 0);
+
     await sb.from('quiz_attempts').insert({
       user_id: user.id,
       document_id: docId,
@@ -858,6 +935,7 @@ async function saveAttemptToDb() {
       correct_count: correct,
       score: Math.round((correct / total) * 100),
       answers: answerRecords,
+      bookmarked_indexes: bookmarkedIndexes,
     });
 
     console.log('퀴즈 결과 저장 완료');
