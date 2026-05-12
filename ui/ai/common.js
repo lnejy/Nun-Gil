@@ -68,7 +68,18 @@ export function setAiMode(extraClass = "") {
 
 export function showAiLoading(label) {
   const canvas = getCanvas();
-  setAiMode();
+
+  canvas.classList.remove(
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode"
+  );
+  canvas.classList.add("ai-mode", "ai-loading-mode");
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode"
+  );
 
   canvas.innerHTML = `
     <div class="ai-loading">
@@ -478,4 +489,33 @@ export async function getConcepts({ topK = 8, candidateK = 12 } = {}) {
 export async function getImportantChunks({ topK = 6, candidateK = 16 } = {}) {
   const chunks = await getChunks();
   return selectSpreadChunks(chunks, Math.min(topK, candidateK, chunks.length));
+}
+
+export function setCanvasMode(mode) {
+  const container = getCanvas();
+
+  container.classList.remove(
+    "ai-mode",
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode",
+    "ai-loading-mode"
+  );
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode"
+  );
+
+  if (mode === "original") {
+    return container;
+  }
+
+  container.classList.add("ai-mode", `${mode}-mode`);
+
+  if (mode === "quiz") {
+    document.body.classList.add("quiz-inline-mode");
+  }
+
+  return container;
 }
