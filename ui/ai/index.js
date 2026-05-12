@@ -43,6 +43,10 @@ function bindAiButtons() {
       if (tool === "original") {
         clearAiMode();
         if (window._pdfUrl && typeof window.renderPdf === "function") {
+          // PDF 렌더 완료 후 북마크 복원
+          window.addEventListener("pdf-rendered", () => {
+            if (typeof window.loadBookmarks === "function") window.loadBookmarks();
+          }, { once: true });
           window.renderPdf(window._pdfUrl);
         }
         return;
