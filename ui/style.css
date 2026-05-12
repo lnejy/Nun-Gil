@@ -572,7 +572,7 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 .def-t { font-weight: 700; display: block; margin-bottom: 6px; color: var(--primary); font-size: .88rem; }
 
 #page-viewer {
-  --sidebar-w: 238px;
+  --sidebar-w: 330px;
   --sidebar-left: 14px;
   --sidebar-gap: 18px;
   --note-w: 0px;
@@ -581,7 +581,7 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 
 #page-viewer:has(.sidebar.collapsed),
 body.sidebar-collapsed #page-viewer {
-  --sidebar-w: 74px;
+  --sidebar-w: 72px;
 }
 
 #page-viewer:has(.note-sb.open) {
@@ -688,7 +688,7 @@ body.sidebar-collapsed #page-viewer {
 ═══════════════════════════════════════════════════════ */
 body.bookmark-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='32' height='32' style='font-size: 24px;'><text y='20'>🔖</text></svg>"), auto; }
 
-.bookmark-tag { position: absolute; left: 6px; width: 75px; height: 28px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); z-index: 100; transition: all 0.2s ease; border-radius: 0 6px 6px 0; }
+.bookmark-tag { position: absolute; left: -75px; width: 75px; height: 28px; display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 13px; cursor: pointer; box-shadow: 2px 2px 8px rgba(0,0,0,0.15); z-index: 100; transition: all 0.2s ease; border-radius: 6px 0 0 6px; }
 .bookmark-tag:hover { z-index: 500; filter: brightness(1.05); }
 .bookmark-tag:has(.bookmark-popup) { z-index: 1000; }
 
@@ -893,39 +893,6 @@ body.bookmark-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www
     padding: 3px 7px;
 }
 
-#page-viewer .sb-asset-bookmark {
-    flex-shrink: 0;
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 2px 4px;
-    color: #d4d9e1;
-    font-size: 13px;
-    line-height: 1;
-    transition: color 0.15s, transform 0.15s;
-    border-radius: 4px;
-    opacity: 0;
-}
-
-#page-viewer .sb-item:hover .sb-asset-bookmark,
-#page-viewer .sb-asset-bookmark.active {
-    opacity: 1;
-}
-
-#page-viewer .sb-asset-bookmark:hover {
-    color: #fbbf24;
-    transform: scale(1.2);
-}
-
-#page-viewer .sb-asset-bookmark.active {
-    color: #f59e0b;
-}
-
-#page-viewer .sb-item.asset-bookmarked {
-    background: linear-gradient(90deg, #fffbeb 0%, #fff 100%);
-    border-left: 2px solid #f59e0b;
-    padding-left: 6px;
-}
 
 #page-viewer #sbDocList .sb-item {
     width: 100% !important;
@@ -1396,10 +1363,15 @@ body.ws-only-mode .session-btn {
     width: 100% !important;
     max-width: none !important;
     min-width: 0 !important;
-    padding: 0 !important;
+    flex: 1 1 auto !important;
+    padding: 0 8px !important;
     background: transparent !important;
     border: none !important;
     box-shadow: none !important;
+}
+
+#page-viewer #pdfContainer.ai-mode .pdf-page-wrapper {
+    display: none !important;
 }
 
 #page-viewer #pdfContainer.ai-mode .ai-page,
