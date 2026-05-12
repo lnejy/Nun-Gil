@@ -130,6 +130,73 @@
     padding: 3px 7px;
 }
 
+/* 지식 자산 북마크 별표 */
+#page-viewer .sb-asset-bookmark {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    color: #d4d9e1;
+    font-size: 13px;
+    line-height: 1;
+    transition: color 0.15s, transform 0.15s;
+    border-radius: 4px;
+    opacity: 0;
+}
+#page-viewer .sb-item:hover .sb-asset-bookmark,
+#page-viewer .sb-asset-bookmark.active {
+    opacity: 1;
+}
+#page-viewer .sb-asset-bookmark:hover {
+    color: #fbbf24;
+    transform: scale(1.2);
+}
+#page-viewer .sb-asset-bookmark.active {
+    color: #f59e0b;
+}
+#page-viewer .sb-item.asset-bookmarked {
+    background: linear-gradient(90deg, #fffbeb 0%, #fff 100%);
+    border-left: 2px solid #f59e0b;
+    padding-left: 6px;
+}
+
+/* 북마크함 모달: 섹션 헤더 */
+.bm-section-header {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0 8px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #64748b;
+    border-bottom: 1px solid #eef0f3;
+}
+.bm-section-header svg { flex-shrink: 0; }
+.bm-section-header:first-child { padding-top: 0; }
+
+/* 북마크함: 자산 카드 스타일 */
+.bm-card.asset-card {
+    border-left: 3px solid #f59e0b;
+    background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%);
+}
+.bm-card.asset-card:hover {
+    border-color: #f59e0b;
+    box-shadow: 0 20px 40px rgba(245,158,11,0.1);
+}
+.bm-asset-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #78a3ea;
+    background: #eef5ff;
+    border-radius: 999px;
+    padding: 3px 8px;
+}
+
 /* mainpage 프로필 영역 그대로 */
 #page-viewer .sidebar-profile {
     padding: 14px 16px;
@@ -1618,6 +1685,24 @@
             console.warn('문서 목록 로드 실패:', e.message)
         }
 
+        // ── 지식 자산 북마크 (localStorage) ────────────────
+        const ASSET_BM_KEY = `nungil_asset_bm_${userId}`
+
+        function getAssetBookmarks() {
+            try {
+                const raw = localStorage.getItem(ASSET_BM_KEY)
+                return new Set(raw ? JSON.parse(raw) : [])
+            } catch { return new Set() }
+        }
+
+        function saveAssetBookmarks(bmSet) {
+            localStorage.setItem(ASSET_BM_KEY, JSON.stringify([...bmSet]))
+        }
+
+        // 전역 노출: script.js(북마크함 모달)에서 접근
+        window._getAssetBookmarks = getAssetBookmarks
+        window._saveAssetBookmarks = saveAssetBookmarks
+
         // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
         window.loadKnowledgeAssets = loadKnowledgeAssets
         async function loadKnowledgeAssets(targetDocId) {
@@ -1662,17 +1747,49 @@
 
                 const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
 
+                // 북마크 상태 로드 & 북마크된 자산 상단 정렬
+                const assetBm = getAssetBookmarks()
+                assets.sort((a, b) => {
+                    const aKey = `${a.document_id}_${a.type}`
+                    const bKey = `${b.document_id}_${b.type}`
+                    return (assetBm.has(bKey) ? 1 : 0) - (assetBm.has(aKey) ? 1 : 0)
+                })
+
                 assetEl.innerHTML = assets.map(a => {
                     const fname = cleanDocTitle(a.documents?.file_name ?? '')
                     const label = `${fname} ${typeLabel[a.type] ?? a.type}`
+                    const assetKey = `${a.document_id}_${a.type}`
+                    const isBm = assetBm.has(assetKey)
 
                     return `
-                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
+                    <button class="sb-item${isBm ? ' asset-bookmarked' : ''}" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" data-asset-key="${assetKey}" style="gap:8px;align-items:center;">
                         <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
                         <span class="sb-item-text" style="font-size:12px;">${fname} ${typeLabel[a.type] ?? a.type}</span>
+                        <span class="sb-asset-bookmark${isBm ? ' active' : ''}" data-asset-key="${assetKey}" title="북마크">${isBm ? '★' : '☆'}</span>
                         <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
                     </button>`
                 }).join('')
+
+                // 북마크 별표 클릭 이벤트
+                assetEl.querySelectorAll('.sb-asset-bookmark').forEach(star => {
+                    star.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        const key = star.dataset.assetKey
+                        const currentBm = getAssetBookmarks()
+                        if (currentBm.has(key)) {
+                            currentBm.delete(key)
+                            star.classList.remove('active')
+                            star.textContent = '☆'
+                            star.closest('.sb-item')?.classList.remove('asset-bookmarked')
+                        } else {
+                            currentBm.add(key)
+                            star.classList.add('active')
+                            star.textContent = '★'
+                            star.closest('.sb-item')?.classList.add('asset-bookmarked')
+                        }
+                        saveAssetBookmarks(currentBm)
+                    })
+                })
 
                 assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -1681,9 +1798,10 @@
                     })
                 })
 
+                // 자산 항목 클릭 → AI 도구 열기
                 assetEl.querySelectorAll('.sb-item').forEach(el => {
                     el.addEventListener('click', async (e) => {
-                        if (e.target.closest('.sb-item-delete')) return
+                        if (e.target.closest('.sb-item-delete') || e.target.closest('.sb-asset-bookmark')) return
                         const tool   = el.dataset.tool
                         const dId    = el.dataset.docId
 
