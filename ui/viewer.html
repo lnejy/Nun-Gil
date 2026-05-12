@@ -556,7 +556,7 @@
         window.addEventListener('resize', resizeCanvas);
 
         /* ── 스무딩 ── */
-        var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 80, WARMUP_FRAMES = 5;
+        var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 100, WARMUP_FRAMES = 5;
 
         function smoothGaze(rx, ry, isBlink) {
             if (isBlink) { G.blinkFrames++; return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY }; }
@@ -722,11 +722,18 @@
         /* ══════════════════════════════════════════════════════
            캘리브레이션
         ══════════════════════════════════════════════════════ */
+        var _origCalibCardHTML = null;
         function showCalibOverlay() {
             document.getElementById('calibOverlay').classList.add('active');
             document.getElementById('calibSetup').classList.add('active');
             document.getElementById('calibScreen').classList.remove('active');
             document.getElementById('calibDonePhase').classList.remove('active');
+            var card = document.querySelector('#calibSetup .calib-card');
+            if (card && _origCalibCardHTML) {
+                card.innerHTML = _origCalibCardHTML;
+                var btn = document.getElementById('btnStartCalib');
+                if (btn) btn.addEventListener('click', startCalibration);
+            }
             runCalibSetup();
         }
 
@@ -942,6 +949,7 @@
             overlay.classList.add('active');
             var card = document.querySelector('#calibSetup .calib-card');
             if (card) {
+                if (!_origCalibCardHTML) _origCalibCardHTML = card.innerHTML;
                 card.innerHTML = `
     <div class="calib-reuse-card">
         <div class="calib-reuse-icon">👀</div>
