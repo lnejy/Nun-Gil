@@ -321,6 +321,12 @@
             font-weight: 500;
         }
 
+        .score-max {
+            font-size: 12px;
+            color: var(--text-gray);
+            font-weight: 400;
+        }
+
         .score-card-value {
             font-size: 18px;
             font-weight: 800;
@@ -395,15 +401,15 @@
                 <div class="score-breakdown">
                     <div class="score-card">
                         <span class="score-card-label">정상 응시 점수</span>
-                        <span class="score-card-value" id="detailSGaze">--</span>
+                        <span class="score-card-value"><span id="detailSGaze">--</span><span class="score-max">&nbsp;/ 50점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">경고 점수</span>
-                        <span class="score-card-value" id="detailSWarn">--</span>
+                        <span class="score-card-value"><span id="detailSWarn">--</span><span class="score-max">&nbsp;/ 30점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">반응 점수</span>
-                        <span class="score-card-value" id="detailSReact">--</span>
+                        <span class="score-card-value"><span id="detailSReact">--</span><span class="score-max">&nbsp;/ 20점</span></span>
                     </div>
                 </div>
             </div>
