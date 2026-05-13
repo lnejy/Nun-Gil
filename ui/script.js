@@ -36,12 +36,21 @@ document.addEventListener('DOMContentLoaded', () => {
    메모장
 ══════════════════════════════════════════════════════════ */
 function togNote() {
-    const s   = document.getElementById('noteSb');
-    const btn = document.getElementById('noteBtn');
+    const s       = document.getElementById('noteSb');
+    const btn     = document.getElementById('noteBtn');
+    const et      = document.getElementById('etP');
+
     s.classList.toggle('open');
-    if (btn) btn.classList.toggle('active', s.classList.contains('open'));
-    if (s.classList.contains('open')) {
-        setTimeout(() => { document.querySelector('.note-ta')?.focus(); }, 400);
+    const isOpen = s.classList.contains('open');
+    if (btn) btn.classList.toggle('active', isOpen);
+
+    if (isOpen) {
+        // ET 버튼 좌측 이동
+        if (et && et.classList.contains('min')) et.style.right = '370px';
+        setTimeout(() => { document.querySelector('.note-ta')?.focus({ preventScroll: true }); }, 300);
+    } else {
+        // 닫힐 때 ET 버튼 원위치
+        if (et && et.classList.contains('min')) et.style.right = '24px';
     }
 }
 
