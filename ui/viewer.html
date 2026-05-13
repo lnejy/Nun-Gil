@@ -278,21 +278,7 @@
                     </div>
                 </div>
 
-                <div class="side-area">
-                    <aside class="note-sb" id="noteSb">
-                        <div class="note-box">
-                            <div class="note-h" style="display:flex;align-items:center;justify-content:space-between;">
-                                <span>메모장</span>
-                                <button id="noteSaveBtn" onclick="saveNote()"
-                                    style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
-                            </div>
-                            <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
-                            <div id="noteSaveMsg"
-                                style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">
-                                ✓ 저장됐어요</div>
-                        </div>
-                    </aside>
-                </div>
+                <div class="side-area"></div>
             </div>
 
             <!-- 북마크 오버레이 -->
@@ -309,6 +295,21 @@
             </div>
 
         </main><!-- /.main-wrapper -->
+
+        <!-- 메모장: main-wrapper 밖에서 position:fixed로 뷰포트에 고정 -->
+        <aside class="note-sb" id="noteSb">
+            <div class="note-box">
+                <div class="note-h" style="display:flex;align-items:center;justify-content:space-between;">
+                    <span>메모장</span>
+                    <button id="noteSaveBtn" onclick="saveNote()"
+                        style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
+                </div>
+                <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
+                <div id="noteSaveMsg"
+                    style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">
+                    ✓ 저장됐어요</div>
+            </div>
+        </aside>
 
         <!-- EyeDID: ET 패널 -->
         <div class="et min" id="etP" onclick="etExpand()">
