@@ -202,6 +202,7 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 .sidebar-scroll {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0 12px;
 }
 
@@ -498,12 +499,12 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
    - side-area 안에서 자연스럽게 자리 차지
 ═══════════════════════════════════════════════════════ */
 .note-sb {
-
-    position: sticky;
-    top: 0;
+    position: fixed;
+    top: 80px;
+    right: 0;
 
     width: 0;
-    height: calc(100vh - 160px);
+    height: calc(100vh - 80px);
     overflow: visible;
 
     flex-shrink: 0;
@@ -516,7 +517,7 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
 .note-box {
     width: 300px;
     height: 100%;
-    max-height: calc(100vh - 160px);
+    max-height: 100%;
 
     background: rgba(255, 255, 255, 0.94);
     backdrop-filter: blur(20px);
@@ -547,6 +548,7 @@ p  { line-height: 1.8; color: #4b525d; margin-bottom: 20px; }
     background: transparent;
     font-family: inherit;
     line-height: 1.8;
+    overflow-y: auto;
 }
    
 
@@ -632,9 +634,10 @@ body.sidebar-collapsed #page-viewer {
 
 #page-viewer .note-sb {
   width: 0;
-  height: calc(100vh - 160px);
-  position: sticky;
-  top: 0;
+  height: calc(100vh - 80px);
+  position: fixed;
+  top: 80px;
+  right: 0;
 }
 
 #page-viewer .note-sb.open {
@@ -737,8 +740,9 @@ body.bookmark-mode { cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www
 /* ═══════════════════════════════════════════════════════
    ET 패널 (원본 눈길 기준 — 우하단)
 ═══════════════════════════════════════════════════════ */
-.et { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 40px; box-shadow: var(--sh-lg); display: flex; align-items: center; justify-content: center; z-index: 1000; cursor: pointer; width: 380px; height: 58px; padding: 0 20px; transition: all .4s cubic-bezier(.175,.885,.32,1.275); overflow: hidden; }
+.et { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #fff; border-radius: 40px; box-shadow: var(--sh-lg); display: flex; align-items: center; justify-content: center; z-index: 1100; cursor: pointer; width: 380px; height: 58px; padding: 0 20px; transition: all .4s cubic-bezier(.175,.885,.32,1.275); overflow: hidden; }
 .et.min { width: 50px; height: 50px; padding: 0; border-radius: 50%; left: auto; right: 24px; bottom: 24px; transform: none; }
+#page-viewer:has(.note-sb.open) .et.min { right: calc(300px + 24px); }
 .et-c { display: flex; align-items: center; gap: 15px; width: 100%; justify-content: space-between; transition: .28s; }
 .et.min .et-c { opacity: 0; visibility: hidden; width: 0; }
 .et-dot { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; transition: background .3s, box-shadow .3s; }
