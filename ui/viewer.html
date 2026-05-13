@@ -226,27 +226,21 @@
 
                 <header class="floating-toolbar">
                     <div class="group-left">
-                        <div class="font-island">
-                            <span>Pretendard</span>
-                            <span class="divider">|</span>
+                        <button class="session-btn start" id="sessionStartBtn">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21" /></svg>
+                            <span>세션 시작</span>
+                        </button>
+                        <button class="session-btn end" id="sessionEndBtn" style="display:none;">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+                            <span>세션 종료</span>
+                        </button>
+                        <div class="font-island" style="margin-left:8px;">
                             <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
                             <span id="zoomLevel">100%</span>
                             <button class="zoom-btn" onclick="zoomIn()">&#43;</button>
                         </div>
                     </div>
                     <div class="group-right">
-                        <button class="session-btn start" id="sessionStartBtn">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                                <polygon points="5,3 19,12 5,21" />
-                            </svg>
-                            <span>세션 시작</span>
-                        </button>
-                        <button class="session-btn end" id="sessionEndBtn" style="display:none;">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
-                                <rect x="4" y="4" width="16" height="16" rx="2" />
-                            </svg>
-                            <span>세션 종료</span>
-                        </button>
                         <div class="toolbar-sep"></div>
                         <button class="tool-btn-main" id="noteBtn" onclick="togNote()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
