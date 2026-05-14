@@ -336,45 +336,45 @@
     }
 
     .sidebar-close {
-  width: 40px;
-  height: 40px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  border-radius: 10px;
-  margin-right: -6px;
-  position: relative;
-  transition: background 0.18s ease, transform 0.18s ease;
-}
+      width: 40px;
+      height: 40px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 10px;
+      margin-right: -6px;
+      position: relative;
+      transition: background 0.18s ease, transform 0.18s ease;
+    }
 
-.sidebar-close span {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 14px;
-  height: 1.6px;
-  border-radius: 999px;
-  background: #8a9099;
-  transform-origin: center;
-  transition: background 0.18s ease;
-}
+    .sidebar-close span {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 14px;
+      height: 1.6px;
+      border-radius: 999px;
+      background: #8a9099;
+      transform-origin: center;
+      transition: background 0.18s ease;
+    }
 
-.sidebar-close span:first-child {
-  transform: translate(-50%, -50%) rotate(45deg);
-}
+    .sidebar-close span:first-child {
+      transform: translate(-50%, -50%) rotate(45deg);
+    }
 
-.sidebar-close span:last-child {
-  transform: translate(-50%, -50%) rotate(-45deg);
-}
+    .sidebar-close span:last-child {
+      transform: translate(-50%, -50%) rotate(-45deg);
+    }
 
-.sidebar-close:hover {
-  background: #f5f6f8;
-  transform: translateY(-1px);
-}
+    .sidebar-close:hover {
+      background: #f5f6f8;
+      transform: translateY(-1px);
+    }
 
-.sidebar-close:hover span {
-  background: #5f6b7a;
-}
+    .sidebar-close:hover span {
+      background: #5f6b7a;
+    }
 
     .sidebar-scroll {
       flex: 1;
@@ -920,7 +920,7 @@
             <path d="M16 52c2.5-11 9.5-17 16-17s13.5 6 16 17" fill="#aab4c2" />
           </svg>
         </div>
-        <div class="sidebar-profile-name" id="profileName">신영서</div>
+        <div class="sidebar-profile-name" id="profileName">-</div>
       </div>
 
       <div class="sidebar-profile-actions">
@@ -962,8 +962,8 @@
             <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M32 44V14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
-              <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39"
-                stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39" stroke="currentColor"
+                stroke-linecap="round" stroke-linejoin="round" />
             </svg>
           </div>
 
@@ -1128,8 +1128,6 @@
       const file = fileInput.files[0]
       if (!file) return
 
-      uploadTitle.textContent = '업로드 중...'
-
       try {
         const { storagePath, fileType } = await uploadDocument(file, userId)
 
@@ -1142,12 +1140,11 @@
         })
 
         location.href = `processing.html?doc_id=${doc.id}`
+
       } catch (err) {
         alert('업로드 실패: ' + err.message)
-        uploadTitle.textContent = '파일을 업로드해보세요'
       }
     })
-
     uploadCard.addEventListener("dragover", (e) => {
       e.preventDefault()
       uploadCard.style.borderColor = "#6fa3ef"

@@ -9,7 +9,7 @@
 
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="./ai/ai.css">
-
+    <link rel="stylesheet" href="./viewer/layoutViewer.css">
 </head>
 
 <body>
@@ -341,9 +341,17 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script type="module">
+        import { initPdfRenderer } from "./viewer/pdfRenderer.js"
+        await initPdfRenderer({
+            containerId: "pdfContainer",
+            zoomLabelId: "zoomLevel",
+        })
+    </script>
+
+    <script type="module" src="./viewer/layoutViewer.js"></script>
     <script type="module" src="./ai/index.js"></script>
-
-
 
     <!-- EyeDID: SDK 로드 -->
     <script type="module">
@@ -367,13 +375,18 @@
             document.getElementById(id).classList.add('active');
         }
 
-        function goViewer() {
+        async function goViewer() {
             showPage('page-viewer');
             if (!window._viewerInit) {
                 window._viewerInit = true;
                 resizeCanvas();
                 // PDF 렌더링 (캘리브레이션과 병렬 진행)
-                if (window._pdfUrl) {
+                if (window._layoutJsonUrl && window.renderLayoutViewer) {
+                    await window.renderLayoutViewer(window._layoutJsonUrl, {
+                        containerId: 'pdfContainer',
+                        pdfUrl: window._pdfUrl,
+                    })
+                } else if (window._pdfUrl) {
                     renderPdf(window._pdfUrl);
                 } else if (window._pdfConversionPending) {
                     var c = document.getElementById('pdfContainer');
@@ -403,104 +416,6 @@
             }
         }
 
-        /* ── PDF 렌더링 ── */
-        window._pdfDoc = null;
-        window._pdfBaseScale = 1;
-        window._zoomFactor = 1.0;
-
-        function renderPdf(url) {
-            var container = document.getElementById('pdfContainer');
-            if (!container || !url) return;
-
-            if (!window.pdfjsLib) {
-                container.innerHTML = '<div class="pdf-no-content">pdf.js 로딩 실패</div>';
-                return;
-            }
-
-            pdfjsLib.GlobalWorkerOptions.workerSrc =
-                'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-
-            container.innerHTML = '<div class="pdf-loading">PDF 불러오는 중...</div>';
-
-            pdfjsLib.getDocument(url).promise.then(function (pdf) {
-                window._pdfDoc = pdf;
-                // 첫 페이지로 기준 스케일 계산 (fit-to-width)
-                pdf.getPage(1).then(function (page) {
-                    var vp0 = page.getViewport({ scale: 1 });
-                    var containerWidth = container.clientWidth - 48;
-                    window._pdfBaseScale = Math.min(Math.max(containerWidth / vp0.width, 0.5), 2);
-                    window._zoomFactor = 1.0;
-                    document.getElementById('zoomLevel').textContent = '100%';
-                    renderPages(pdf, container, window._pdfBaseScale * window._zoomFactor);
-                });
-            }).catch(function (e) {
-                container.innerHTML =
-                    '<div class="pdf-no-content">PDF 로드 실패: ' + e.message + '</div>';
-            });
-        }
-
-        function renderPages(pdf, container, scale) {
-            // 북마크 태그 보존: 렌더 전에 떼어두고 렌더 후 다시 붙임
-            var savedTags = Array.from(container.querySelectorAll('.bookmark-tag'));
-            savedTags.forEach(function (t) { t.remove(); });
-
-            container.innerHTML = '';
-            var totalPages = pdf.numPages;
-
-            function renderPage(num) {
-                pdf.getPage(num).then(function (page) {
-                    var viewport = page.getViewport({ scale: scale });
-
-                    var wrapper = document.createElement('div');
-                    wrapper.className = 'pdf-page-wrapper';
-                    wrapper.dataset.page = num;
-
-                    var canvas = document.createElement('canvas');
-                    canvas.className = 'pdf-page';
-                    canvas.width = viewport.width;
-                    canvas.height = viewport.height;
-
-                    var label = document.createElement('div');
-                    label.className = 'pdf-page-num';
-                    label.textContent = num + ' / ' + totalPages;
-
-                    wrapper.appendChild(canvas);
-                    wrapper.appendChild(label);
-                    container.appendChild(wrapper);
-
-                    page.render({ canvasContext: canvas.getContext('2d'), viewport: viewport })
-                        .promise.then(function () {
-                            if (num < totalPages) {
-                                renderPage(num + 1);
-                            } else {
-                                // 마지막 페이지 렌더링 완료 → 북마크 복원 트리거
-                                window.dispatchEvent(new CustomEvent('pdf-rendered'));
-                            }
-                        });
-                });
-            }
-            renderPage(1);
-        }
-
-        function reRenderPdf() {
-            var container = document.getElementById('pdfContainer');
-            if (!window._pdfDoc || !container) return;
-            renderPages(window._pdfDoc, container, window._pdfBaseScale * window._zoomFactor);
-        }
-
-        function zoomIn() {
-            if (window._zoomFactor >= 2.5) return;
-            window._zoomFactor = Math.round((window._zoomFactor + 0.1) * 10) / 10;
-            document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
-            reRenderPdf();
-        }
-
-        function zoomOut() {
-            if (window._zoomFactor <= 0.5) return;
-            window._zoomFactor = Math.round((window._zoomFactor - 0.1) * 10) / 10;
-            document.getElementById('zoomLevel').textContent = Math.round(window._zoomFactor * 100) + '%';
-            reRenderPdf();
-        }
 
         /*
         function goHome() {
@@ -613,8 +528,13 @@
             }
             drawTrail();
 
-            if (etOn && !isBlink && G.blinkFrames === 0) detectGazedWord(G.gx, G.gy);
-
+            if (etOn && !isBlink && G.blinkFrames === 0) {
+                if (window.detectGazedBlock) {
+                    window.detectGazedBlock(G.gx, G.gy)
+                } else {
+                    detectGazedWord(G.gx, G.gy)
+                }
+            }
             // ── 시선 이탈 감지 (세션 진행 중에만) ──────────────
             if (etOn && window._sessionActive) {
                 // 블링크는 이탈로 판단하지 않음
@@ -1176,7 +1096,7 @@
         import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument, deleteDocument } from '/src/lib/db/documents.js'
         import { deleteAsset } from '/src/lib/db/learningAssets.js'
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
-        import { getSignedUrl, uploadDocument } from '/src/lib/storage.js'
+        import { getSignedUrl, uploadDocument, getLayoutSignedUrl } from '/src/lib/storage.js'
         import { createStudySession, updateStudySession, completeStudySession } from '/src/lib/db/studySessions.js'
 
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
@@ -1226,13 +1146,7 @@
         if (docId) {
             try {
                 const doc = await getDocument(docId)
-                // URL에 없으면 DB에서 가져온 값으로 보완
-                if (!workspaceId) workspaceId = doc?.workspace_id ?? null
 
-                // 페이지 제목
-                if (doc?.file_name) document.title = cleanDocTitle(doc.file_name)
-
-                // PDF 경로 결정: PDF 파일이면 file_url, PPT면 converted_pdf_path
                 const pdfPath = doc?.file_type === 'PDF'
                     ? doc.file_url
                     : (doc?.converted_pdf_path ?? null)
@@ -1242,6 +1156,10 @@
                     window._docTitle = doc?.file_name || '문서'
                 } else if (doc?.file_type === 'PPT') {
                     window._pdfConversionPending = true
+                }
+
+                if (doc?.layout_json_path) {
+                    window._layoutJsonUrl = await getLayoutSignedUrl(doc.layout_json_path)
                 }
             } catch (e) {
                 console.warn('문서 조회 실패:', e.message)
@@ -1450,40 +1368,62 @@
         window.loadDocInViewer = loadDocInViewer
         async function loadDocInViewer(id) {
             try {
+                // 상태 초기화
+                window._pdfUrl = null
+                window._layoutJsonUrl = null
+                window._pdfDoc = null
+
+                // 문서 조회
                 const doc = await getDocument(id)
+
+                // PDF URL
                 const pdfPath = doc?.file_type === 'PDF'
                     ? doc.file_url
                     : (doc?.converted_pdf_path ?? null)
 
                 if (pdfPath) {
-                    const url = await getSignedUrl(pdfPath)
-                    window._pdfUrl = url
-                    window.renderPdf(url)
-                } else {
-                    const c = document.getElementById('pdfContainer')
-                    if (c) c.innerHTML = '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
+                    window._pdfUrl = await getSignedUrl(pdfPath)
                 }
 
+                // Layout JSON URL
+                if (doc?.layout_json_path) {
+                    window._layoutJsonUrl = await getLayoutSignedUrl(doc.layout_json_path)
+                }
+
+                // 렌더링
+                if (window._layoutJsonUrl && window.renderLayoutViewer) {
+                    await window.renderLayoutViewer(window._layoutJsonUrl, {
+                        containerId: 'pdfContainer',
+                        pdfUrl: window._pdfUrl,
+                    })
+                } else if (window._pdfUrl) {
+                    window.renderPdf(window._pdfUrl)
+                } else {
+                    document.getElementById('pdfContainer').innerHTML =
+                        '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
+                }
+
+                // 상태 갱신
                 docId = id
                 window._currentDocId = id
                 window._wsOnlyMode = false
                 document.body.classList.remove('ws-only-mode')
+
                 if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
 
-                // 기존 북마크 태그 제거 + 상태 초기화
+                // 북마크 초기화 + PDF 렌더 후 복원
                 document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
                 if (typeof window._resetBookmarks === 'function') window._resetBookmarks()
-                // PDF 렌더링 완료 후 북마크 복원 (race condition 방지)
                 window.addEventListener('pdf-rendered', function () {
                     if (typeof window.loadBookmarks === 'function') window.loadBookmarks()
                 }, { once: true })
 
-                // URL 갱신 (페이지 이동 없이)
+                // URL 갱신
                 history.pushState({}, '', workspaceId
                     ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
                     : `viewer.html?doc_id=${id}`)
 
-                // 메모장 내용 해당 문서 것으로 갱신
+                // 메모장 갱신
                 if (typeof window.reloadMemoForDoc === 'function') window.reloadMemoForDoc()
 
                 // 사이드바 활성 아이템 갱신
@@ -1494,10 +1434,10 @@
                 // 지식 자산 갱신
                 loadKnowledgeAssets(id)
 
-                // AI 모듈 상태 재초기화 (pdfUrl, docId 갱신)
+                // AI 모듈 상태 재초기화
                 window.dispatchEvent(new CustomEvent('doc-changed'))
 
-                // 워크스페이스 세션은 문서 전환 시 유지 — 현재 문서만 갱신
+                // 워크스페이스 세션 유지 — 현재 문서만 갱신
                 if (S.sessionId) {
                     updateStudySession(S.sessionId, { documentId: id }).catch(() => { })
                 }
@@ -1506,7 +1446,6 @@
                 console.warn('문서 전환 실패:', e.message)
             }
         }
-
         // ── 새 문서 추가 버튼 ─────────────────────────────
         const sbOverlay = document.getElementById('sbUploadOverlay')
         const sbFileInput = document.getElementById('sbFileInput')
@@ -1556,7 +1495,9 @@
             submitBtn.disabled = true
 
             try {
-                const { storagePath, fileType } = await uploadDocument(file, session.user.id)
+                const { storagePath, fileType } =
+                    await uploadDocument(file, session.user.id)
+
                 const doc = await createDocument({
                     userId: session.user.id,
                     workspaceId: workspaceId ?? null,
@@ -1564,7 +1505,11 @@
                     storagePath,
                     fileType,
                 })
-                location.href = `processing.html?doc_id=${doc.id}${workspaceId ? '&workspace_id=' + workspaceId : ''}`
+
+                location.href = workspaceId
+                    ? `processing.html?doc_id=${doc.id}&workspace_id=${workspaceId}`
+                    : `processing.html?doc_id=${doc.id}`
+
             } catch (e) {
                 alert('업로드 실패: ' + e.message)
                 submitBtn.textContent = '추가하기'

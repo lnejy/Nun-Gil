@@ -1,0 +1,97 @@
+.layout-html-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: white;
+}
+
+.layout-html-block {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: visible;
+  line-height: 1.35;
+  color: #111827;
+}
+
+.layout-html-block table {
+  border-collapse: collapse;
+  width: 100%;
+  height: 100%;
+}
+
+.layout-html-block td,
+.layout-html-block th {
+  border: 1px solid #333;
+  padding: 4px 6px;
+  vertical-align: middle;
+}
+
+.layout-html-block p,
+.layout-html-block h1,
+.layout-html-block h2,
+.layout-html-block h3,
+.layout-html-block figure {
+  margin: 0;
+}
+
+.layout-page {
+  position: relative;
+  margin: 0 auto 24px;
+  background: white;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, .13);
+  overflow: hidden;
+}
+
+.layout-page-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  z-index: 1;
+  user-select: none;
+  pointer-events: none;
+}
+
+
+.gaze-block {
+  position: absolute;
+  z-index: 10;
+  box-sizing: border-box;
+  background: rgba(255, 0, 0, 0.04);
+  border: 1.5px solid transparent;
+  border-radius: 4px;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.gaze-block.hovered,
+.gaze-block.gazed {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.95);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+
+.gaze-block.figure {
+  pointer-events: none;
+}
+
+.paper-canvas.pdf-viewer-mode {
+  width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
+  min-height: auto;
+  padding: 32px 0 80px;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.paper-canvas.pdf-viewer-mode .layout-page,
+.paper-canvas.pdf-viewer-mode .pdf-page-wrapper {
+  margin: 0 auto 24px;
+  background: white;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, .13);
+}
