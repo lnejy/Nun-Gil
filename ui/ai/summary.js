@@ -86,14 +86,14 @@ function renderSummary(summary) {
   container.innerHTML = `
     <div class="ai-page">
       <section class="ai-summary-hero">
-  <div class="ng-quiz-badge ai-summary-badge">요약</div>
+        <div class="ng-quiz-badge ai-summary-badge">요약</div>
 
-  <h1>${escapeHtml(getSummaryTitle(summary))}</h1>
+        <h1>${escapeHtml(getSummaryTitle(summary))}</h1>
 
-  <p class="ai-summary-lead">
-    ${escapeHtml(summary.summary)}
-  </p>
-</section>
+        <p class="ai-summary-lead">
+          ${escapeHtml(summary.summary)}
+        </p>
+      </section>
 
       <div class="ai-section-head">
         <div>
@@ -103,8 +103,8 @@ function renderSummary(summary) {
 
       ${(summary.key_points || []).map((item, index) => {
         const explainHtml = item.explanation
-          ? (window.marked ? window.marked.parse(item.explanation) : `<p>${escapeHtml(item.explanation)}</p>`)
-          : null;
+        ? renderSummaryExplain(item.explanation)
+        : null;
         return `
         <div class="ai-result-card ai-summary-card" data-index="${index}">
           <button class="ai-summary-toggle" type="button">
@@ -112,9 +112,7 @@ function renderSummary(summary) {
               <div class="ai-card-kicker">핵심 ${index + 1}.</div>
               <h3>${escapeHtml(item.title)}</h3>
               <p class="ai-card-brief">${escapeHtml(item.description)}</p>
-              <div class="ai-card-meta">
-                <span>${escapeHtml(sourceText(item.source_chunks))}</span>
-              </div>
+              <div class="ai-card-meta"></div>
             </div>
             <span class="ai-small-toggle">＋</span>
           </button>
@@ -125,6 +123,14 @@ function renderSummary(summary) {
       }).join("")}
     </div>
   `;
+
+  requestAnimationFrame(() => {
+    container.querySelectorAll(".ai-inline-explain pre code").forEach((block) => {
+      if (window.hljs) {
+        window.hljs.highlightElement(block);
+      }
+    });
+  });
 
   container.querySelectorAll(".ai-summary-card").forEach((card) => {
     const toggle = card.querySelector(".ai-summary-toggle");
@@ -162,8 +168,14 @@ async function explainSummaryPoint(point) {
     candidateK: 16,
   });
 
-  const sourceTexts = chunks
-    .filter((c) => (point.source_chunks || []).includes(c.chunk_id))
+  const matchedChunks = chunks.filter((c) =>
+    (point.source_chunks || []).includes(c.chunk_id)
+  );
+
+  // source_chunks 매칭이 안 되면 중요한 chunk 전체를 fallback으로 사용
+  const usableChunks = matchedChunks.length > 0 ? matchedChunks : chunks;
+
+  const sourceTexts = usableChunks
     .map((c) => `[${c.chunk_id} | page ${c.page_start}]\n${c.text}`)
     .join("\n\n");
 
@@ -174,6 +186,7 @@ async function explainSummaryPoint(point) {
 
   return askClaudeText(prompt);
 }
+
 function toBrief(text, max = 95) {
   const value = String(text || "")
     .replace(/\s+/g, " ")
@@ -182,6 +195,77 @@ function toBrief(text, max = 95) {
   return value.length > max
     ? value.slice(0, max) + "..."
     : value;
+}
+
+function renderSummaryExplain(markdown) {
+  const raw = String(markdown || "").trim();
+
+  if (!raw) {
+    return `<p>추가 설명을 불러오지 못했습니다.</p>`;
+  }
+
+  const html = window.marked
+    ? window.marked.parse(raw)
+    : `<p>${escapeHtml(raw)}</p>`;
+
+  const temp = document.createElement("div");
+  temp.innerHTML = html;
+
+  // 혹시 h1이 들어오면 완전히 제거
+  temp.querySelectorAll("h1").forEach((h1) => h1.remove());
+
+  const result = document.createDocumentFragment();
+  let currentSection = null;
+  let skipSection = false;
+
+  Array.from(temp.childNodes).forEach((node) => {
+    // ## 제목 기준으로 섹션 시작
+    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") {
+      const sectionTitle = node.textContent.trim();
+
+      // 토글 열기 전 핵심 설명과 겹치기 쉬워서 제거
+      if (sectionTitle === "개념 설명") {
+        currentSection = null;
+        skipSection = true;
+        return;
+      }
+
+      skipSection = false;
+
+      currentSection = document.createElement("section");
+      currentSection.className = "ai-explain-section";
+
+      const title = document.createElement("div");
+      title.className = "ai-explain-section-title";
+      title.textContent = sectionTitle;
+
+      currentSection.appendChild(title);
+      result.appendChild(currentSection);
+      return;
+    }
+
+    // --- 구분선은 화면에 따로 출력하지 않음
+    if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "HR") {
+      return;
+    }
+
+    // 개념 설명 섹션 안의 본문은 전부 건너뜀
+    if (skipSection) {
+      return;
+    }
+
+    // H2 섹션이 만들어지기 전의 잡텍스트는 출력하지 않음
+    if (!currentSection) {
+      return;
+    }
+
+    currentSection.appendChild(node.cloneNode(true));
+  });
+
+  const wrapper = document.createElement("div");
+  wrapper.appendChild(result);
+
+  return wrapper.innerHTML;
 }
 
 // 모든 key_point 설명을 백그라운드에서 순차 생성 후 DOM에 즉시 반영
@@ -203,9 +287,14 @@ async function preGenerateExplanations(summary) {
       if (card) {
         const explainBox = card.querySelector(".ai-inline-explain");
         if (explainBox) {
-          explainBox.innerHTML = window.marked
-            ? window.marked.parse(response)
-            : `<p>${escapeHtml(response)}</p>`;
+          explainBox.innerHTML = renderSummaryExplain(response);
+
+            explainBox.querySelectorAll("pre code").forEach((block) => {
+              if (window.hljs) {
+                window.hljs.highlightElement(block);
+              }
+            });
+
           explainBox.dataset.loaded = "true";
         }
       }
@@ -377,25 +466,188 @@ function injectSummaryCompactStyle() {
       font-size: 16px;
     }
 
-    #pdfContainer.summary-mode .ai-inline-explain {
-      padding: 13px 16px 15px;
-      font-size: 13px;
-      line-height: 1.7;
-      color: #526174;
-      border-top: 1px solid #eef2f7;
-      background: linear-gradient(180deg, #243041 0%, #1e293b 100%);
-    }
+   #pdfContainer.summary-mode .ai-summary-card.open {
+  border-color: #d8e4f3;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(40, 72, 110, 0.055);
+}
 
-    #pdfContainer.summary-mode .ai-inline-explain p,
-    #pdfContainer.summary-mode .ai-inline-explain li {
-      font-size: 13px;
-      line-height: 1.7;
-    }
+/* 상세 설명 전체 영역 */
+#pdfContainer.summary-mode .ai-inline-explain {
+  margin: 0 16px 16px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f8fbff;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.65;
+}
 
-    #pdfContainer.summary-mode .ai-inline-loading {
-      color: #94a3b8;
-      font-size: 13px;
-    }
+/* 혹시 h1이 들어와도 숨김 */
+#pdfContainer.summary-mode .ai-inline-explain h1 {
+  display: none;
+}
+
+#pdfContainer.summary-mode .ai-explain-section {
+  position: relative;
+  margin: 0;
+  padding: 10px 0 11px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+#pdfContainer.summary-mode .ai-explain-section:first-child {
+  padding-top: 0;
+}
+
+#pdfContainer.summary-mode .ai-explain-section + .ai-explain-section {
+  border-top: 1px solid #e4edf7;
+}
+
+#pdfContainer.summary-mode .ai-explain-section::before {
+  display: none;
+}
+
+#pdfContainer.summary-mode .ai-explain-section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: none;
+  font-size: 14.5px;
+  font-weight: 550;
+  line-height: 1.45;
+  color: #5b84d6;
+  letter-spacing: -0.2px;
+}
+
+/* 소주제 앞 작은 점 */
+#pdfContainer.summary-mode .ai-explain-section-title::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: #7da2dd;
+  flex: 0 0 auto;
+}
+
+/* 문단 */
+#pdfContainer.summary-mode .ai-inline-explain p {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.62;
+  color: #475569;
+  letter-spacing: -0.05px;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain p:last-child {
+  margin-bottom: 0;
+}
+
+/* 목록 */
+#pdfContainer.summary-mode .ai-inline-explain ul,
+#pdfContainer.summary-mode .ai-inline-explain ol {
+  margin: 5px 0 0;
+  padding-left: 19px;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain li {
+  margin: 3px 0;
+  padding-left: 2px;
+  font-size: 14px;
+  line-height: 1.58;
+  color: #475569;
+}
+
+/* 강조 */
+#pdfContainer.summary-mode .ai-inline-explain strong {
+  color: #24324a;
+  font-weight: 650;
+}
+
+/* 인라인 코드 */
+#pdfContainer.summary-mode .ai-inline-explain code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #e8f1ff;
+  color: #1d4ed8;
+  font-size: 12.8px;
+  font-weight: 600;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain pre {
+  margin: 8px 0 4px;
+  padding: 13px 14px;
+  border-radius: 10px;
+  background: #1f2a3d;
+  border: 1px solid #172033;
+  overflow-x: auto;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  color: #f1f5f9;
+  font-size: 12.8px;
+  line-height: 1.55;
+  white-space: pre;
+}
+
+/* 인용문 */
+#pdfContainer.summary-mode .ai-inline-explain blockquote {
+  margin: 10px 0;
+  padding: 9px 12px;
+  border-left: 3px solid #9bb8e6;
+  background: #eef3f9;
+  color: #526174;
+  border-radius: 0 8px 8px 0;
+}
+
+ /* 표 */
+#pdfContainer.summary-mode .ai-inline-explain table {
+  width: 100%;
+  margin: 10px 0 14px;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 13px;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain th,
+#pdfContainer.summary-mode .ai-inline-explain td {
+  padding: 10px 12px;
+  border: 1px solid #dbe3ec;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain th {
+  background: #e9eef5;
+  color: #334155;
+  font-weight: 650;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain td {
+  color: #475569;
+}
+
+/* 로딩 */
+#pdfContainer.summary-mode .ai-inline-loading {
+  padding: 14px 15px;
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid #dfe7f2;
+  color: #708197;
+  font-size: 14px;
+}
+
   `;
 
   document.head.appendChild(style);
