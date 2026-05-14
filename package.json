@@ -11,6 +11,12 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@supabase/supabase-js": "^2.105.4",
+    "express": "^5.2.1",
+    "multer": "^2.1.1",
     "seeso": "^0.2.4"
+  },
+  "devDependencies": {
+    "supabase": "^2.98.2"
   }
 }

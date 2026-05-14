@@ -1,9 +1,7 @@
-// ui/viewer/pdfRenderer.js
-// viewer-demo.html 전용 PDF 렌더링 모듈.
-// 기존 viewer.html에 바로 붙이지 말고, 데모 브랜치에서 먼저 검증하세요.
+// viewer/pdfRenderer.js
 
 const PDF_WORKER_SRC =
-  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"
 
 const state = {
   pdfDoc: null,
@@ -11,67 +9,75 @@ const state = {
   zoomFactor: 1,
   container: null,
   zoomLabel: null,
-};
+}
 
 export async function initPdfRenderer({
   containerId = "pdfContainer",
   zoomLabelId = "zoomLevel",
 } = {}) {
-  state.container = document.getElementById(containerId);
-  state.zoomLabel = document.getElementById(zoomLabelId);
+  state.container = document.getElementById(containerId)
+  state.zoomLabel = document.getElementById(zoomLabelId)
 
   if (!state.container) {
-    throw new Error(`${containerId}를 찾을 수 없습니다.`);
+    throw new Error(`${containerId}를 찾을 수 없습니다.`)
   }
 
   if (!window.pdfjsLib) {
     state.container.innerHTML =
-      '<div class="pdf-no-content">pdf.js 로딩 실패</div>';
-    throw new Error("pdf.js가 로드되지 않았습니다.");
+      '<div class="pdf-no-content">pdf.js 로딩 실패</div>'
+    throw new Error("pdf.js가 로드되지 않았습니다.")
   }
 
-  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC
+
+  window.renderPdf = renderPdf
+  window.reRenderPdf = reRenderPdf
+  window.zoomIn = zoomIn
+  window.zoomOut = zoomOut
+  window.getPdfRendererState = getPdfRendererState
 }
 
 export async function renderPdf(url) {
-  if (!state.container || !url) return;
+  if (!state.container || !url) return
+
+  resetContainerToPdfMode()
 
   state.container.innerHTML =
-    '<div class="pdf-loading">PDF 불러오는 중...</div>';
+    '<div class="pdf-loading">PDF 불러오는 중...</div>'
 
   try {
-    const pdf = await window.pdfjsLib.getDocument(url).promise;
-    state.pdfDoc = pdf;
+    const pdf = await window.pdfjsLib.getDocument(url).promise
+    state.pdfDoc = pdf
 
-    const firstPage = await pdf.getPage(1);
-    const viewport = firstPage.getViewport({ scale: 1 });
+    window._pdfDoc = pdf
 
-    const containerWidth = state.container.clientWidth - 48;
-    state.baseScale = Math.min(
-      Math.max(containerWidth / viewport.width, 0.5),
-      2
-    );
+    const firstPage = await pdf.getPage(1)
+    const viewport = firstPage.getViewport({ scale: 1 })
 
-    state.zoomFactor = 1;
-    updateZoomLabel();
+    const TARGET_PAGE_WIDTH = 850
 
-    await renderPages();
+    state.baseScale = TARGET_PAGE_WIDTH / viewport.width
+    state.zoomFactor = 1
+    updateZoomLabel()
+
+    await renderPages()
   } catch (err) {
     state.container.innerHTML =
-      `<div class="pdf-no-content">PDF 로드 실패: ${escapeHtml(err.message)}</div>`;
+      `<div class="pdf-no-content">PDF 로드 실패: ${escapeHtml(err.message)}</div>`
   }
 }
 
 export async function renderPages() {
-  if (!state.pdfDoc || !state.container) return;
+  if (!state.pdfDoc || !state.container) return
 
-  const pdf = state.pdfDoc;
-  const scale = state.baseScale * state.zoomFactor;
+  const pdf = state.pdfDoc
+  const scale = state.baseScale * state.zoomFactor
 
-  state.container.innerHTML = "";
+  resetContainerToPdfMode()
+  state.container.innerHTML = ""
 
   for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    await renderPage(pdf, pageNum, scale);
+    await renderPage(pdf, pageNum, scale)
   }
 
   window.dispatchEvent(new CustomEvent("pdf-rendered", {
@@ -80,55 +86,76 @@ export async function renderPages() {
       scale,
       zoomFactor: state.zoomFactor,
     },
-  }));
+  }))
 }
 
 async function renderPage(pdf, pageNum, scale) {
-  const page = await pdf.getPage(pageNum);
-  const viewport = page.getViewport({ scale });
+  const page = await pdf.getPage(pageNum)
+  const viewport = page.getViewport({ scale })
 
-  const wrapper = document.createElement("div");
-  wrapper.className = "pdf-page-wrapper";
-  wrapper.dataset.page = pageNum;
-  wrapper.style.width = `${viewport.width}px`;
+  const wrapper = document.createElement("div")
+  wrapper.className = "pdf-page-wrapper"
+  wrapper.dataset.page = String(pageNum)
+  wrapper.style.width = `${viewport.width}px`
+  wrapper.style.height = `${viewport.height}px`
 
-  const canvas = document.createElement("canvas");
-  canvas.className = "pdf-page";
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  const canvas = document.createElement("canvas")
+  canvas.className = "pdf-page"
 
-  const label = document.createElement("div");
-  label.className = "pdf-page-num";
-  label.textContent = `${pageNum} / ${pdf.numPages}`;
+  const dpr = window.devicePixelRatio || 1
 
-  wrapper.appendChild(canvas);
-  wrapper.appendChild(label);
-  state.container.appendChild(wrapper);
+  canvas.width = Math.floor(viewport.width * dpr)
+  canvas.height = Math.floor(viewport.height * dpr)
+
+  canvas.style.width = `${viewport.width}px`
+  canvas.style.height = `${viewport.height}px`
+
+  const ctx = canvas.getContext("2d")
 
   await page.render({
-    canvasContext: canvas.getContext("2d"),
+    canvasContext: ctx,
     viewport,
-  }).promise;
-}
+    transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
+  }).promise
 
-export async function zoomIn() {
-  if (state.zoomFactor >= 2.5) return;
+  const label = document.createElement("div")
+  label.className = "pdf-page-num"
+  label.textContent = `${pageNum} / ${pdf.numPages}`
 
-  state.zoomFactor = Math.round((state.zoomFactor + 0.1) * 10) / 10;
-  updateZoomLabel();
-  await renderPages();
-}
+  wrapper.appendChild(canvas)
+  wrapper.appendChild(label)
+  state.container.appendChild(wrapper)
 
-export async function zoomOut() {
-  if (state.zoomFactor <= 0.5) return;
-
-  state.zoomFactor = Math.round((state.zoomFactor - 0.1) * 10) / 10;
-  updateZoomLabel();
-  await renderPages();
 }
 
 export async function reRenderPdf() {
-  await renderPages();
+  await renderPages()
+}
+
+export async function zoomIn() {
+  if (window._layoutJsonUrl && typeof window.zoomLayoutIn === "function") {
+    window.zoomLayoutIn()
+    return
+  }
+
+  if (state.zoomFactor >= 2.5) return
+
+  state.zoomFactor = Math.round((state.zoomFactor + 0.1) * 10) / 10
+  updateZoomLabel()
+  await renderPages()
+}
+
+export async function zoomOut() {
+  if (window._layoutJsonUrl && typeof window.zoomLayoutOut === "function") {
+    window.zoomLayoutOut()
+    return
+  }
+
+  if (state.zoomFactor <= 0.5) return
+
+  state.zoomFactor = Math.round((state.zoomFactor - 0.1) * 10) / 10
+  updateZoomLabel()
+  await renderPages()
 }
 
 export function getPdfRendererState() {
@@ -137,12 +164,32 @@ export function getPdfRendererState() {
     baseScale: state.baseScale,
     zoomFactor: state.zoomFactor,
     scale: state.baseScale * state.zoomFactor,
-  };
+  }
+}
+
+function resetContainerToPdfMode() {
+  if (!state.container) return
+
+  state.container.classList.remove(
+    "ai-mode",
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode",
+    "ai-loading-mode"
+  )
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode",
+    "ai-view-mode"
+  )
+
+  state.container.classList.add("paper-canvas", "pdf-viewer-mode")
 }
 
 function updateZoomLabel() {
   if (state.zoomLabel) {
-    state.zoomLabel.textContent = `${Math.round(state.zoomFactor * 100)}%`;
+    state.zoomLabel.textContent = `${Math.round(state.zoomFactor * 100)}%`
   }
 }
 
@@ -152,5 +199,5 @@ function escapeHtml(value) {
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("'", "&#039;")
 }

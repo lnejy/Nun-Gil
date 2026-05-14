@@ -32,10 +32,34 @@
           setActiveTool(btn);
 
           if (label.includes("원본")) {
+
             clearAiCanvasMode();
-            if (window._pdfUrl && typeof window.renderPdf === "function") {
-              window.renderPdf(window._pdfUrl);
+
+            // layout viewer 우선
+            if (
+              window._layoutJsonUrl &&
+              typeof window.renderLayoutViewer === "function"
+            ) {
+
+              await window.renderLayoutViewer(
+                window._layoutJsonUrl,
+                {
+                  containerId: "pdfContainer",
+                  pdfUrl: window._pdfUrl,
+                }
+              );
+
             }
+            // fallback
+            else if (
+              window._pdfUrl &&
+              typeof window.renderPdf === "function"
+            ) {
+
+              window.renderPdf(window._pdfUrl);
+
+            }
+
             return;
           }
 
@@ -548,23 +572,23 @@ ${buildContext(chunks)}
   }
 
   function showAiLoading(label) {
-  const container = getCanvas();
+    const container = getCanvas();
 
-  resetViewerModes(container);
-  container.classList.add("ai-mode", "ai-loading-mode");
+    resetViewerModes(container);
+    container.classList.add("ai-mode", "ai-loading-mode");
 
-  container.replaceChildren();
-  container.scrollTop = 0;
-  window.scrollTo(0, 0);
+    container.replaceChildren();
+    container.scrollTop = 0;
+    window.scrollTo(0, 0);
 
-  container.innerHTML = `
+    container.innerHTML = `
     <div class="ai-loading-screen">
       <div class="ai-spinner"></div>
       <strong>${escapeHtml(label)}</strong>
       <span>문서 근거를 바탕으로 생성 중입니다...</span>
     </div>
   `;
-}
+  }
 
   function showAiError(message) {
     const container = getCanvas();

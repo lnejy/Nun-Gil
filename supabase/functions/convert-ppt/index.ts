@@ -23,16 +23,16 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const BUCKET = 'documents'
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'authorization, content-type',
-      },
-    })
-  }
+  return new Response(null, { headers: corsHeaders })
+}
 
   try {
     // ── 인증 ─────────────────────────────────────────────
@@ -74,8 +74,8 @@ Deno.serve(async (req: Request) => {
     const pptBuffer = await fileData.arrayBuffer()
 
     // ── CloudConvert로 PDF 변환 ───────────────────────────
-    const apiKey = Deno.env.get('CLOUDCONVERT_API_KEY')
-    if (!apiKey) return json({ error: 'CLOUDCONVERT_API_KEY not set' }, 500)
+    const apiKey = Deno.env.get('CloudConvert_API_KEY')
+    if (!apiKey) return json({ error: 'CloudConvert_API_KEY not set' }, 500)
 
     // 1) Job 생성
     const jobRes = await fetch('https://api.cloudconvert.com/v2/jobs', {
@@ -99,15 +99,37 @@ Deno.serve(async (req: Request) => {
         },
       }),
     })
-    const job = await jobRes.json()
-    if (!jobRes.ok) return json({ error: 'CloudConvert job create failed', detail: job }, 500)
+    const rawText = await jobRes.text()
 
+    console.log("CloudConvert status:", jobRes.status)
+    console.log("CloudConvert raw response:", rawText)
+
+    if (!jobRes.ok) {
+      return json({
+        error: 'CloudConvert job create failed',
+        status: jobRes.status,
+        detail: rawText,
+      }, 500)
+    }
+
+    const job = JSON.parse(rawText)
     // 2) PPT 업로드 to CloudConvert
     const uploadTask = job.data.tasks.find((t: { operation: string }) => t.operation === 'import/upload')
     const uploadForm = uploadTask.result.form
-    const formData   = new FormData()
+    const formData = new FormData()
     Object.entries(uploadForm.parameters as Record<string, string>).forEach(([k, v]) => formData.append(k, v))
-    formData.append('file', new Blob([pptBuffer]), doc.file_url.split('/').pop())
+    const fileExt = doc.file_url.split('.').pop()?.toLowerCase() || 'pptx'
+    const safeFileName = `input.${fileExt}`
+
+    formData.append(
+      'file',
+      new Blob([pptBuffer], {
+        type: fileExt === 'ppt'
+          ? 'application/vnd.ms-powerpoint'
+          : 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      }),
+      safeFileName
+    )
 
     const uploadRes = await fetch(uploadForm.url, { method: 'POST', body: formData })
     if (!uploadRes.ok) return json({ error: 'CloudConvert upload failed' }, 500)
@@ -132,12 +154,12 @@ Deno.serve(async (req: Request) => {
     if (!exportUrl) return json({ error: 'Conversion timeout' }, 500)
 
     // 4) 변환된 PDF 다운로드
-    const pdfRes    = await fetch(exportUrl)
+    const pdfRes = await fetch(exportUrl)
     const pdfBuffer = await pdfRes.arrayBuffer()
 
     // 5) Storage에 변환된 PDF 업로드
-    const ext             = doc.file_url.split('.').pop()
-    const convertedPath   = doc.file_url.replace(`.${ext}`, '_converted.pdf')
+    const ext = doc.file_url.split('.').pop()
+    const convertedPath = doc.file_url.replace(`.${ext}`, '_converted.pdf')
 
     const { error: upErr } = await sb.storage
       .from(BUCKET)
@@ -165,8 +187,8 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
+      ...corsHeaders,
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
     },
   })
 }
