@@ -588,11 +588,11 @@ async function togBookmarkList() {
         const qbHeader = document.createElement('div');
         qbHeader.className = 'bm-section-header';
         qbHeader.innerHTML = `
-            <svg viewBox="0 0 24 24" fill="#6366f1" stroke="#6366f1" stroke-width="2" width="16" height="16">
+            <svg class="bm-section-icon" viewBox="0 0 24 24" width="16" height="16">
                 <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
             </svg>
             <span>퀴즈 북마크</span>
-            <span style="font-size:11px;font-weight:500;color:#94a3b8;">${quizBookmarks.length}개</span>
+            <span class="bm-section-count">${quizBookmarks.length}개</span>
         `;
         grid.appendChild(qbHeader);
 
@@ -604,16 +604,16 @@ async function togBookmarkList() {
             card.className = 'bm-card quiz-bm-card';
             card.innerHTML = `
                 <div class="bm-card-top">
-                    <span class="bm-asset-badge" style="color:#6366f1;background:#eef2ff;">
-                        <svg viewBox="0 0 24 24" fill="#6366f1" stroke="#6366f1" stroke-width="2" width="11" height="11">
+                    <span class="bm-asset-badge quiz-badge">
+                        <svg class="bm-badge-icon" viewBox="0 0 24 24" width="11" height="11">
                             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
                         </svg>
                         Q${qb.quiz_index + 1}
                     </span>
-                    <button class="bm-delete-btn qb-del" data-attempt-id="${qb.attempt_id}" data-qi="${qb.quiz_index}" title="북마크 해제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
+                    <button class="bm-delete-btn qb-del" data-attempt-id="${qb.attempt_id}" data-qi="${qb.quiz_index}" title="북마크 해제">×</button>
                 </div>
                 <div class="bm-body">
-                    <h3 class="bm-title" style="font-size:12px;">${fname}</h3>
+                    <h3 class="bm-title bm-quiz-title">${fname}</h3>
                     <p class="bm-content">${qb.question_text || '퀴즈 문제'}</p>
                 </div>
             `;
@@ -716,7 +716,7 @@ async function togBookmarkList() {
                 <div class="bm-card-top">
                     <span class="bm-dot" style="background:${colorCode};"></span>
                     ${isOtherDoc ? `<span style="font-size:10px;color:#94a3b8;margin-left:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:90px">${bm.documents?.file_name ?? ''}</span>` : ''}
-                    <button class="bm-delete-btn" title="삭제" style="margin-left:auto;background:none;border:none;cursor:pointer;color:#cbd5e1;font-size:16px;line-height:1;padding:2px 4px;border-radius:6px;transition:.15s;">×</button>
+                    <button class="bm-delete-btn" title="삭제">×</button>
                 </div>
                 <div class="bm-body">
                     <h3 class="bm-title">${bm.title || '제목 없음'}</h3>
