@@ -352,7 +352,6 @@ const ease = d3.easeCubicInOut;
       <div class="mindmap-pill">👀 세부 설명</div>
       <h2>${escapeHtml(d.data.name)}</h2>
       <p>${escapeHtml(d.data.detail || "세부 설명이 없습니다.")}</p>
-      <div class="ai-source">${escapeHtml(source)}</div>
       <hr style="border:0;border-top:1px solid #dde7f5;margin:18px 0;" />
       <p><strong>하위 개념</strong></p>
       <ul>${childNames || "<li>하위 개념 없음</li>"}</ul>
