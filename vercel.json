@@ -1,0 +1,25 @@
+{
+  "redirects": [
+    { "source": "/", "destination": "/ui/start.html", "statusCode": 302 },
+    { "source": "/start.html", "destination": "/ui/start.html", "statusCode": 302 },
+    { "source": "/signup.html", "destination": "/ui/signup.html", "statusCode": 302 },
+    { "source": "/mainpage.html", "destination": "/ui/mainpage.html", "statusCode": 302 },
+    { "source": "/calibration.html", "destination": "/ui/calibration.html", "statusCode": 302 },
+    { "source": "/document.html", "destination": "/ui/document.html", "statusCode": 302 },
+    { "source": "/processing.html", "destination": "/ui/processing.html", "statusCode": 302 },
+    { "source": "/profile.html", "destination": "/ui/profile.html", "statusCode": 302 },
+    { "source": "/report.html", "destination": "/ui/report.html", "statusCode": 302 },
+    { "source": "/sidebar.html", "destination": "/ui/sidebar.html", "statusCode": 302 },
+    { "source": "/viewer.html", "destination": "/ui/viewer.html", "statusCode": 302 },
+    { "source": "/workspace.html", "destination": "/ui/workspace.html", "statusCode": 302 }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
+        { "key": "Cross-Origin-Embedder-Policy", "value": "credentialless" }
+      ]
+    }
+  ]
+}

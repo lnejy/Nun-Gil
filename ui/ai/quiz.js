@@ -305,10 +305,6 @@ function renderQuizLayout(container) {
                 >
                   ${getFullscreenIcon()}
                 </button>
-
-                <button id="ngQuizOriginalBtn" class="ng-quiz-soft-btn" type="button">
-                  원본으로
-                </button>
               </div>
             </div>
 
@@ -377,11 +373,6 @@ function bindBaseEvents() {
   document
     .getElementById("ngQuizFullscreenBtn")
     ?.addEventListener("click", toggleFullscreen);
-
-  document
-    .getElementById("ngQuizOriginalBtn")
-    ?.addEventListener("click", showOriginalDocument);
-
   document
     .getElementById("ngQuizRestartBtn")
     ?.addEventListener("click", restartQuiz);
@@ -810,63 +801,6 @@ function toggleFullscreen() {
 
   renderQuizLayout(getCanvas());
 }
-
-function showOriginalDocument() {
-  document.body.classList.remove(
-    "quiz-fullscreen-mode",
-    "quiz-inline-mode"
-  );
-
-  quizState.fullscreen = false;
-
-  const pdfContainer = document.getElementById("pdfContainer");
-
-  if (pdfContainer) {
-    pdfContainer.classList.remove(
-      "quiz-mode",
-      "ai-mode",
-      "mindmap-mode",
-      "summary-mode"
-    );
-
-    pdfContainer.style.width = "";
-    pdfContainer.style.maxWidth = "";
-    pdfContainer.style.flex = "";
-  }
-
-  const centerArea = document.querySelector(
-    "#page-viewer .center-area"
-  );
-
-  if (centerArea) {
-    centerArea.style.width = "";
-    centerArea.style.maxWidth = "";
-    centerArea.style.flex = "";
-    centerArea.style.justifyContent = "";
-    centerArea.style.alignItems = "";
-  }
-
-  requestAnimationFrame(() => {
-    if (window._pdfDoc && typeof window.reRenderPdf === "function") {
-      window.reRenderPdf();
-      return;
-    }
-
-    if (window._pdfUrl && typeof window.renderPdf === "function") {
-      window.renderPdf(window._pdfUrl);
-      return;
-    }
-
-    const container = setCanvasMode("pdf");
-
-    container.innerHTML = `
-      <div class="pdf-no-content">
-        문서를 불러올 수 없습니다.
-      </div>
-    `;
-  });
-}
-
 function finalSubmitAndShowResult() {
   quizState.answers = quizState.list.map((quiz, index) => {
     const answerData = quizState.answers[index];
