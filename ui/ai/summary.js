@@ -211,33 +211,52 @@ function renderSummaryExplain(markdown) {
   const temp = document.createElement("div");
   temp.innerHTML = html;
 
-  // prompt.js에서 ## 제목으로 내려오는 영역을 카드 섹션으로 변환
+  // 혹시 h1이 들어오면 완전히 제거
+  temp.querySelectorAll("h1").forEach((h1) => h1.remove());
+
   const result = document.createDocumentFragment();
   let currentSection = null;
+  let skipSection = false;
 
   Array.from(temp.childNodes).forEach((node) => {
+    // ## 제목 기준으로 섹션 시작
     if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "H2") {
+      const sectionTitle = node.textContent.trim();
+
+      // 토글 열기 전 핵심 설명과 겹치기 쉬워서 제거
+      if (sectionTitle === "개념 설명") {
+        currentSection = null;
+        skipSection = true;
+        return;
+      }
+
+      skipSection = false;
+
       currentSection = document.createElement("section");
       currentSection.className = "ai-explain-section";
 
       const title = document.createElement("div");
       title.className = "ai-explain-section-title";
-      title.textContent = node.textContent.trim();
+      title.textContent = sectionTitle;
 
       currentSection.appendChild(title);
       result.appendChild(currentSection);
       return;
     }
 
-    // prompt.js에서 이미 ---를 넣기 때문에 hr은 별도 출력하지 않음
+    // --- 구분선은 화면에 따로 출력하지 않음
     if (node.nodeType === Node.ELEMENT_NODE && node.tagName === "HR") {
       return;
     }
 
+    // 개념 설명 섹션 안의 본문은 전부 건너뜀
+    if (skipSection) {
+      return;
+    }
+
+    // H2 섹션이 만들어지기 전의 잡텍스트는 출력하지 않음
     if (!currentSection) {
-      currentSection = document.createElement("section");
-      currentSection.className = "ai-explain-section";
-      result.appendChild(currentSection);
+      return;
     }
 
     currentSection.appendChild(node.cloneNode(true));
@@ -447,96 +466,125 @@ function injectSummaryCompactStyle() {
       font-size: 16px;
     }
 
+   #pdfContainer.summary-mode .ai-summary-card.open {
+  border-color: #d8e4f3;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(40, 72, 110, 0.055);
+}
 
-    #pdfContainer.summary-mode .ai-inline-explain {
-  margin: 0;
-  padding: 18px 18px 20px;
-  margin: 18px;
-  font-size: 13.5px;
-  line-height: 1.75;
-  color: #3f4b5f;
-  border-top: 1px solid #d9e2ee;
-  background: #f3f5f8;
+/* 상세 설명 전체 영역 */
+#pdfContainer.summary-mode .ai-inline-explain {
+  margin: 0 16px 16px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #f8fbff;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+/* 혹시 h1이 들어와도 숨김 */
+#pdfContainer.summary-mode .ai-inline-explain h1 {
+  display: none;
 }
 
 #pdfContainer.summary-mode .ai-explain-section {
-  padding: 16px 0 18px;
-  border-bottom: 1px solid #dce3ec;
+  position: relative;
+  margin: 0;
+  padding: 10px 0 11px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 #pdfContainer.summary-mode .ai-explain-section:first-child {
   padding-top: 0;
 }
 
-#pdfContainer.summary-mode .ai-explain-section:last-child {
-  padding-bottom: 0;
-  border-bottom: none;
+#pdfContainer.summary-mode .ai-explain-section + .ai-explain-section {
+  border-top: 1px solid #e4edf7;
+}
+
+#pdfContainer.summary-mode .ai-explain-section::before {
+  display: none;
 }
 
 #pdfContainer.summary-mode .ai-explain-section-title {
   display: flex;
   align-items: center;
-  gap: 7px;
-  margin: 0 0 10px;
-  font-size: 14px;
-  font-weight: 700;
-  line-height: 1.4;
-  color: #24324a;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: none;
+  font-size: 14.5px;
+  font-weight: 550;
+  line-height: 1.45;
+  color: #5b84d6;
+  letter-spacing: -0.2px;
 }
 
+/* 소주제 앞 작은 점 */
 #pdfContainer.summary-mode .ai-explain-section-title::before {
   content: "";
-  width: 6px;
-  height: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: #6f98e8;
+  background: #7da2dd;
   flex: 0 0 auto;
 }
 
+/* 문단 */
 #pdfContainer.summary-mode .ai-inline-explain p {
-  margin: 0 0 9px;
-  font-size: 13.5px;
-  line-height: 1.75;
-  color: #4b5870;
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.62;
+  color: #475569;
+  letter-spacing: -0.05px;
 }
 
 #pdfContainer.summary-mode .ai-inline-explain p:last-child {
   margin-bottom: 0;
 }
 
+/* 목록 */
 #pdfContainer.summary-mode .ai-inline-explain ul,
 #pdfContainer.summary-mode .ai-inline-explain ol {
-  margin: 8px 0 0;
-  padding-left: 20px;
+  margin: 5px 0 0;
+  padding-left: 19px;
 }
 
 #pdfContainer.summary-mode .ai-inline-explain li {
-  margin: 5px 0;
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: #4b5870;
+  margin: 3px 0;
+  padding-left: 2px;
+  font-size: 14px;
+  line-height: 1.58;
+  color: #475569;
 }
 
+/* 강조 */
 #pdfContainer.summary-mode .ai-inline-explain strong {
-  color: #263449;
-  font-weight: 700;
+  color: #24324a;
+  font-weight: 650;
 }
 
+/* 인라인 코드 */
 #pdfContainer.summary-mode .ai-inline-explain code {
-  padding: 2px 5px;
-  border-radius: 5px;
-  background: #e7ebf1;
-  color: #2f3a4d;
-  font-size: 12.5px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: #e8f1ff;
+  color: #1d4ed8;
+  font-size: 12.8px;
+  font-weight: 600;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
 #pdfContainer.summary-mode .ai-inline-explain pre {
-  margin: 11px 0 0;
+  margin: 8px 0 4px;
   padding: 13px 14px;
   border-radius: 10px;
-  background: #1f2937;
-  border: 1px solid #111827;
+  background: #1f2a3d;
+  border: 1px solid #172033;
   overflow-x: auto;
 }
 
@@ -544,25 +592,62 @@ function injectSummaryCompactStyle() {
   display: block;
   padding: 0;
   background: transparent;
-  color: #e5e7eb;
-  font-size: 12.5px;
-  line-height: 1.65;
+  color: #f1f5f9;
+  font-size: 12.8px;
+  line-height: 1.55;
   white-space: pre;
 }
 
+/* 인용문 */
 #pdfContainer.summary-mode .ai-inline-explain blockquote {
   margin: 10px 0;
-  padding: 8px 12px;
-  border-left: 3px solid #9bb8ef;
-  background: #edf1f7;
+  padding: 9px 12px;
+  border-left: 3px solid #9bb8e6;
+  background: #eef3f9;
   color: #526174;
   border-radius: 0 8px 8px 0;
 }
 
-#pdfContainer.summary-mode .ai-inline-loading {
-  color: #7b8798;
-  font-size: 13.5px;
+ /* 표 */
+#pdfContainer.summary-mode .ai-inline-explain table {
+  width: 100%;
+  margin: 10px 0 14px;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 10px;
+  background: #ffffff;
+  font-size: 13px;
 }
+
+#pdfContainer.summary-mode .ai-inline-explain th,
+#pdfContainer.summary-mode .ai-inline-explain td {
+  padding: 10px 12px;
+  border: 1px solid #dbe3ec;
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain th {
+  background: #e9eef5;
+  color: #334155;
+  font-weight: 650;
+}
+
+#pdfContainer.summary-mode .ai-inline-explain td {
+  color: #475569;
+}
+
+/* 로딩 */
+#pdfContainer.summary-mode .ai-inline-loading {
+  padding: 14px 15px;
+  border-radius: 11px;
+  background: #ffffff;
+  border: 1px solid #dfe7f2;
+  color: #708197;
+  font-size: 14px;
+}
+
   `;
 
   document.head.appendChild(style);

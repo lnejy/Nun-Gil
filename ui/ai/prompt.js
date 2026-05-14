@@ -141,6 +141,9 @@ export function createSummaryExplainPrompt({ point, sourceTexts }) {
 - 반드시 markdown 본문만 출력한다.
 - 설명은 한국어로 작성한다.
 - 너무 짧게 요약하지 말고, 학습자가 이해할 수 있게 강의하듯이 설명한다.
+- 요약 카드에 이미 나온 기본 정의나 핵심 설명을 반복하지 않는다.
+- "개념 설명" 영역은 작성하지 않는다.
+- 설명은 "왜 중요한가", "동작 흐름", "코드 또는 예시", "시험 핵심 포인트" 중심으로 작성한다.
 
 markdown 작성 규칙:
 - 각 영역 제목은 반드시 ## 제목 형식으로 작성한다.
@@ -165,11 +168,6 @@ markdown 작성 규칙:
 - 출력 형식 예시에 있는 영역이라도, 근거 chunk에 해당 내용이 없으면 작성하지 않는다.
 
 출력 형식:
-
-## 개념 설명
-핵심 개념이 무엇인지 문서 내용을 바탕으로 자세히 설명한다.
-
----
 
 ## 왜 중요한가
 이 개념을 알아야 하는 이유를 학습 흐름과 연결해서 설명한다.
@@ -250,40 +248,194 @@ ${context}
 `;
 }
 
-export function createQuizPrompt({ title, context }) {
-  return `
-너는 업로드된 PDF 문서만 근거로 시험 대비 객관식 퀴즈를 생성하는 시스템이다.
+// 선택한 문제 수, 난이도, 유형에 맞춰 퀴즈 생성 프롬프트
+export function createQuizPrompt({
+  title,
+  context,
+  questionCount = 5,
+  difficulty = "normal",
+  types = ["MULTIPLE"],
+}) {
+  const selectedTypes = Array.isArray(types) && types.length
+  ? types.map((type) => String(type).toUpperCase())
+  : ["MULTIPLE"];
 
-규칙:
+  const difficultyGuide = {
+    easy: `
+- 낮음 난이도:
+  - 문서에 나온 핵심 용어, 정의, 기본 특징을 묻는다.
+  - 복잡한 추론보다 개념 확인 중심으로 출제한다.
+  - 문제 문장은 짧고 명확하게 작성한다.
+  - 정답은 문서에서 직접 확인 가능한 내용으로 만든다.
+`,
+    normal: `
+- 보통 난이도:
+  - 개념 간 차이, 절차, 원인과 결과, 동작 흐름을 묻는다.
+  - 단순 정의보다 이해 여부를 확인하는 문제를 만든다.
+  - 서로 비슷한 개념을 구분할 수 있는 문제를 포함한다.
+  - 문서 내용을 읽고 관계를 파악해야 풀 수 있게 만든다.
+`,
+    hard: `
+- 높음 난이도:
+  - 문서 내용을 바탕으로 상황 판단, 적용, 비교 추론 문제를 만든다.
+  - 단순 암기보다 어떤 개념을 어떤 상황에 적용해야 하는지 묻는다.
+  - 여러 개념을 함께 이해해야 풀 수 있는 문제를 포함한다.
+  - 단, 문서에 없는 외부 지식이나 과도한 추측은 사용하지 않는다.
+`,
+  };
+
+  const typeRules = {
+  MULTIPLE: `
+MULTIPLE 유형 작성 규칙:
+- type이 "MULTIPLE"인 문제는 객관식 문제다.
+- options는 반드시 4개 작성한다.
+- 인덱스는 0부터 시작한다.
+- answerIndexes는 정답 선택지 인덱스 1개만 배열로 작성한다.
+- optionExplanations는 options와 같은 순서로 정확히 4개 작성한다.
+`,
+
+  OX: `
+OX 유형 작성 규칙:
+- type이 "OX"인 문제는 O/X 문제다.
+- options는 반드시 ["O", "X"]로 작성한다.
+- answerIndexes는 [0] 또는 [1]만 작성한다.
+- O가 정답이면 [0], X가 정답이면 [1]이다.
+- 단순 말장난이 아니라 문서 내용의 참/거짓을 확인하는 문제로 만든다.
+- optionExplanations는 ["O 선택지 해설", "X 선택지 해설"] 순서로 정확히 2개 작성한다.
+`,
+
+  SHORT: `
+SHORT 유형 작성 규칙:
+- type이 "SHORT"인 문제는 단답형 문제다.
+- options는 반드시 빈 배열 []로 작성한다.
+- answerIndexes는 반드시 빈 배열 []로 작성한다.
+- answerText에는 반드시 정답 한 단어만 작성한다.
+- 정답이 여러 단어로 이루어진 고유 용어라면 단어 사이를 한 칸만 띄운다.
+- 문장형 답안, 서술형 답안, 설명형 답안은 절대 만들지 않는다.
+- 문제 문장 안에 답안을 어떤 언어로 써야 하는지 반드시 명시한다.
+  예: "영어 한 단어로 쓰시오.", "한국어 한 단어로 쓰시오."
+- 한국어/영어 표기가 모두 가능한 용어라면 둘 중 하나를 반드시 지정한다.
+- answerLanguage에는 "KOREAN" 또는 "ENGLISH"를 작성한다.
+- answerFormatHint에는 사용자에게 보여줄 입력 규칙을 작성한다.
+- acceptableAnswers에는 문제에서 지정한 언어와 같은 언어의 인정 답안만 넣는다.
+- optionExplanations는 반드시 빈 배열 []로 작성한다.
+- answerText는 절대 비우지 않는다.
+- answerText가 비어 있으면 해당 문제는 만들지 않는다.
+`,
+};
+
+ const fieldRules = {
+  MULTIPLE: `
+- MULTIPLE 문제:
+  - options는 정확히 4개 작성한다.
+  - answerIndexes는 정답 인덱스 배열로 작성한다.
+  - answerText, answerLanguage, answerFormatHint는 빈 문자열로 작성한다.
+  - acceptableAnswers는 빈 배열로 작성한다.
+  - optionExplanations는 정확히 4개 작성한다.
+`,
+
+  OX: `
+- OX 문제:
+  - options는 반드시 ["O", "X"]로 작성한다.
+  - answerIndexes는 [0] 또는 [1]만 작성한다.
+  - answerText, answerLanguage, answerFormatHint는 빈 문자열로 작성한다.
+  - acceptableAnswers는 빈 배열로 작성한다.
+  - optionExplanations는 정확히 2개 작성한다.
+`,
+
+  SHORT: `
+- SHORT 문제:
+  - options는 빈 배열 []로 작성한다.
+  - answerIndexes는 빈 배열 []로 작성한다.
+  - answerText에는 정답 한 단어만 작성한다.
+  - answerText는 반드시 비어 있지 않은 정답 한 단어여야 한다.
+  - answerText가 비어 있으면 해당 문제는 만들지 않는다.
+  - acceptableAnswers에는 같은 언어의 인정 답안만 넣는다.
+  - answerLanguage는 "KOREAN" 또는 "ENGLISH"로 작성한다.
+  - answerFormatHint에는 사용자 입력 안내를 작성한다.
+  - optionExplanations는 빈 배열 []로 작성한다.
+`,
+};
+
+  const typeGuide = selectedTypes
+  .map((type) => typeRules[type])
+  .filter(Boolean)
+  .join("\n");
+
+  const fieldGuide = selectedTypes
+  .map((type) => fieldRules[type])
+  .filter(Boolean)
+  .join("\n");
+
+  const typeCountGuide = selectedTypes
+  .map((type, index) => {
+    const baseCount = Math.floor(questionCount / selectedTypes.length);
+    const extra = index < questionCount % selectedTypes.length ? 1 : 0;
+    return `- ${type}: ${baseCount + extra}문제`;
+  })
+  .join("\n");
+
+const outputFormat = `
+[
+  {
+    "type": "${selectedTypes.join(" 또는 ")}",
+    "question": "문제 내용",
+    "options": [],
+    "answerIndexes": [],
+    "answerText": "",
+    "acceptableAnswers": [],
+    "answerLanguage": "",
+    "answerFormatHint": "",
+    "explanation": "짧은 해설",
+    "optionExplanations": []
+  }
+]
+`;
+
+
+  return `
+너는 업로드된 PDF 문서만 근거로 시험 대비 퀴즈를 생성하는 시스템이다.
+
+가장 중요한 절대 규칙:
+- 이번 퀴즈에서 허용된 문제 유형은 ${selectedTypes.join(", ")} 뿐이다.
+- 모든 문제의 type 값은 반드시 ${selectedTypes.join(", ")} 중 하나여야 한다.
+- 허용되지 않은 문제 유형은 절대 포함하지 않는다.
+- 문제는 정확히 ${questionCount}개 만든다.
+- 출력 JSON 배열의 길이는 반드시 ${questionCount}개여야 한다.
+- 출력은 반드시 하나의 JSON 배열만 반환한다.
+- JSON 앞뒤에 설명, markdown, 코드블록을 붙이지 않는다.
+
+유형별 문제 수:
+${typeCountGuide}
+
+문서 근거 규칙:
 - 반드시 [문서 chunk] 안의 내용만 사용한다.
 - 문서에 없는 상식 문제는 만들지 않는다.
-- 근거가 부족하면 문제로 만들지 않는다.
-- 출력은 JSON 배열만 반환한다.
-- JSON 앞뒤에 설명, markdown, 코드블록을 붙이지 않는다.
-- 모든 문제에는 실제 chunk_id를 source_chunks에 넣는다.
-- 선택지는 반드시 options 배열 안에 작성한다.
-- 정답은 반드시 answerIndexes 배열로 작성한다.
-- answerIndexes에는 options 배열의 정답 인덱스만 넣는다.
-- 인덱스는 0부터 시작한다.
-- answerIndexes 값은 반드시 1개 또는 2개만 넣는다.
-- answerIndexes가 1개이면 "하나만 고르시오" 문제다.
-- answerIndexes가 2개이면 "두 개 고르시오" 문제다.
-- 두 개 고르시오 문제에서는 정답이 정확히 2개여야 한다.
+- 단, 문서 텍스트가 부족한 경우 문서 제목, 추출 가능한 문장, 핵심 키워드를 바탕으로 쉬운 개념 확인 문제를 만든다.
+- 문서에 전혀 없는 외부 지식은 추가하지 않는다.
+- 각 문제에는 반드시 type을 넣는다.
 
-선지별 해설 규칙:
-- optionExplanations는 options와 같은 순서로 정확히 4개 작성한다.
-- 각 optionExplanations는 해당 선택지 하나에 대한 설명이어야 한다.
-- 정답 선택지의 해설에는 왜 이 선택지가 정답인지 설명한다.
-- 오답 선택지의 해설에는 단순히 "틀렸다"라고 쓰지 말고, 그 선택지가 무엇을 의미하는지 또는 어떤 상황에서 쓰이는 개념인지 설명한 뒤, 왜 이 문제의 정답은 아닌지 설명한다.
-- 모든 optionExplanations가 서로 달라야 한다.
-- 문제 전체 해설 explanation을 그대로 반복하지 않는다.
-- 문서에서 해당 선택지의 개념을 확인하기 어렵다면 "문서에서 이 선택지의 구체적 설명은 확인하기 어렵지만, 이 문제의 정답 조건과는 맞지 않는다."라고 작성한다.
+난이도 규칙:
+${difficultyGuide[difficulty] || difficultyGuide.normal}
 
-목표:
-- 핵심 개념, 정의, 차이점, 절차, 주의사항 중심으로 문제를 만든다.
-- 단순 암기 문제와 이해 확인 문제를 섞어서 만든다.
-- 일부 문제는 정답이 2개인 복수 선택 문제로 만든다.
-- 너무 지엽적인 표현보다 문서의 핵심 내용을 확인할 수 있는 문제를 만든다.
+유형별 작성 규칙:
+${typeGuide}
+
+공통 출제 목표:
+- 핵심 개념, 정의, 차이점, 절차, 원인과 결과, 주의사항 중심으로 문제를 만든다.
+- 단순 암기 문제와 이해 확인 문제를 적절히 섞는다.
+- 같은 개념을 반복해서 묻지 않는다.
+- 문제 문장은 학습자가 바로 이해할 수 있게 자연스럽게 작성한다.
+- 정답이 애매하거나 여러 해석이 가능한 문제는 만들지 않는다.
+
+해설 작성 규칙:
+- explanation은 반드시 1~2문장으로 작성한다.
+- 정답이 왜 맞는지 먼저 설명한다.
+- 오답과 비교했을 때 핵심 차이가 무엇인지 설명한다.
+- 문서 내용에 근거해서 학습자가 다시 이해할 수 있게 구체적으로 작성한다.
+- "문서에 따르면", "자료에서는" 같은 표현을 사용해 문서 근거 문제임을 드러낸다.
+- optionExplanations는 문제 유형 규칙에 맞는 개수로 작성한다.
+- optionExplanations는 문제 전체 해설 explanation을 그대로 반복하지 않는다.
 
 [문서 제목]
 ${title}
@@ -291,48 +443,18 @@ ${title}
 [문서 chunk]
 ${context}
 
-출력 형식:
-[
-  {
-    "question": "문제",
-    "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
-    "answerIndexes": [0],
-    "explanation": "정답이 왜 맞는지, 오답과 비교했을 때 어떤 점이 다른지 문서 내용을 근거로 2~3문장으로 자세히 설명",
-    "optionExplanations": [
-      "선택지1이 정답 또는 오답인 이유와 해당 개념 설명",
-      "선택지2가 정답 또는 오답인 이유와 해당 개념 설명",
-      "선택지3이 정답 또는 오답인 이유와 해당 개념 설명",
-      "선택지4가 정답 또는 오답인 이유와 해당 개념 설명"
-    ],
-    "source_chunks": ["c0001"]
-  },
-  {
-    "question": "다음 중 문서 내용과 일치하는 것을 두 개 고르시오.",
-    "options": ["선택지1", "선택지2", "선택지3", "선택지4"],
-    "answerIndexes": [0, 2],
-    "explanation": "문제 전체에 대한 짧은 해설",
-    "optionExplanations": [
-      "선택지1이 정답인 이유",
-      "선택지2가 오답인 이유와 이 선택지가 의미하는 개념",
-      "선택지3이 정답인 이유",
-      "선택지4가 오답인 이유와 이 선택지가 의미하는 개념"
-    ],
-    "source_chunks": ["c0002"]
-  }
-]
+출력 필드 규칙:
+- type은 반드시 ${selectedTypes.join(", ")} 중 하나만 사용한다.
+${fieldGuide}
 
-조건:
-- 문제는 정확히 5개 만든다.
-- 선택지는 반드시 4개다.
-- 5문제 중 3~4문제는 answerIndexes가 1개인 문제로 만든다.
-- 5문제 중 1~2문제는 answerIndexes가 2개인 문제로 만든다.
-- answerIndexes의 각 숫자는 0, 1, 2, 3 중 하나여야 한다.
-- answerIndexes 안의 숫자는 중복되면 안 된다.
-- optionExplanations는 반드시 4개 작성한다.
-- optionExplanations의 각 문장은 1~2문장으로 작성한다.
-- explanation은 반드시 2~3문장으로 작성한다.
-- 정답이 왜 맞는지 먼저 설명한다.
-- 오답과 비교했을 때 핵심 차이가 무엇인지 설명한다.
-- 문서 내용에 근거해서 학습자가 다시 이해할 수 있게 구체적으로 작성한다.
+출력 형식:
+${outputFormat}
+
+최종 검토 후 출력:
+- 출력 직전에 JSON 배열 길이가 정확히 ${questionCount}개인지 확인한다.
+- 출력 직전에 모든 type이 ${selectedTypes.join(", ")} 중 하나인지 확인한다.
+- 출력 직전에 아래 유형별 문제 수가 맞는지 확인한다.
+${typeCountGuide}
+- 조건이 하나라도 맞지 않으면 설명하지 말고 JSON을 고쳐서 최종 JSON 배열만 출력한다.
 `;
 }
