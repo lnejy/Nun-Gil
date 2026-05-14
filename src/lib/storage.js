@@ -53,22 +53,34 @@ export async function uploadDocument(file, userId) {
 }
 
 /**
- * 서명된 임시 URL 발급 (기본 1시간)
- * viewer에서 pdf.js / PPT 변환 뷰어에 전달할 때 사용
+ * 서명된 임시 URL 발급
  *
  * @param {string} storagePath
- * @param {number} expiresIn  - 초 단위 (기본 3600)
+ * @param {object|number} [opts]  - { bucket, expiresIn } 또는 expiresIn(초)
+ *                                  하위호환: 두 번째 인자가 number면 expiresIn으로 처리
  * @returns {Promise<string>}
  */
-export async function getSignedUrl(storagePath, expiresIn = 3600) {
+export async function getSignedUrl(storagePath, opts = {}) {
+  const expiresIn = typeof opts === 'number' ? opts : (opts.expiresIn ?? 3600)
+  const bucket = typeof opts === 'object' ? (opts.bucket ?? BUCKET) : BUCKET
+
   const { data, error } = await sb.storage
-    .from(BUCKET)
+    .from(bucket)
     .createSignedUrl(storagePath, expiresIn)
 
   if (error) throw error
   return data.signedUrl
 }
 
+/**
+ * layout-json 버킷의 layout.json signed URL
+ *
+ * @param {string} layoutPath  - 예: '{sha256}/layout.json'
+ * @returns {Promise<string>}
+ */
+export async function getLayoutSignedUrl(layoutPath) {
+  return getSignedUrl(layoutPath, { bucket: 'layout-json' })
+}
 /**
  * Storage에서 파일 삭제
  * @param {string} storagePath

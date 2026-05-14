@@ -56,7 +56,22 @@ export function setAiCache(next) {
 
 export function clearAiMode() {
   const canvas = getCanvas();
-  canvas.classList.remove("ai-mode", "mindmap-mode");
+
+  canvas.classList.remove(
+    "ai-mode",
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode",
+    "ai-loading-mode"
+  );
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode",
+    "ai-view-mode"
+  );
+
+  canvas.className = "paper-canvas";
 }
 
 export function setAiMode(extraClass = "") {
@@ -323,7 +338,7 @@ export function buildContext(chunks, maxChars = 22000) {
       : `pages ${chunk.page_start}-${chunk.page_end}`;
 
     const block =
-`[${chunk.chunk_id} | ${pageInfo} | section: ${chunk.section || "unknown"}]
+      `[${chunk.chunk_id} | ${pageInfo} | section: ${chunk.section || "unknown"}]
 ${chunk.text}
 
 `;
@@ -446,7 +461,7 @@ function sanitizeForJson(value) {
 
 // 문서 페이지 수 기반으로 출력 항목 범위 결정
 export function decideOutputRange(pageCount = 10, _type = "summary") {
-  if (pageCount <= 5)  return { min: 3, max: 4 };
+  if (pageCount <= 5) return { min: 3, max: 4 };
   if (pageCount <= 15) return { min: 4, max: 6 };
   if (pageCount <= 30) return { min: 5, max: 7 };
   return { min: 6, max: 8 };
@@ -495,12 +510,13 @@ export function setCanvasMode(mode) {
   const container = getCanvas();
 
   container.classList.remove(
+    "pdf-viewer-mode",
     "ai-mode",
     "summary-mode",
     "mindmap-mode",
     "quiz-mode",
     "ai-loading-mode"
-  );
+  )
 
   document.body.classList.remove(
     "quiz-inline-mode",
