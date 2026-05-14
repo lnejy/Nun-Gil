@@ -397,7 +397,15 @@
                     </div>
                 </div>
 
-                <div class="detail-section-title">점수 산출 내역</div>
+                <div class="detail-section-title" style="margin-top:20px;">분당 집중율</div>
+                <div id="focusChartWrap" style="margin-top:8px;">
+                    <canvas id="focusChart" height="130" style="width:100%;display:block;"></canvas>
+                    <p id="focusChartEmpty" style="display:none;font-size:12px;color:var(--text-gray);text-align:center;padding:20px 0;">
+                        아직 스냅샷 데이터가 없습니다.<br>다음 세션부터 그래프가 표시됩니다.
+                    </p>
+                </div>
+
+                <div class="detail-section-title" style="margin-top:20px;">점수 산출 내역</div>
                 <div class="score-breakdown">
                     <div class="score-card">
                         <span class="score-card-label">정상 응시 점수</span>
@@ -542,6 +550,114 @@
 
             emptyState.style.display = 'none'
             detailView.classList.add('is-visible')
+
+            // 분당 집중율 그래프 로드
+            renderFocusChart(c.id)
+        }
+
+        async function renderFocusChart(sessionId) {
+            const canvas   = document.getElementById('focusChart')
+            const emptyMsg = document.getElementById('focusChartEmpty')
+            if (!canvas) return
+
+            const { data: snaps } = await sb
+                .from('session_snapshots')
+                .select('elapsed_min, focus_seconds, alert_count')
+                .eq('session_id', sessionId)
+                .order('elapsed_min', { ascending: true })
+
+            if (!snaps || snaps.length === 0) {
+                canvas.style.display = 'none'
+                emptyMsg.style.display = 'block'
+                return
+            }
+            canvas.style.display = 'block'
+            emptyMsg.style.display = 'none'
+
+            // 분당 집중율 계산 (각 1분 구간의 집중 비율)
+            const points = snaps.map((s, i) => {
+                const prevFocus = i === 0 ? 0 : snaps[i - 1].focus_seconds
+                const rate = Math.min(100, Math.round(((s.focus_seconds - prevFocus) / 60) * 100))
+                return { min: s.elapsed_min, rate: Math.max(0, rate), alert: s.alert_count > (i === 0 ? 0 : snaps[i-1].alert_count) }
+            })
+
+            // Canvas 그래프 렌더링
+            const dpr = window.devicePixelRatio || 1
+            const W = canvas.offsetWidth || canvas.parentElement.offsetWidth || 400
+            const H = 130
+            canvas.width  = W * dpr
+            canvas.height = H * dpr
+            const ctx = canvas.getContext('2d')
+            ctx.scale(dpr, dpr)
+
+            const PAD = { top: 12, right: 16, bottom: 28, left: 36 }
+            const gW = W - PAD.left - PAD.right
+            const gH = H - PAD.top - PAD.bottom
+            const n  = points.length
+
+            // 배경 그리드
+            ctx.strokeStyle = '#f1f3f5'
+            ctx.lineWidth = 1
+            ;[0, 25, 50, 75, 100].forEach(v => {
+                const y = PAD.top + gH - (v / 100) * gH
+                ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke()
+                ctx.fillStyle = '#aab0bc'
+                ctx.font = '10px Pretendard, sans-serif'
+                ctx.textAlign = 'right'
+                ctx.fillText(v + '%', PAD.left - 4, y + 3.5)
+            })
+
+            if (n === 1) {
+                // 점 하나만
+                const x = PAD.left + gW / 2
+                const y = PAD.top + gH - (points[0].rate / 100) * gH
+                ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2)
+                ctx.fillStyle = '#78a3ea'; ctx.fill()
+            } else {
+                // 그라디언트 채우기
+                const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + gH)
+                grad.addColorStop(0, 'rgba(120,163,234,0.25)')
+                grad.addColorStop(1, 'rgba(120,163,234,0)')
+                ctx.beginPath()
+                points.forEach((p, i) => {
+                    const x = PAD.left + (i / (n - 1)) * gW
+                    const y = PAD.top + gH - (p.rate / 100) * gH
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+                })
+                ctx.lineTo(PAD.left + gW, PAD.top + gH)
+                ctx.lineTo(PAD.left, PAD.top + gH)
+                ctx.closePath()
+                ctx.fillStyle = grad; ctx.fill()
+
+                // 선
+                ctx.beginPath()
+                ctx.strokeStyle = '#78a3ea'; ctx.lineWidth = 2; ctx.lineJoin = 'round'
+                points.forEach((p, i) => {
+                    const x = PAD.left + (i / (n - 1)) * gW
+                    const y = PAD.top + gH - (p.rate / 100) * gH
+                    i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
+                })
+                ctx.stroke()
+
+                // 점 & 경고 표시
+                points.forEach((p, i) => {
+                    const x = PAD.left + (i / (n - 1)) * gW
+                    const y = PAD.top + gH - (p.rate / 100) * gH
+                    ctx.beginPath(); ctx.arc(x, y, p.alert ? 5 : 3.5, 0, Math.PI * 2)
+                    ctx.fillStyle = p.alert ? '#ef4444' : '#78a3ea'; ctx.fill()
+                })
+            }
+
+            // X축 분 레이블
+            ctx.fillStyle = '#aab0bc'
+            ctx.font = '10px Pretendard, sans-serif'
+            ctx.textAlign = 'center'
+            points.forEach((p, i) => {
+                if (n <= 10 || i % Math.ceil(n / 8) === 0) {
+                    const x = PAD.left + (n === 1 ? gW / 2 : (i / (n - 1)) * gW)
+                    ctx.fillText(p.min + '분', x, H - 6)
+                }
+            })
         }
     </script>
 </body>
