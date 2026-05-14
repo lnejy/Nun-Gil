@@ -7,8 +7,14 @@ import { escapeHtml } from "./common.js";
 export function renderQuizHome(container, quizAssets = [], handlers = {}) {
   const { getQuizTitle, onCreateQuiz, onOpenSolvedQuiz, onOpenUnsolvedQuiz } = handlers;
 
-  const itemsHtml = quizAssets.length
-    ? quizAssets.map((asset) => renderQuizAssetItem(asset, getQuizTitle)).join("")
+  const sortedQuizAssets = [...quizAssets].sort(
+    (a, b) => new Date(a.created_at) - new Date(b.created_at)
+  );
+
+  const itemsHtml = sortedQuizAssets.length
+    ? sortedQuizAssets
+        .map((asset, index) => renderQuizAssetItem(asset, getQuizTitle, index))
+        .join("")
     : `<div class="ng-quiz-home-empty">아직 생성된 퀴즈가 없습니다.</div>`;
 
   container.innerHTML = `
@@ -44,7 +50,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
             </div>
 
             <div class="ng-quiz-form-group full">
-              <label>문제 유형</label>
+              <label>문제 유형 (복수 선택 가능)</label>
               <div class="ng-quiz-chip-row multi" data-quiz-field="types">
                 <button class="ng-quiz-chip active" type="button" data-value="MULTIPLE">객관식</button>
                 <button class="ng-quiz-chip" type="button" data-value="OX">O/X</button>
@@ -68,7 +74,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
     </section>
   `;
 
-  bindQuizHomeEvents(quizAssets, {
+  bindQuizHomeEvents(sortedQuizAssets, {
     onCreateQuiz,
     onOpenSolvedQuiz,
     onOpenUnsolvedQuiz,
@@ -76,7 +82,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
 }
 
 // 기존 퀴즈 목록 아이템 HTML을 만듦.
-function renderQuizAssetItem(asset, getQuizTitle) {
+function renderQuizAssetItem(asset, getQuizTitle, index) {
   const content = asset.content || {};
   const questions = content.questions || content || [];
   const questionCount = content.questionCount || questions.length || 0;
@@ -94,7 +100,7 @@ function renderQuizAssetItem(asset, getQuizTitle) {
     <button class="ng-quiz-asset-item" type="button" data-asset-id="${asset.id}">
       <div>
         <div class="ng-quiz-asset-title">
-          ${escapeHtml(content.title || `${getQuizTitle?.() || "문서"} 퀴즈`)}
+          ${escapeHtml(`${index + 1}. ${getQuizTitle?.() || "문서"} 퀴즈`)}
         </div>
         <div class="ng-quiz-asset-meta">
           ${questionCount}문제 · ${difficulty} · ${types}
