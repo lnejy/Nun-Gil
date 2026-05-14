@@ -98,6 +98,37 @@ export async function abortStudySession(id, metrics) {
 }
 
 /**
+ * 분당 집중율 스냅샷 저장
+ * @param {{ sessionId: string, userId: string, elapsedMin: number, focusSeconds: number, alertCount: number }} params
+ */
+export async function saveSessionSnapshot({ sessionId, userId, elapsedMin, focusSeconds, alertCount }) {
+  const { error } = await sb
+    .from('session_snapshots')
+    .insert({
+      session_id:    sessionId,
+      user_id:       userId,
+      elapsed_min:   elapsedMin,
+      focus_seconds: focusSeconds,
+      alert_count:   alertCount,
+    })
+  if (error) console.warn('스냅샷 저장 실패:', error.message)
+}
+
+/**
+ * 세션의 스냅샷 목록 조회
+ * @param {string} sessionId
+ */
+export async function getSessionSnapshots(sessionId) {
+  const { data, error } = await sb
+    .from('session_snapshots')
+    .select('elapsed_min, focus_seconds, alert_count')
+    .eq('session_id', sessionId)
+    .order('elapsed_min', { ascending: true })
+  if (error) throw error
+  return data ?? []
+}
+
+/**
  * 사용자의 완료된 세션 목록 조회
  * @param {string} userId
  * @param {number} limit
