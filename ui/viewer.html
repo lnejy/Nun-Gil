@@ -387,6 +387,10 @@
                         pdfUrl: window._pdfUrl,
                     })
                 } else if (window._pdfUrl) {
+                    // 최초 렌더링 후 북마크 복원
+                    window.addEventListener('pdf-rendered', function () {
+                        if (typeof window.loadBookmarks === 'function') window.loadBookmarks();
+                    }, { once: true });
                     renderPdf(window._pdfUrl);
                 } else if (window._pdfConversionPending) {
                     var c = document.getElementById('pdfContainer');
@@ -1097,7 +1101,7 @@
         import { deleteAsset } from '/src/lib/db/learningAssets.js'
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
         import { getSignedUrl, uploadDocument, getLayoutSignedUrl } from '/src/lib/storage.js'
-        import { createStudySession, updateStudySession, completeStudySession } from '/src/lib/db/studySessions.js'
+        import { createStudySession, updateStudySession, completeStudySession, saveSessionSnapshot } from '/src/lib/db/studySessions.js'
 
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
@@ -1526,6 +1530,8 @@
             alertCount: 0,
             alertTimes: [],
             autosaveTimer: null,
+            snapshotTimer: null,
+            snapshotElapsedMin: 0,
         }
         // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
         window._S = S
@@ -1576,6 +1582,7 @@
                 S.focusTotal = 0
                 S.alertCount = 0
                 S.alertTimes = []
+                S.snapshotElapsedMin = 0
 
                 window._sessionActive = true
                 window._currentSessionId = sess.id
@@ -1589,6 +1596,20 @@
 
                 // ① 30초 자동저장
                 S.autosaveTimer = setInterval(autosave, 30_000)
+
+                // ② 1분마다 분당 집중율 스냅샷 저장
+                S.snapshotTimer = setInterval(async () => {
+                    if (!S.sessionId) return
+                    S.snapshotElapsedMin++
+                    const currentFocus = S.focusTotal + (S.focusStart ? (Date.now() - S.focusStart) / 1000 : 0)
+                    await saveSessionSnapshot({
+                        sessionId:    S.sessionId,
+                        userId:       session.user.id,
+                        elapsedMin:   S.snapshotElapsedMin,
+                        focusSeconds: Math.round(currentFocus),
+                        alertCount:   S.alertCount,
+                    })
+                }, 60_000)
             } catch (e) {
                 alert('세션 시작 실패: ' + e.message)
             }
@@ -1598,6 +1619,7 @@
         async function endSession(status = 'COMPLETED') {
             if (!S.sessionId) return
             clearInterval(S.autosaveTimer)
+            clearInterval(S.snapshotTimer)
 
             // 세션 종료 → 아이트래킹 자동 비활성화 (_sessionActive가 아직 true인 상태에서 호출해야 집중시간 정산됨)
             if (typeof deactivateET === 'function' && etOn) {
