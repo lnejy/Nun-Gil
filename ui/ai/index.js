@@ -27,20 +27,19 @@ window.addEventListener("viewer-init", () => {
 });
 
 // 문서 in-place 전환 시 AI state 재초기화 + 원본 버튼으로 초기화
-window.addEventListener("doc-changed", () => {
+window.addEventListener("doc-changed", async () => {
   initAiState();
 
-  // AI 모드 CSS 클래스 정리 (PDF가 올바르게 표시되도록)
-  clearAiMode();
-  document.body.classList.remove("quiz-inline-mode", "quiz-fullscreen-mode");
-  const container = document.getElementById("pdfContainer");
-  if (container) container.classList.remove("summary-mode", "quiz-mode", "ai-loading-mode");
-
-  // 원본 버튼으로 활성화 초기화
   currentTool = "original";
-  document.querySelectorAll(".sb-tool-item").forEach(btn => btn.classList.remove("active"));
+
+  document.querySelectorAll(".sb-tool-item").forEach(btn =>
+    btn.classList.remove("active")
+  );
+
   const origBtn = document.querySelector('.sb-tool-item[data-ai-tool="original"]');
   if (origBtn) origBtn.classList.add("active");
+
+  await renderOriginalDocument();
 });
 
 function bindAiButtons() {
@@ -53,17 +52,7 @@ function bindAiButtons() {
       setActiveButton(btn);
 
       if (tool === "original") {
-        clearAiMode();
-
-        if (window._layoutJsonUrl && typeof window.renderLayoutViewer === "function") {
-          await window.renderLayoutViewer(window._layoutJsonUrl, {
-            containerId: "pdfContainer",
-            pdfUrl: window._pdfUrl,
-          });
-        } else if (window._pdfUrl && typeof window.renderPdf === "function") {
-          await window.renderPdf(window._pdfUrl);
-        }
-
+        await renderOriginalDocument();
         return;
       }
 
@@ -88,6 +77,44 @@ function bindAiButtons() {
       }
     });
   });
+}
+
+async function renderOriginalDocument() {
+  clearAiMode();
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode",
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode",
+    "ai-view-mode"
+  );
+
+  const container = document.getElementById("pdfContainer");
+
+  if (container) {
+    container.classList.remove(
+      "summary-mode",
+      "quiz-mode",
+      "mindmap-mode",
+      "ai-loading-mode"
+    );
+
+    container.innerHTML = `<div class="pdf-loading">문서 로딩 중...</div>`;
+    container.scrollTop = 0;
+  }
+
+  if (window._layoutJsonUrl && typeof window.renderLayoutViewer === "function") {
+    await window.renderLayoutViewer(window._layoutJsonUrl, {
+      containerId: "pdfContainer",
+      pdfUrl: window._pdfUrl,
+    });
+  } else if (window._pdfUrl && typeof window.renderPdf === "function") {
+    await window.renderPdf(window._pdfUrl);
+  } else if (container) {
+    container.innerHTML = `<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>`;
+  }
 }
 
 function setActiveButton(activeBtn) {
