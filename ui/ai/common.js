@@ -115,239 +115,190 @@ export function showAiError(message) {
 }
 
 export async function getChunks() {
-  const cache = getAiCache();
+  const cache = getAiCache()
   if (Array.isArray(cache.chunks) && cache.chunks.length > 0) {
-    return cache.chunks;
+    return cache.chunks
   }
 
-  if (!AI_STATE.pdfUrl) {
-    throw new Error("PDF URL이 없습니다.");
-  }
+  showAiLoading("문서 분석 결과 불러오는 중")
 
-  showAiLoading("문서 텍스트 추출 중");
-  const chunks = await extractPdfChunksFromUrl(AI_STATE.pdfUrl);
-  setAiCache({ chunks });
+  const chunks = await loadChunksFromLayoutJson()
 
-  return chunks;
+  setAiCache({ chunks })
+  return chunks
 }
 
-async function extractPdfChunksFromUrl(url) {
-  if (!window.pdfjsLib) {
-    throw new Error("pdf.js가 로드되지 않았습니다.");
+async function loadChunksFromLayoutJson() {
+  const { data: doc, error: docErr } = await sb
+    .from('documents')
+    .select('layout_json_path, file_name')
+    .eq('id', AI_STATE.docId)
+    .single()
+
+  if (docErr || !doc?.layout_json_path) {
+    throw new Error('문서 분석 JSON이 없습니다.')
   }
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-    "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  const { data: file, error: dlErr } = await sb.storage
+    .from('layout-json')
+    .download(doc.layout_json_path)
 
-  const pdf = await pdfjsLib.getDocument(url).promise;
-  AI_STATE.pageCount = pdf.numPages;
-  const pages = [];
-
-  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const content = await page.getTextContent();
-
-    const text = content.items
-      .map((item) => item.str)
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    pages.push({
-      page: pageNum,
-      text,
-    });
+  if (dlErr || !file) {
+    throw new Error('layout JSON 다운로드 실패')
   }
 
-  return createSemanticChunks({
-    documentId: AI_STATE.docId || "doc",
-    title: AI_STATE.docTitle,
-    pages,
-  });
+  const layoutText =
+    typeof file.text === 'function'
+      ? await file.text()
+      : await new Response(file).text()
+
+  const layout = JSON.parse(layoutText)
+
+  const chunks = Array.isArray(layout.chunks) && layout.chunks.length > 0
+    ? layout.chunks
+    : createChunksFromLayout(layout, {
+        documentId: AI_STATE.docId,
+        title: doc.file_name || AI_STATE.docTitle,
+      })
+
+  AI_STATE.pageCount = layout.pages?.length || chunks.length
+  return chunks
 }
 
-function createSemanticChunks({
-  documentId = "doc",
-  title = "문서",
-  pages,
-  maxChars = 1200,
-  minChars = 250,
-  overlapChars = 120,
-}) {
-  const blocks = [];
+function createChunksFromLayout(
+  layout,
+  {
+    documentId,
+    title,
+    maxChars = 1200,
+    minChars = 300,
+    overlapChars = 120,
+  }
+) {
+  const chunks = []
+  let current = null
+  let index = 1
+  let section = title
 
-  for (const page of pages) {
-    const pageBlocks = splitPageIntoBlocks(page.text);
-    for (const block of pageBlocks) {
+  const blocks = []
+
+  for (const page of layout.pages || []) {
+    for (const block of page.blocks || []) {
+      const text = (block.cleanText || block.text || '').trim()
+      if (!text) continue
+
       blocks.push({
         page: page.page,
-        text: block.text,
-        type: block.type,
-      });
+        text,
+        type: block.type || block.category || 'paragraph',
+        block_id: block.block_id || null,
+      })
     }
   }
 
-  const chunks = [];
-  let current = null;
-  let section = title;
-  let index = 1;
-
   for (const block of blocks) {
-    if (block.type === "heading") {
-      section = block.text;
-      continue;
+    const isHeading =
+      block.type === 'heading' ||
+      block.type === 'title'
+
+    if (isHeading) {
+      if (current && current.text.length >= minChars) {
+        chunks.push(finalizeLayoutChunk(current, index++))
+        current = null
+      }
+      section = block.text
+      continue
     }
 
     if (!current) {
-      current = makeEmptyChunk(documentId, title, section, block.page);
+      current = makeLayoutChunk(documentId, title, section, block.page)
     }
 
     const nextText = current.text
       ? `${current.text}\n\n${block.text}`
-      : block.text;
+      : block.text
 
     if (nextText.length > maxChars && current.text.length >= minChars) {
-      chunks.push(finalizeChunk(current, index++));
-      current = makeEmptyChunk(documentId, title, section, block.page);
+      chunks.push(finalizeLayoutChunk(current, index++))
 
-      const overlap = getOverlapText(chunks[chunks.length - 1].text, overlapChars);
-      current.text = overlap ? `${overlap}\n\n${block.text}` : block.text;
-      current.page_start = block.page;
-      current.page_end = block.page;
+      const overlap = getOverlapText(current.text, overlapChars)
+      current = makeLayoutChunk(documentId, title, section, block.page)
+      current.text = overlap ? `${overlap}\n\n${block.text}` : block.text
+      current.page_start = block.page
+      current.page_end = block.page
     } else {
-      current.text = nextText;
-      current.page_end = block.page;
+      current.text = nextText
+      current.page_end = block.page
     }
 
-    while (current.text.length > maxChars * 1.4) {
-      const [head, tail] = splitLongText(current.text, maxChars, overlapChars);
-      current.text = head;
-      chunks.push(finalizeChunk(current, index++));
-
-      current = makeEmptyChunk(documentId, title, section, block.page);
-      current.text = tail;
-      current.page_start = block.page;
-      current.page_end = block.page;
-    }
+    current.source_blocks.push(block.block_id)
   }
 
   if (current && current.text.trim()) {
-    chunks.push(finalizeChunk(current, index++));
+    chunks.push(finalizeLayoutChunk(current, index++))
   }
 
-  return chunks;
+  return chunks
 }
 
-function makeEmptyChunk(documentId, title, section, page) {
+function makeLayoutChunk(documentId, title, section, page) {
   return {
-    chunk_id: "",
+    chunk_id: '',
     document_id: documentId,
     title,
     section,
     page_start: page,
     page_end: page,
     page,
-    text: "",
-  };
+    text: '',
+    source_blocks: [],
+  }
 }
 
-function finalizeChunk(chunk, index) {
+function finalizeLayoutChunk(chunk, index) {
   return {
     ...chunk,
-    chunk_id: `c${String(index).padStart(4, "0")}`,
+    chunk_id: `c${String(index).padStart(4, '0')}`,
+    source_blocks: [...new Set(chunk.source_blocks.filter(Boolean))],
     text: chunk.text
-      .replace(/\s+\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
+      .replace(/\s+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
       .trim(),
-  };
-}
-
-function splitPageIntoBlocks(rawText) {
-  const text = String(rawText || "")
-    .replace(/\r/g, "\n")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-
-  if (!text) return [];
-
-  const roughBlocks = text
-    .split(/\n{2,}|(?<=다\.|요\.|음\.|함\.|됨\.|임\.|[.!?])\s+(?=[가-힣A-Z0-9])/g)
-    .map((t) => t.trim())
-    .filter(Boolean);
-
-  return roughBlocks.map((block) => ({
-    text: block,
-    type: isHeading(block) ? "heading" : "paragraph",
-  }));
-}
-
-function isHeading(text) {
-  const t = text.trim();
-
-  if (t.length > 80) return false;
-
-  return (
-    /^(\d+(\.\d+)*|[IVX]+|[가-힣]\.)\s+/.test(t) ||
-    /^(Chapter|Section|Part|Unit|제\s*\d+\s*장|제\s*\d+\s*절)/i.test(t) ||
-    /^[■□●○▶\-]\s?/.test(t) ||
-    (t.length <= 30 && !/[.?!。]$/.test(t))
-  );
-}
-
-function splitLongText(text, maxChars, overlapChars) {
-  const safePoint = findSafeSplitPoint(text, maxChars);
-  const head = text.slice(0, safePoint).trim();
-  const overlap = getOverlapText(head, overlapChars);
-  const tail = `${overlap}\n\n${text.slice(safePoint).trim()}`.trim();
-
-  return [head, tail];
-}
-
-function findSafeSplitPoint(text, maxChars) {
-  const slice = text.slice(0, maxChars);
-
-  const paragraphPoint = slice.lastIndexOf("\n\n");
-  if (paragraphPoint > maxChars * 0.55) return paragraphPoint;
-
-  const sentencePoints = [".", "다.", "요.", "!", "?"]
-    .map((mark) => slice.lastIndexOf(mark))
-    .filter((pos) => pos > maxChars * 0.55);
-
-  if (sentencePoints.length > 0) {
-    return Math.max(...sentencePoints) + 1;
   }
-
-  const spacePoint = slice.lastIndexOf(" ");
-  if (spacePoint > maxChars * 0.55) return spacePoint;
-
-  return maxChars;
 }
 
 function getOverlapText(text, overlapChars) {
-  if (!text || text.length <= overlapChars) return text || "";
-  return text.slice(-overlapChars).trim();
+  if (!text || text.length <= overlapChars) return text || ''
+  return text.slice(-overlapChars).trim()
 }
 
 export function buildContext(chunks, maxChars = 22000) {
-  let context = "";
+  let context = ""
 
   for (const chunk of chunks) {
-    const pageInfo = chunk.page_start === chunk.page_end
-      ? `page ${chunk.page_start}`
-      : `pages ${chunk.page_start}-${chunk.page_end}`;
+    // page 정보 호환: page_start/page_end 또는 page 하나만 있는 경우
+    const ps = chunk.page_start ?? chunk.page
+    const pe = chunk.page_end ?? chunk.page
+    const pageInfo =
+      ps == null ? "page ?" :
+      ps === pe  ? `page ${ps}` :
+                   `pages ${ps}-${pe}`
+
+    const section = chunk.section || chunk.type || "unknown"
+    // section이 없으면 type(table/paragraph/heading)이라도 보내주면
+    // Claude가 "이건 표구나" 정도는 인지함
 
     const block =
-      `[${chunk.chunk_id} | ${pageInfo} | section: ${chunk.section || "unknown"}]
+      `[${chunk.chunk_id} | ${pageInfo} | section: ${section}]
 ${chunk.text}
 
-`;
+`
 
-    if ((context + block).length > maxChars) break;
-    context += block;
+    if ((context + block).length > maxChars) break
+    context += block
   }
 
-  return context.trim();
+  return context.trim()
 }
 
 export async function askClaudeJson(prompt) {
@@ -457,8 +408,6 @@ function sanitizeForJson(value) {
       .replace(/\u0000/g, "")
   );
 }
-// ── 누락된 공통 함수 ───────────────────────────────────────────────────────────
-
 // 문서 페이지 수 기반으로 출력 항목 범위 결정
 export function decideOutputRange(pageCount = 10, _type = "summary") {
   if (pageCount <= 5) return { min: 3, max: 4 };
