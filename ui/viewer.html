@@ -582,15 +582,26 @@
             showWarning(); // warningWidget.js
         }
 
-        function dismissGazeWarning() {
+        function dismissGazeWarning(btnCenter) {
             if (!alertActive) return;
             var responseTime = (Date.now() - alertShownAt) / 1000;
             if (window._S) window._S.alertTimes.push(responseTime);
             alertActive = false;
             alertShownAt = null;
             awayStart = null;
+
+            // 확인 버튼 위치로 시선 기준점 리셋
+            // → 스무딩이 버튼 위치(사용자가 실제로 보던 곳)에서 재시작
+            if (btnCenter) {
+                G.prevX = btnCenter.x;
+                G.prevY = btnCenter.y;
+                G.lastValidX = btnCenter.x;
+                G.lastValidY = btnCenter.y;
+                G.warmup = 0;
+                G.stabBuf = [];
+            }
+
             if (window._S) window._S.focusStart = Date.now();
-            // UI 닫기는 closeWarning()이 콜백 호출 전에 처리하므로 생략
         }
 
         // warningWidget의 닫기 버튼(× / 확인) → dismissGazeWarning 연결
@@ -1053,7 +1064,11 @@
                 }
                 return;
             }
-            if (!G.calibDone || !seeso) return;
+            if (!G.calibDone || !seeso) {
+                // 캘리브레이션 미완료 → 먼저 캘리브레이션 진행 후 자동 활성화
+                showCalibOverlay();
+                return;
+            }
             etOn = true;
             document.getElementById('etDot').className = 'et-dot g';
             document.getElementById('etLbl').textContent = '아이트래킹 활성화';
@@ -1214,52 +1229,55 @@
             console.warn('프로필 로드 실패:', e.message)
         }
 
-        try {
-            const listEl = document.getElementById('sbDocList')
-            const labelEl = document.getElementById('sbWorkspaceLabel')
+        async function reloadDocList() {
+            try {
+                const listEl = document.getElementById('sbDocList')
+                const labelEl = document.getElementById('sbWorkspaceLabel')
 
-            // workspace 있으면 이름 조회 후 표시, 없으면 최근 문서
-            let docs = []
-            if (workspaceId) {
-                const workspaces = await getWorkspaces()
-                const ws = workspaces.find(w => w.id === workspaceId)
-                const wsName = ws?.title ?? '워크스페이스 문서'
-                window._wsName = wsName          // goViewer()에서 웰컴 화면에 사용
-                if (labelEl) labelEl.textContent = wsName
-                docs = await getDocuments(workspaceId)
-            } else {
-                if (labelEl) labelEl.textContent = '개인 문서'
-                docs = await getRecentDocuments(5)
-            }
+                let docs = []
+                if (workspaceId) {
+                    const workspaces = await getWorkspaces()
+                    const ws = workspaces.find(w => w.id === workspaceId)
+                    const wsName = ws?.title ?? '워크스페이스 문서'
+                    window._wsName = wsName
+                    if (labelEl) labelEl.textContent = wsName
+                    docs = await getDocuments(workspaceId)
+                } else {
+                    if (labelEl) labelEl.textContent = '개인 문서'
+                    docs = await getRecentDocuments(5)
+                }
 
-            if (!docs.length) {
-                listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
-            } else {
-                listEl.innerHTML = docs.map(d => `
-                    <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
-                        <span class="sb-item-text">${d.file_name}</span>
-                        <span class="sb-item-delete" data-delete-type="doc" data-delete-id="${d.id}" data-delete-name="${d.file_name}">×</span>
-                    </button>
-                `).join('')
+                if (!docs.length) {
+                    listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
+                } else {
+                    listEl.innerHTML = docs.map(d => `
+                        <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                            <span class="sb-item-text">${d.file_name}</span>
+                            <span class="sb-item-delete" data-delete-type="doc" data-delete-id="${d.id}" data-delete-name="${d.file_name}">×</span>
+                        </button>
+                    `).join('')
 
-                listEl.querySelectorAll('.sb-item').forEach(el => {
-                    el.addEventListener('click', (e) => {
-                        if (e.target.closest('.sb-item-delete')) return
-                        const id = el.dataset.docId
-                        if (id && id !== docId) loadDocInViewer(id)
+                    listEl.querySelectorAll('.sb-item').forEach(el => {
+                        el.addEventListener('click', (e) => {
+                            if (e.target.closest('.sb-item-delete')) return
+                            const id = el.dataset.docId
+                            if (id && id !== docId) loadDocInViewer(id)
+                        })
                     })
-                })
 
-                listEl.querySelectorAll('.sb-item-delete').forEach(btn => {
-                    btn.addEventListener('click', (e) => {
-                        e.stopPropagation()
-                        showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
+                    listEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation()
+                            showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
+                        })
                     })
-                })
+                }
+            } catch (e) {
+                console.warn('문서 목록 로드 실패:', e.message)
             }
-        } catch (e) {
-            console.warn('문서 목록 로드 실패:', e.message)
         }
+
+        await reloadDocList()
 
         // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
         window.loadKnowledgeAssets = loadKnowledgeAssets
@@ -1714,8 +1732,8 @@
                 }
                 // 사이드바 갱신
                 loadKnowledgeAssets(docId || null)
-                // 문서 목록 갱신 (문서 삭제 시)
-                if (type === 'doc') location.reload()
+                // 문서 목록 갱신 (페이지 리로드 없이)
+                if (type === 'doc') await reloadDocList()
             } catch (e) {
                 alert('삭제 실패: ' + e.message)
             }

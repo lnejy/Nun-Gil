@@ -198,6 +198,14 @@ function showWarning() {
 
 function closeWarning() {
   const warningOverlay = document.getElementById("warningOverlay");
+  const checkBtn = document.getElementById("warningCheckBtn");
+
+  // 버튼 위치를 숨기기 전에 캡처
+  var btnCenter = null;
+  if (checkBtn) {
+    var rect = checkBtn.getBoundingClientRect();
+    btnCenter = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+  }
 
   if (warningOverlay) {
     warningOverlay.style.display = "none";
@@ -205,5 +213,5 @@ function closeWarning() {
 
   clearInterval(warningTimer);
 
-  if (typeof onCloseWarning === "function") onCloseWarning();
+  if (typeof onCloseWarning === "function") onCloseWarning(btnCenter);
 }
