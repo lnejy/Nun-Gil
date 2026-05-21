@@ -198,7 +198,6 @@
             font-size: 14px;
             font-family: inherit;
             width: fit-content;
-            margin-top: 4px;
         }
 
         .btn-save:hover {
@@ -218,6 +217,102 @@
             color: var(--success);
             font-weight: 500;
             margin-top: 10px;
+        }
+
+        .btn-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .btn-logout {
+            background: rgba(120, 163, 234, 0.07);
+            color: #8fa8d0;
+            padding: 13px 22px;
+            border-radius: 13px;
+            font-weight: 600;
+            border: 1.5px solid rgba(120, 163, 234, 0.18);
+            cursor: pointer;
+            transition: var(--tr);
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .btn-logout:hover {
+            background: rgba(120, 163, 234, 0.13);
+            color: #6b90c4;
+            border-color: rgba(120, 163, 234, 0.35);
+        }
+
+        /* 확인 모달 */
+        .logout-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.35);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logout-modal-overlay.open {
+            display: flex;
+        }
+
+        .logout-modal {
+            background: #fff;
+            border-radius: 20px;
+            padding: 32px 36px;
+            width: 320px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+            text-align: center;
+        }
+
+        .logout-modal p {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin: 0 0 24px;
+            letter-spacing: -0.3px;
+        }
+
+        .logout-modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .logout-modal-btns button {
+            flex: 1;
+            padding: 12px 0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--tr);
+            border: none;
+        }
+
+        .modal-btn-yes {
+            background: #e05c5c;
+            color: #fff;
+        }
+
+        .modal-btn-yes:hover {
+            background: #c94848;
+        }
+
+        .modal-btn-no {
+            background: #f4f5f7;
+            color: var(--text-dark);
+        }
+
+        .modal-btn-no:hover {
+            background: #e8eaee;
         }
 
         ::-webkit-scrollbar {
@@ -304,13 +399,27 @@
                 </div>
             </div>
 
-            <button id="main-action-btn" class="btn-save">프로필 수정하기</button>
+            <div class="btn-row">
+                <button id="main-action-btn" class="btn-save">프로필 수정하기</button>
+                <button class="btn-logout" id="logoutBtn">로그아웃</button>
+            </div>
             <p class="save-msg" id="saveMsg">✓ 저장되었습니다.</p>
         </div>
     </div>
 
+    <!-- 로그아웃 확인 모달 -->
+    <div class="logout-modal-overlay" id="logoutModal">
+        <div class="logout-modal">
+            <p>로그아웃 하시겠습니까?</p>
+            <div class="logout-modal-btns">
+                <button class="modal-btn-yes" id="logoutConfirmBtn">예</button>
+                <button class="modal-btn-no" id="logoutCancelBtn">아니오</button>
+            </div>
+        </div>
+    </div>
+
     <script type="module">
-    import { requireAuth } from '/src/lib/auth.js'
+    import { requireAuth, signOut } from '/src/lib/auth.js'
     import { sb } from '/src/lib/supabase.js'
 
     const session = await requireAuth()
@@ -437,6 +546,20 @@
         } catch (e) {
             alert('저장 실패: ' + e.message)
         }
+    })
+
+    const logoutModal = document.getElementById('logoutModal')
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        logoutModal.classList.add('open')
+    })
+    document.getElementById('logoutCancelBtn').addEventListener('click', () => {
+        logoutModal.classList.remove('open')
+    })
+    document.getElementById('logoutConfirmBtn').addEventListener('click', async () => {
+        await signOut()
+    })
+    logoutModal.addEventListener('click', (e) => {
+        if (e.target === logoutModal) logoutModal.classList.remove('open')
     })
 </script>
 </body>
