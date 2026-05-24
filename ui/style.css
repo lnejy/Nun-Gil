@@ -283,10 +283,16 @@ p {
 }
 
 .sb-item-text {
+    flex: 1;
+    min-width: 0;
+
     font-size: 12.5px;
-    font-weight: 350;
+    font-weight: 450;
     line-height: 1.35;
     letter-spacing: -0.2px;
+
+    color: #4b525D;
+
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1478,6 +1484,14 @@ body.bookmark-mode {
     right: 24px;
     bottom: 24px;
     transform: none;
+
+    justify-content: center;
+    align-items: center;
+    gap: 0;
+}
+
+.et.min .et-dot {
+    margin: 0;
 }
 
 #page-viewer:has(.note-sb.open) .et.min {
@@ -2144,6 +2158,7 @@ body.bookmark-mode {
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    justify-self: center;
     gap: 5px;
 }
 
@@ -2268,7 +2283,6 @@ body.bookmark-mode {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(239, 68, 68, 0.12);
     color: #ef4444;
     font-size: 13px;
     line-height: 1;
@@ -2281,35 +2295,9 @@ body.bookmark-mode {
 }
 
 .sb-item-delete:hover {
-    background: rgba(239, 68, 68, 0.22);
+    background: rgba(239, 68, 68, 0.12);
 }
 
-/* 뒤로가기 버튼 */
-#page-viewer .workspace-back-btn {
-    flex: 0 0 auto;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-
-    background: transparent;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 9px 16px;
-
-    font-family: inherit;
-    font-size: 13px;
-    font-weight: 500;
-    color: #6b7280;
-
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-#page-viewer .workspace-back-btn:hover {
-    background: #ffffff;
-    color: #111827;
-}
 
 /* Viewer 사이드바 내부 여백 */
 #page-viewer .sidebar {
@@ -2544,4 +2532,422 @@ body.ws-only-mode .session-btn {
     width: 100% !important;
     max-width: none !important;
     min-width: 0 !important;
+}
+
+
+/* 캘리브레이션 안내 */
+.calib-privacy-text {
+    font-size: 11px;
+    color: var(--sub);
+    margin-top: 14px;
+}
+
+/* 사이드바 상단 */
+.sb-brand-link {
+    cursor: pointer;
+}
+
+.sb-add-doc-btn {
+    border-radius: 11px;
+    height: 34px;
+    font-size: 12px;
+    box-shadow: none;
+}
+
+.sb-workspace-list-btn {
+    margin-top: 12px;
+    width: 100%;
+    height: 34px;
+    border: 1px solid #e8edf5;
+    background: #f8faff;
+    color: #52627c;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 550;
+    letter-spacing: -0.2px;
+    cursor: pointer;
+    transition: 0.18s ease;
+    font-family: inherit;
+}
+
+/* 업로드 모달 */
+.sb-upload-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.35);
+    backdrop-filter: blur(6px);
+    z-index: 3000;
+    align-items: center;
+    justify-content: center;
+}
+
+.sb-upload-modal {
+    background: #fff;
+    border-radius: 24px;
+    padding: 36px;
+    width: 420px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.sb-upload-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sb-upload-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #1e293b;
+}
+
+.sb-upload-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #94a3b8;
+}
+
+.sb-upload-ws-name {
+    font-size: 13px;
+    color: #78a3ea;
+    font-weight: 600;
+}
+
+.sb-dropzone {
+    border: 2px dashed #dbe4f0;
+    border-radius: 16px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: .2s;
+    display: block;
+}
+
+.sb-dropzone-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+}
+
+.sb-dropzone-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #4b525d;
+}
+
+.sb-dropzone-desc {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+}
+
+.sb-file-input {
+    display: none;
+}
+
+.sb-upload-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.sb-upload-cancel {
+    background: #f1f5f9;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.sb-upload-submit {
+    background: #78a3ea;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* 사이드바 빈 상태 문구 */
+.sb-empty-text {
+    padding: 8px 10px;
+    font-size: 12px;
+    color: #b0b8c4;
+}
+
+/* 삭제 확인 모달 */
+.sb-delete-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    z-index: 4000;
+    align-items: center;
+    justify-content: center;
+}
+
+.sb-delete-modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px 28px 24px;
+    width: 360px;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.18);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sb-delete-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1e293b;
+}
+
+.sb-delete-message {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.6;
+}
+
+.sb-delete-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 4px;
+}
+
+.sb-delete-cancel {
+    padding: 8px 18px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+}
+
+.sb-delete-confirm {
+    padding: 8px 18px;
+    border: none;
+    border-radius: 10px;
+    background: #ef4444;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+}
+
+/* 툴바 */
+#sessionEndBtn {
+    display: none;
+}
+
+.toolbar-font-island {
+    margin-left: 8px;
+}
+
+/* 메모장 */
+.note-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.note-save-btn {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 12px;
+    border: none;
+    border-radius: 8px;
+    background: #78a3ea;
+    color: #fff;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.note-save-msg {
+    display: none;
+    font-size: 11px;
+    color: #78a3ea;
+    font-weight: 500;
+    position: absolute;
+    bottom: 10px;
+    right: 14px;
+}
+
+/* ET 패널 */
+.et-recalib-btn {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+/* 페이지 로딩 */
+.page-load-overlay {
+    position: fixed;
+    inset: 0;
+    background:
+        radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+        radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+        #f8faff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.page-load-icon {
+    font-size: 30px;
+}
+
+.page-load-text {
+    font-size: 14px;
+    color: #94a3b8;
+    font-family: sans-serif;
+}
+
+/* 지식 자산 리스트 */
+.sb-asset-item {
+    gap: 8px;
+    align-items: center;
+}
+
+.sb-asset-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    color: #78a3ea;
+}
+
+.sb-asset-text {
+    font-size: 12px;
+}
+
+/* 캘리브레이션 재사용 화면 */
+.calib-reuse-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+#calibOverlay {
+    background:
+        radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+        radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+        #f8faff;
+}
+
+#calibOverlay .calib-card {
+    background: #ffffff;
+}
+
+.calib-reuse-icon {
+    position: relative;
+    width: 76px;
+    height: 76px;
+    margin: 0 auto 18px;
+    border-radius: 50%;
+    background: #eff6ff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #78a3ea;
+    font-size: 28px;
+}
+
+.calib-reuse-icon span {
+    position: relative;
+    z-index: 2;
+}
+
+.calib-reuse-spinner {
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 3px solid rgba(120, 163, 234, 0.18);
+    border-top-color: #78a3ea;
+    animation: calibReuseSpin .8s linear infinite;
+}
+
+.calib-reuse-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    padding: 0 12px;
+    margin-bottom: 14px;
+    border-radius: 999px;
+    background: #eef4ff;
+    color: #5b84d6;
+    font-size: 11px;
+    font-weight: 650;
+    letter-spacing: 0.04em;
+}
+
+.calib-reuse-progress {
+    width: 220px;
+    height: 6px;
+    margin: 4px auto 14px;
+    border-radius: 999px;
+    background: #eef2f7;
+    overflow: hidden;
+}
+
+.calib-reuse-progress-bar {
+    width: 42%;
+    height: 100%;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #8bb5f6 0%, #73a2f0 100%);
+    animation: calibReuseBar 1.1s ease-in-out infinite;
+}
+
+.calib-reuse-note {
+    font-size: 11.5px;
+    color: #94a3b8;
+    line-height: 1.6;
+}
+
+.workspace-welcome-icon {
+    font-size: 48px;
+}
+
+.calib-ring-svg {
+    position: absolute;
+    inset: -6px;
+    width: 42px;
+    height: 42px;
+    pointer-events: none;
+}
+
+@keyframes calibReuseSpin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes calibReuseBar {
+    0% {
+        transform: translateX(-110%);
+    }
+
+    55% {
+        transform: translateX(75%);
+    }
+
+    100% {
+        transform: translateX(240%);
+    }
 }
