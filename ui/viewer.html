@@ -50,7 +50,9 @@
                                 확인 중...</span></div>
                     </div>
                     <button class="btn-dark" id="btnStartCalib" disabled>캘리브레이션 시작</button>
-                    <p style="font-size:11px;color:var(--sub);margin-top:14px;">카메라 데이터는 브라우저 내에서만 처리됩니다.</p>
+                    <p class="calib-privacy-text">
+                        카메라 데이터는 브라우저 내에서만 처리됩니다.
+                    </p>
                 </div>
             </div>
 
@@ -82,44 +84,45 @@
         <!-- 사이드바 -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="sb-brand" onclick="location.href='mainpage.html'" style="cursor:pointer;">&#128064; <span
+                <div class="sb-brand sb-brand-link" onclick="location.href='mainpage.html'">&#128064; <span
                         class="sb-name">눈길</span></div>
                 <button class="sb-toggle-btn" id="sidebarToggle">&#10216;</button>
             </div>
             <div class="sb-add-section">
-                <button class="sb-add-btn" id="sbAddDocBtn" style="border-radius:11px;height:34px;font-size:12px;box-shadow:none;"><span>새 문서 추가</span></button>
-                <button onclick="location.href='workspace.html'" style="margin-top:12px;width:100%;height:34px;border:1px solid #e8edf5;background:#f8faff;color:#52627c;border-radius:11px;font-size:12px;font-weight:550;letter-spacing:-0.2px;cursor:pointer;transition:0.18s ease;font-family:inherit;">
+                <button class="sb-add-btn sb-add-doc-btn" id="sbAddDocBtn">
+                    <span>새 문서 추가</span>
+                </button>
+                <button class="sb-workspace-list-btn" onclick="location.href='workspace.html'">
                     워크스페이스 목록
                 </button>
             </div>
 
             <!-- 새 문서 업로드 모달 -->
-            <div id="sbUploadOverlay"
-                style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.35);backdrop-filter:blur(6px);z-index:3000;align-items:center;justify-content:center;">
-                <div
-                    style="background:#fff;border-radius:24px;padding:36px;width:420px;box-shadow:0 20px 60px rgba(0,0,0,0.15);display:flex;flex-direction:column;gap:16px;">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <div style="font-size:16px;font-weight:800;color:#1e293b;">새 문서 추가</div>
-                        <button id="sbUploadClose"
-                            style="background:none;border:none;font-size:20px;cursor:pointer;color:#94a3b8;">×</button>
+            <div id="sbUploadOverlay" class="sb-upload-overlay">
+                <div class="sb-upload-modal">
+                    <div class="sb-upload-header">
+                        <div class="sb-upload-title">새 문서 추가</div>
+                        <button id="sbUploadClose" class="sb-upload-close">×</button>
                     </div>
-                    <div id="sbUploadWsName" style="font-size:13px;color:#78a3ea;font-weight:600;"></div>
-                    <label id="sbDropzone"
-                        style="border:2px dashed #dbe4f0;border-radius:16px;padding:32px;text-align:center;cursor:pointer;transition:.2s;display:block;">
-                        <div style="font-size:28px;margin-bottom:8px;">📄</div>
-                        <div id="sbDropLabel" style="font-size:14px;font-weight:600;color:#4b525d;">파일을 선택하거나 드래그하세요
+
+                    <div id="sbUploadWsName" class="sb-upload-ws-name"></div>
+
+                    <label id="sbDropzone" class="sb-dropzone">
+                        <div class="sb-dropzone-icon">📄</div>
+                        <div id="sbDropLabel" class="sb-dropzone-label">
+                            파일을 선택하거나 드래그하세요
                         </div>
-                        <div style="font-size:12px;color:#94a3b8;margin-top:4px;">PDF, PPT, PPTX</div>
-                        <input type="file" id="sbFileInput" accept=".pdf,.ppt,.pptx" style="display:none;">
+                        <div class="sb-dropzone-desc">PDF, PPT, PPTX</div>
+                        <input type="file" id="sbFileInput" accept=".pdf,.ppt,.pptx" class="sb-file-input">
                     </label>
-                    <div style="display:flex;gap:10px;justify-content:flex-end;">
-                        <button id="sbUploadCancel"
-                            style="background:#f1f5f9;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;">취소</button>
-                        <button id="sbUploadSubmit"
-                            style="background:#78a3ea;color:white;border:none;border-radius:12px;padding:10px 20px;font-size:13px;font-weight:600;cursor:pointer;">추가하기</button>
+
+                    <div class="sb-upload-actions">
+                        <button id="sbUploadCancel" class="sb-upload-cancel">취소</button>
+                        <button id="sbUploadSubmit" class="sb-upload-submit">추가하기</button>
                     </div>
                 </div>
             </div>
+
             <div class="sb-tool-section">
                 <div class="sb-tool-grid">
                     <button class="sb-tool-item" data-ai-tool="original">
@@ -173,11 +176,11 @@
                     <span id="sbWorkspaceLabel">문서</span>
                 </button>
                 <div class="sb-list" id="sbDocList">
-                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">불러오는 중...</div>
+                    <div class="sb-empty-text">불러오는 중...</div>
                 </div>
                 <div class="sb-label sb-asset-divider">✦ 지식 자산</div>
                 <div class="sb-list" id="sbAssetList">
-                    <div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 생성된 자산이 표시됩니다.</div>
+                    <div class="sb-empty-text">문서를 선택하면 생성된 자산이 표시됩니다.</div>
                 </div>
             </div>
 
@@ -205,17 +208,18 @@
         </aside><!-- /.sidebar -->
 
         <!-- 삭제 확인 모달 -->
-        <div id="sbDeleteOverlay"
-            style="display:none;position:fixed;inset:0;background:rgba(15,23,42,0.45);backdrop-filter:blur(4px);z-index:4000;align-items:center;justify-content:center;">
-            <div
-                style="background:#fff;border-radius:20px;padding:28px 28px 24px;width:360px;box-shadow:0 16px 48px rgba(0,0,0,0.18);display:flex;flex-direction:column;gap:14px;">
-                <div style="font-size:15px;font-weight:700;color:#1e293b;">삭제 확인</div>
-                <div id="sbDeleteMsg" style="font-size:13px;color:#475569;line-height:1.6;"></div>
-                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
-                    <button id="sbDeleteCancelBtn"
-                        style="padding:8px 18px;border:1px solid #e2e8f0;border-radius:10px;background:#f8fafc;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;">취소</button>
-                    <button id="sbDeleteConfirmBtn"
-                        style="padding:8px 18px;border:none;border-radius:10px;background:#ef4444;font-size:13px;font-weight:600;color:#fff;cursor:pointer;">삭제</button>
+        <div id="sbDeleteOverlay" class="sb-delete-overlay">
+            <div class="sb-delete-modal">
+                <div class="sb-delete-title">삭제 확인</div>
+                <div id="sbDeleteMsg" class="sb-delete-message"></div>
+
+                <div class="sb-delete-actions">
+                    <button id="sbDeleteCancelBtn" class="sb-delete-cancel">
+                        취소
+                    </button>
+                    <button id="sbDeleteConfirmBtn" class="sb-delete-confirm">
+                        삭제
+                    </button>
                 </div>
             </div>
         </div>
@@ -223,9 +227,6 @@
         <!-- 메인 콘텐츠 -->
         <main class="main-wrapper">
             <div class="toolbar-wrapper">
-                <button id="workspaceBackBtn" class="workspace-back-btn" type="button">
-                    ← 뒤로
-                </button>
 
                 <header class="floating-toolbar">
                     <div class="group-left">
@@ -233,11 +234,11 @@
                             <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21" /></svg>
                             <span>세션 시작</span>
                         </button>
-                        <button class="session-btn end" id="sessionEndBtn" style="display:none;">
+                        <button class="session-btn end" id="sessionEndBtn">
                             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
                             <span>세션 종료</span>
                         </button>
-                        <div class="font-island" style="margin-left:8px;">
+                        <div class="font-island toolbar-font-island">
                             <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
                             <span id="zoomLevel">100%</span>
                             <button class="zoom-btn" onclick="zoomIn()">&#43;</button>
@@ -296,15 +297,14 @@
         <!-- 메모장: main-wrapper 밖에서 position:fixed로 뷰포트에 고정 -->
         <aside class="note-sb" id="noteSb">
             <div class="note-box">
-                <div class="note-h" style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="note-h note-header-row">
                     <span>메모장</span>
-                    <button id="noteSaveBtn" onclick="saveNote()"
-                        style="font-size:12px;font-weight:600;padding:4px 12px;border:none;border-radius:8px;background:#78a3ea;color:#fff;cursor:pointer;font-family:inherit;">저장</button>
+                    <button id="noteSaveBtn" class="note-save-btn" onclick="saveNote()">저장</button>
                 </div>
                 <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
-                <div id="noteSaveMsg"
-                    style="display:none;font-size:11px;color:#78a3ea;font-weight:500;position:absolute;bottom:10px;right:14px;">
-                    ✓ 저장됐어요</div>
+                <div id="noteSaveMsg" class="note-save-msg">
+                    ✓ 저장됐어요
+                </div>
             </div>
         </aside>
 
@@ -315,8 +315,9 @@
                 <span class="et-lbl" id="etLbl">아이트래킹 비활성화</span>
                 <div class="et-acts">
                     <button class="et-tog off" id="etTog" onclick="etToggle(event)">활성화</button>
-                    <button class="et-tog" id="etRecalib" onclick="recalibrate(event)"
-                        style="background:#f1f5f9;color:#64748b;">재보정</button>
+                    <button class="et-tog et-recalib-btn" id="etRecalib" onclick="recalibrate(event)">
+                        재보정
+                    </button>
                     <button class="et-cx" onclick="etCollapse(event)">&#10005;</button>
                 </div>
             </div>
@@ -325,16 +326,9 @@
     </div><!-- /#page-viewer -->
 
     <!-- 페이지 초기 로딩 오버레이 (모듈 스크립트 완료 전 노출) -->
-    <div id="pageLoadOverlay" style="
-        position:fixed;inset:0;
-        background:
-    radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
-    radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
-    #f8faff;
-        display:flex;align-items:center;justify-content:center;
-        z-index:9999;flex-direction:column;gap:14px;">
-        <div style="font-size:30px;">👀</div>
-        <div style="font-size:14px;color:#94a3b8;font-family:sans-serif;">뷰어 로딩 중...</div>
+    <div id="pageLoadOverlay" class="page-load-overlay">
+        <div class="page-load-icon">👀</div>
+        <div class="page-load-text">뷰어 로딩 중...</div>
     </div>
 
     <!-- 경고 위젯 -->
@@ -403,7 +397,7 @@
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = `
                         <div class="workspace-welcome">
-                            <div style="font-size:48px">📁</div>
+                            <div class="workspace-welcome-icon">📁</div>
                             <h1>${wsName} 워크스페이스입니다.</h1>
                             <p>왼쪽에서 문서를 선택해 주세요.</p>
                         </div>
@@ -820,7 +814,7 @@
             var d = document.createElement('div');
             d.className = 'calib-dot visible sampling'; d.id = 'cdot-active';
             d.style.left = x + 'px'; d.style.top = y + 'px';
-            d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42" style="width:42px;height:42px;">'
+            d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42">'
                 + '<circle cx="21" cy="21" r="17" fill="none" stroke="rgba(59,130,246,.15)" stroke-width="2"/>'
                 + '<circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="#3b82f6" '
                 + 'stroke-width="2.5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" '
@@ -884,117 +878,23 @@
             if (card) {
                 if (!_origCalibCardHTML) _origCalibCardHTML = card.innerHTML;
                 card.innerHTML = `
-    <div class="calib-reuse-card">
-        <div class="calib-reuse-icon">👀</div>
+                    <div class="calib-reuse-card">
+                        <div class="calib-reuse-icon">👀</div>
 
-        <div class="calib-reuse-badge">CALIBRATION</div>
+                        <div class="calib-reuse-badge">CALIBRATION</div>
 
-        <h2 class="calib-card-title">이전 캘리브레이션 적용 중...</h2>
+                        <h2 class="calib-card-title">이전 캘리브레이션 적용 중...</h2>
 
-        <p class="calib-card-desc">
-            저장된 시선 보정 데이터를 불러오고 있어요.<br>
-        </p>
+                        <p class="calib-card-desc">
+                            저장된 시선 보정 데이터를 불러오고 있어요.<br>
+                        </p>
 
-        <div class="calib-reuse-progress">
-            <div class="calib-reuse-progress-bar"></div>
-        </div>
-    </div>
-
-    <style>
-        .calib-reuse-card {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-        }
-
-        #calibOverlay {
-            background: radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
-            radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
-            #f8faff;
-        }
-
-        #calibOverlay .calib-card {
-            background: #ffffff;
-        }
-
-        .calib-reuse-icon {
-            position: relative;
-            width: 76px;
-            height: 76px;
-            margin: 0 auto 18px;
-            border-radius: 50%;
-            background: #eff6ff;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #78a3ea;
-            font-size: 28px;
-        }
-
-        .calib-reuse-icon span {
-            position: relative;
-            z-index: 2;
-        }
-
-        .calib-reuse-spinner {
-            position: absolute;
-            inset: -4px;
-            border-radius: 50%;
-            border: 3px solid rgba(120, 163, 234, 0.18);
-            border-top-color: #78a3ea;
-            animation: calibReuseSpin .8s linear infinite;
-        }
-
-        .calib-reuse-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            height: 26px;
-            padding: 0 12px;
-            margin-bottom: 14px;
-            border-radius: 999px;
-            background: #eef4ff;
-            color: #5b84d6;
-            font-size: 11px;
-            font-weight: 650;
-            letter-spacing: 0.04em;
-        }
-
-        .calib-reuse-progress {
-            width: 220px;
-            height: 6px;
-            margin: 4px auto 14px;
-            border-radius: 999px;
-            background: #eef2f7;
-            overflow: hidden;
-        }
-
-        .calib-reuse-progress-bar {
-            width: 42%;
-            height: 100%;
-            border-radius: 999px;
-            background: linear-gradient(90deg, #8bb5f6 0%, #73a2f0 100%);
-            animation: calibReuseBar 1.1s ease-in-out infinite;
-        }
-
-        .calib-reuse-note {
-            font-size: 11.5px;
-            color: #94a3b8;
-            line-height: 1.6;
-        }
-
-        @keyframes calibReuseSpin {
-            to { transform: rotate(360deg); }
-        }
-
-        @keyframes calibReuseBar {
-            0% { transform: translateX(-110%); }
-            55% { transform: translateX(75%); }
-            100% { transform: translateX(240%); }
-        }
-    </style>
-`;
+                        <div class="calib-reuse-progress">
+                            <div class="calib-reuse-progress-bar"></div>
+                        </div>
+                    </div>
+                `;
+    
             }
             document.getElementById('calibSetup').classList.add('active');
 
@@ -1150,14 +1050,6 @@
             })
         }
 
-        const workspaceBackBtn = document.getElementById('workspaceBackBtn')
-
-        if (workspaceBackBtn) {
-            workspaceBackBtn.addEventListener('click', () => {
-                location.href = 'workspace.html'
-            })
-        }
-
         // 워크스페이스만 있고 문서 없으면 웰컴 모드
         if (!docId && workspaceId) {
             window._wsOnlyMode = true
@@ -1251,7 +1143,7 @@
                 }
 
                 if (!docs.length) {
-                    listEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서 없음</div>'
+                    listEl.innerHTML = '<div class="sb-empty-text">문서 없음</div>'
                 } else {
                     listEl.innerHTML = docs.map(d => `
                         <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
@@ -1327,19 +1219,19 @@
                     const wsDocs = await getDocuments(workspaceId)
                     const docIds = wsDocs.map(d => d.id)
                     if (!docIds.length) {
-                        assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                        assetEl.innerHTML = '<div class="sb-empty-text">생성된 자산 없음</div>'
                         return
                     }
                     query = query.in('document_id', docIds)
                 } else {
-                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">문서를 선택하면 표시됩니다.</div>'
+                    assetEl.innerHTML = '<div class="sb-empty-text">문서를 선택하면 표시됩니다.</div>'
                     return
                 }
 
                 const { data: assets } = await query
 
                 if (!assets || !assets.length) {
-                    assetEl.innerHTML = '<div style="padding:8px 10px;font-size:12px;color:#b0b8c4;">생성된 자산 없음</div>'
+                    assetEl.innerHTML = '<div class="sb-empty-text">생성된 자산 없음</div>'
                     return
                 }
 
@@ -1350,9 +1242,9 @@
                     const label = `${fname} ${typeLabel[a.type] ?? a.type}`
 
                     return `
-                    <button class="sb-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}" style="gap:8px;align-items:center;">
-                        <span style="flex-shrink:0;display:flex;align-items:center;color:#78a3ea">${typeIcon[a.type]}</span>
-                        <span class="sb-item-text" style="font-size:12px;">${fname} ${typeLabel[a.type] ?? a.type}</span>
+                    <button class="sb-item sb-asset-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}">
+                        <span class="sb-asset-icon">${typeIcon[a.type]}</span>
+                        <span class="sb-item-text sb-asset-text">${fname} ${typeLabel[a.type] ?? a.type}</span>
                         <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
                     </button>`
                 }).join('')
