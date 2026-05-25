@@ -27,7 +27,7 @@ window.addEventListener("viewer-init", () => {
 });
 
 // 문서 in-place 전환 시 AI state 재초기화 + 원본 버튼으로 초기화
-window.addEventListener("doc-changed", async () => {
+window.addEventListener("doc-changed", async (e) => {
   initAiState();
 
   currentTool = "original";
@@ -38,6 +38,29 @@ window.addEventListener("doc-changed", async () => {
 
   const origBtn = document.querySelector('.sb-tool-item[data-ai-tool="original"]');
   if (origBtn) origBtn.classList.add("active");
+
+  // loadDocInViewer에서 이미 PDF를 렌더한 경우 중복 렌더 방지
+  if (e.detail?.skipRender) {
+    clearAiMode();
+    document.body.classList.remove(
+      "quiz-inline-mode",
+      "quiz-fullscreen-mode",
+      "summary-mode",
+      "mindmap-mode",
+      "quiz-mode",
+      "ai-view-mode"
+    );
+    const container = document.getElementById("pdfContainer");
+    if (container) {
+      container.classList.remove(
+        "summary-mode",
+        "quiz-mode",
+        "mindmap-mode",
+        "ai-loading-mode"
+      );
+    }
+    return;
+  }
 
   await renderOriginalDocument();
 });
