@@ -8,6 +8,11 @@ import {
   clearAiMode,
   initAiState,
   showAiError,
+  showAiStatusScreen,
+  enqueueAiTask,
+  getAiCache,
+  loadAssetFromDb,
+  getAiAssetJob,
 } from "./common.js";
 
 import { loadSummary } from "./summary.js";
@@ -65,6 +70,91 @@ window.addEventListener("doc-changed", async (e) => {
   await renderOriginalDocument();
 });
 
+async function hasExistingSummary() {
+  const cache = getAiCache();
+
+  if (cache.summary) {
+    return true;
+  }
+
+  const saved = await loadAssetFromDb("SUMMARY");
+  return !!saved;
+}
+
+async function hasExistingMindmap() {
+  const cache = getAiCache();
+
+  if (cache.mindmap) {
+    return true;
+  }
+
+  const saved = await loadAssetFromDb("MINDMAP");
+  return !!saved;
+}
+
+function getCurrentDocId() {
+  return window._currentDocId || new URLSearchParams(location.search).get("doc_id") || "demo";
+}
+
+function renderAiJobStatusIfNeeded(type, label) {
+  const job = getAiAssetJob(type, getCurrentDocId());
+
+  if (!job) return false;
+
+  if (job.status === "PENDING" || job.status === "RUNNING" || job.status === "ERROR") {
+    showAiStatusScreen({
+      toolLabel: label,
+      status: job.status,
+    });
+
+    return true;
+  }
+
+  return false;
+}
+
+window.addEventListener("ai-asset-status-changed", async () => {
+  if (currentTool === "summary") {
+    const job = getAiAssetJob("SUMMARY", getCurrentDocId());
+
+    if (!job) return;
+
+    if (job.status === "PENDING" || job.status === "RUNNING" || job.status === "ERROR") {
+      showAiStatusScreen({
+        toolLabel: "요약",
+        status: job.status,
+      });
+      return;
+    }
+
+    if (job.status === "DONE") {
+      await loadSummary({
+        shouldRender: () => currentTool === "summary",
+      });
+    }
+  }
+
+  if (currentTool === "mindmap") {
+    const job = getAiAssetJob("MINDMAP", getCurrentDocId());
+
+    if (!job) return;
+
+    if (job.status === "PENDING" || job.status === "RUNNING" || job.status === "ERROR") {
+      showAiStatusScreen({
+        toolLabel: "마인드맵",
+        status: job.status,
+      });
+      return;
+    }
+
+    if (job.status === "DONE") {
+      await loadMindmap({
+        shouldRender: () => currentTool === "mindmap",
+      });
+    }
+  }
+});
+
 function bindAiButtons() {
   document.querySelectorAll(".sb-tool-item[data-ai-tool]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -79,24 +169,131 @@ function bindAiButtons() {
         return;
       }
 
-      try {
-        // 클릭 시점의 도구를 캡처 (클로저로)
-        const requestedTool = tool;
+      // 클릭 시점의 도구를 캡처
+      const requestedTool = tool;
 
-        if (tool === "summary") await loadSummary({
-          shouldRender: () => currentTool === requestedTool,
-        });
-        if (tool === "mindmap") await loadMindmap({
-          shouldRender: () => currentTool === requestedTool,
-        });
-        if (tool === "quiz") await loadQuiz({
-          shouldRender: () => currentTool === requestedTool,
-        });
-      } catch (err) {
-        // 사용자가 이미 다른 데로 갔으면 에러도 안 띄움
-        if (currentTool !== tool) return;
-        console.error(err);
-        showAiError(err.message);
+      // 요약은 API 생성 가능성이 있으므로 queue에 넣음
+      if (tool === "summary") {
+        try {
+          // 1. 이미 생성 중/대기 중이면 본문 상태 화면 즉시 표시
+          if (renderAiJobStatusIfNeeded("SUMMARY", "요약")) {
+            return;
+          }
+
+          // 2. queue 상태가 없을 때만 기존 생성물 확인
+          if (await hasExistingSummary()) {
+            await loadSummary({
+              shouldRender: () => currentTool === requestedTool,
+            });
+            return;
+          }
+
+          // 3. 없을 때만 새 작업을 queue에 추가
+          const added = enqueueAiTask(
+            "summary",
+            async () => {
+              try {
+                await loadSummary({
+                  shouldRender: () => currentTool === requestedTool,
+                });
+              } catch (err) {
+                if (currentTool === requestedTool) {
+                  console.error(err);
+                  showAiError(err.message);
+                }
+                throw err;
+              }
+            },
+            {
+              type: "SUMMARY",
+              title: window._docTitle || document.title || "문서",
+              docId: getCurrentDocId(),
+            }
+          );
+
+          if (added && currentTool === requestedTool) {
+            showAiStatusScreen({
+              toolLabel: "요약",
+              status: "PENDING",
+            });
+          }
+        } catch (err) {
+          if (currentTool !== requestedTool) return;
+          console.error(err);
+          showAiError(err.message);
+        }
+
+        return;
+      }
+
+      // 마인드맵도 API 생성 가능성이 있으므로 queue에 넣음
+      if (tool === "mindmap") {
+        try {
+          // 1. 이미 생성 중/대기 중이면 본문 상태 화면 즉시 표시
+          if (renderAiJobStatusIfNeeded("MINDMAP", "마인드맵")) {
+            return;
+          }
+
+          // 2. queue 상태가 없을 때만 기존 생성물 확인
+          if (await hasExistingMindmap()) {
+            await loadMindmap({
+              shouldRender: () => currentTool === requestedTool,
+            });
+            return;
+          }
+
+          // 3. 없을 때만 새 작업을 queue에 추가
+          const added = enqueueAiTask(
+            "mindmap",
+            async () => {
+              try {
+                await loadMindmap({
+                  shouldRender: () => currentTool === requestedTool,
+                });
+              } catch (err) {
+                if (currentTool === requestedTool) {
+                  console.error(err);
+                  showAiError(err.message);
+                }
+                throw err;
+              }
+            },
+            {
+              type: "MINDMAP",
+              title: window._docTitle || document.title || "문서",
+              docId: getCurrentDocId(),
+            }
+          );
+
+          if (added && currentTool === requestedTool) {
+            showAiStatusScreen({
+              toolLabel: "마인드맵",
+              status: "PENDING",
+            });
+          }
+        } catch (err) {
+          if (currentTool !== requestedTool) return;
+          console.error(err);
+          showAiError(err.message);
+        }
+
+        return;
+      }
+
+      // quiz 버튼은 "퀴즈 목록 화면"을 여는 기능
+      // 실제 퀴즈 생성 API는 quiz.js의 "퀴즈 생성하기" 버튼에서 queue 처리
+      if (tool === "quiz") {
+        try {
+          await loadQuiz({
+            shouldRender: () => currentTool === requestedTool,
+          });
+        } catch (err) {
+          if (currentTool !== requestedTool) return;
+          console.error(err);
+          showAiError(err.message);
+        }
+
+        return;
       }
     });
   });
