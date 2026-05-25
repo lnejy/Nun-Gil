@@ -105,6 +105,70 @@ export function showAiLoading(label) {
   `;
 }
 
+export function showAiWaiting(label) {
+  const canvas = getCanvas();
+
+  canvas.classList.remove(
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode"
+  );
+  canvas.classList.add("ai-mode", "ai-loading-mode");
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode"
+  );
+
+  canvas.innerHTML = `
+    <div class="ai-loading">
+      <div class="ai-spinner"></div>
+      <strong>${escapeHtml(label)}</strong>
+      <span>앞선 지식 자산 생성이 끝나면 자동으로 시작됩니다.</span>
+    </div>
+  `;
+}
+
+export function showAiStatusScreen({ toolLabel, status }) {
+  const canvas = getCanvas();
+
+  canvas.classList.remove(
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode"
+  );
+
+  canvas.classList.add("ai-mode", "ai-loading-mode");
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode"
+  );
+
+  const titleMap = {
+    PENDING: `${toolLabel} 생성 대기 중`,
+    RUNNING: `${toolLabel} 생성 중...`,
+    ERROR: `${toolLabel} 생성에 실패했습니다`,
+  };
+
+  const descMap = {
+    PENDING: "앞선 지식 자산 생성이 끝나면 자동으로 시작됩니다.",
+    RUNNING: "문서 근거를 바탕으로 지식 자산을 생성하고 있습니다.",
+    ERROR: "다시 시도해 주세요.",
+  };
+
+  const title = titleMap[status] || `${toolLabel} 상태 확인 중`;
+  const desc = descMap[status] || "";
+
+  canvas.innerHTML = `
+    <div class="ai-loading">
+      ${status === "ERROR" ? "" : `<div class="ai-spinner"></div>`}
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(desc)}</span>
+    </div>
+  `;
+}
+
 export function showAiError(message) {
   const canvas = getCanvas();
   setAiMode();
@@ -114,18 +178,21 @@ export function showAiError(message) {
   `;
 }
 
-export async function getChunks() {
-  const cache = getAiCache()
+export async function getChunks({ shouldRender = () => true } = {}) {
+  const cache = getAiCache();
+
   if (Array.isArray(cache.chunks) && cache.chunks.length > 0) {
-    return cache.chunks
+    return cache.chunks;
   }
 
-  showAiLoading("문서 분석 결과 불러오는 중")
+  if (shouldRender()) {
+    showAiLoading("문서 분석 결과 불러오는 중");
+  }
 
-  const chunks = await loadChunksFromLayoutJson()
+  const chunks = await loadChunksFromLayoutJson();
 
-  setAiCache({ chunks })
-  return chunks
+  setAiCache({ chunks });
+  return chunks;
 }
 
 async function loadChunksFromLayoutJson() {
@@ -375,22 +442,70 @@ export async function loadAssetFromDb(type) {
 // 생성된 지식 자산을 learning_assets DB에 저장
 export async function saveAssetToDb(type, content) {
   const docId = AI_STATE.docId || window._currentDocId;
-  if (!docId || docId === 'demo') return;
+  if (!docId || docId === "demo") return;
+
+  const now = new Date().toISOString();
 
   const { error } = await sb
-    .from('learning_assets')
+    .from("learning_assets")
     .upsert(
-      { document_id: docId, type, status: 'DONE', content },
-      { onConflict: 'document_id,type' }
+      {
+        document_id: docId,
+        type,
+        status: "DONE",
+        content,
+        error_message: null,
+        finished_at: now,
+        updated_at: now,
+      },
+      { onConflict: "document_id,type" }
     );
 
   if (error) {
-    console.error('지식 자산 저장 실패:', error.message, { docId, type });
+    console.error("지식 자산 저장 실패:", error.message, { docId, type });
     return;
   }
 
-  if (typeof window.loadKnowledgeAssets === 'function') {
+  if (typeof window.loadKnowledgeAssets === "function") {
     window.loadKnowledgeAssets(docId);
+  }
+}
+
+async function saveAiJobStatusToDb(job, status, errorMessage = null) {
+  const docId = job.document_id || AI_STATE.docId || window._currentDocId;
+
+  if (!docId || docId === "demo") return;
+
+  const now = new Date().toISOString();
+
+  const payload = {
+    document_id: docId,
+    type: job.type,
+    status,
+    error_message: errorMessage,
+    updated_at: now,
+  };
+
+  if (status === "PENDING") {
+    payload.requested_at = now;
+  }
+
+  if (status === "RUNNING") {
+    payload.started_at = now;
+  }
+
+  if (status === "DONE" || status === "ERROR") {
+    payload.finished_at = now;
+  }
+
+  const { error } = await sb
+    .from("learning_assets")
+    .upsert(payload, {
+      onConflict: "document_id,type",
+    });
+
+  if (error) {
+    console.warn("지식 자산 상태 저장 실패:", error.message);
   }
 }
 
@@ -402,6 +517,7 @@ export function escapeHtml(value) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 function sanitizeForJson(value) {
   return encodeURIComponent(
     String(value ?? "")
@@ -424,17 +540,24 @@ function selectSpreadChunks(chunks, k) {
 }
 
 // 핵심 개념 추출 (캐시 → Claude)
-export async function getConcepts({ topK = 8, candidateK = 12 } = {}) {
+export async function getConcepts({
+  topK = 8,
+  candidateK = 12,
+  shouldRender = () => true,
+} = {}) {
   const cache = getAiCache();
+
   if (Array.isArray(cache.concepts) && cache.concepts.length > 0) {
     return cache.concepts.slice(0, topK);
   }
 
-  const chunks = await getChunks();
+  const chunks = await getChunks({ shouldRender });
   const selected = selectSpreadChunks(chunks, Math.min(candidateK, chunks.length));
   const context = buildContext(selected);
 
-  showAiLoading("핵심 개념 추출 중");
+  if (shouldRender()) {
+    showAiLoading("핵심 개념 추출 중");
+  }
 
   const prompt = createConceptExtractPrompt({
     title: AI_STATE.docTitle,
@@ -450,8 +573,12 @@ export async function getConcepts({ topK = 8, candidateK = 12 } = {}) {
 }
 
 // 중요 chunk 반환 (문서 전체에서 균등 선택)
-export async function getImportantChunks({ topK = 6, candidateK = 16 } = {}) {
-  const chunks = await getChunks();
+export async function getImportantChunks({
+  topK = 6,
+  candidateK = 16,
+  shouldRender = () => true,
+} = {}) {
+  const chunks = await getChunks({ shouldRender });
   return selectSpreadChunks(chunks, Math.min(topK, candidateK, chunks.length));
 }
 
@@ -483,4 +610,152 @@ export function setCanvasMode(mode) {
   }
 
   return container;
+}
+
+// AI 생성 작업 대기열 + 사이드바 상태 관리
+const aiQueue = [];
+const aiJobMap = new Map();
+
+let isAiQueueRunning = false;
+let currentAiTask = null;
+
+// 현재 문서 id
+function getCurrentAiDocId() {
+  return AI_STATE.docId || window._currentDocId || "demo";
+}
+
+// 현재 문서 제목
+function getCurrentAiDocTitle() {
+  return AI_STATE.docTitle || window._docTitle || document.title || "문서";
+}
+
+// 사이드바에 보여줄 작업 id 생성
+function createAiJobId(taskKey, meta = {}) {
+  const docId = meta.docId || getCurrentAiDocId();
+  const type = meta.type || taskKey.toUpperCase();
+
+  // 요약/마인드맵은 문서당 하나
+  // 퀴즈도 생성 중에는 하나만 허용하기 위해 같은 key 사용
+  return `${docId}:${type}`;
+}
+
+// 현재 실행 중이거나 대기 중인지 확인
+function isAiTaskPending(taskKey) {
+  const alreadyRunning = currentAiTask === taskKey;
+  const alreadyQueued = aiQueue.some((task) => task.taskKey === taskKey);
+
+  return alreadyRunning || alreadyQueued;
+}
+
+// 사이드바 상태 변경 이벤트 발생
+function notifyAiJobChanged() {
+  const jobs = Array.from(aiJobMap.values());
+
+  window.dispatchEvent(
+    new CustomEvent("ai-asset-status-changed", {
+      detail: { jobs },
+    })
+  );
+}
+
+// 사이드바에 표시할 지식 자산 생성 상태 목록 반환
+export function getAiAssetJobs() {
+  return Array.from(aiJobMap.values());
+}
+
+export function getAiAssetJob(type, docId = getCurrentAiDocId()) {
+  const jobId = `${docId}:${type}`;
+  return aiJobMap.get(jobId) || null;
+}
+
+// AI 생성 작업을 클릭한 순서대로 대기열에 추가
+export function enqueueAiTask(taskKey, taskFn, meta = {}) {
+  if (isAiTaskPending(taskKey)) {
+    console.log(`${taskKey} 작업은 이미 실행 중이거나 대기 중입니다.`);
+    return false;
+  }
+
+  const jobId = createAiJobId(taskKey, meta);
+  const now = new Date().toISOString();
+
+  const job = {
+    id: jobId,
+    taskKey,
+    type: meta.type || taskKey.toUpperCase(),
+    status: "PENDING", // PENDING | RUNNING | DONE | ERROR
+    document_id: meta.docId || getCurrentAiDocId(),
+    title: meta.title || getCurrentAiDocTitle(),
+    created_at: null,
+    requested_at: now,
+    updated_at: now,
+  };
+
+  aiJobMap.set(jobId, job);
+
+  if (job.type === "SUMMARY" || job.type === "MINDMAP") {
+    saveAiJobStatusToDb(job, "PENDING");
+  }
+
+  aiQueue.push({
+    taskKey,
+    taskFn,
+    jobId,
+  });
+
+  notifyAiJobChanged();
+  runNextAiTask();
+
+  return true;
+}
+
+// 작업 상태 변경
+function updateAiJobStatus(jobId, status, errorMessage = null) {
+  const job = aiJobMap.get(jobId);
+  if (!job) return;
+
+  const now = new Date().toISOString();
+
+  const nextJob = {
+    ...job,
+    status,
+    updated_at: now,
+    created_at: status === "DONE" ? now : job.created_at,
+    error_message: errorMessage,
+  };
+
+  aiJobMap.set(jobId, nextJob);
+
+  if (
+    (nextJob.type === "SUMMARY" || nextJob.type === "MINDMAP") &&
+    status !== "DONE"
+  ) {
+    saveAiJobStatusToDb(nextJob, status, errorMessage);
+  }
+
+  notifyAiJobChanged();
+}
+
+// 대기열의 작업을 하나씩 실행
+async function runNextAiTask() {
+  if (isAiQueueRunning) return;
+  if (aiQueue.length === 0) return;
+
+  const task = aiQueue.shift();
+
+  isAiQueueRunning = true;
+  currentAiTask = task.taskKey;
+
+  updateAiJobStatus(task.jobId, "RUNNING");
+
+  try {
+    await task.taskFn();
+    updateAiJobStatus(task.jobId, "DONE");
+  } catch (error) {
+    updateAiJobStatus(task.jobId, "ERROR", error.message || "생성 실패");
+    console.error(`${task.taskKey} 생성 실패:`, error);
+  }finally {
+    isAiQueueRunning = false;
+    currentAiTask = null;
+    runNextAiTask();
+  }
 }

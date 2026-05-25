@@ -1187,6 +1187,47 @@
 
         // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
         window.loadKnowledgeAssets = loadKnowledgeAssets
+
+        let aiSidebarJobs = [];
+
+        window.addEventListener("ai-asset-status-changed", (e) => {
+            aiSidebarJobs = e.detail?.jobs || [];
+
+            if (typeof loadKnowledgeAssets === "function") {
+                loadKnowledgeAssets(docId || null);
+            }
+        });
+
+        function formatRelativeTime(value) {
+            if (!value) return "";
+
+            const time = new Date(value).getTime();
+            if (Number.isNaN(time)) return "";
+
+            const diff = Date.now() - time;
+            const minute = 60 * 1000;
+            const hour = 60 * minute;
+            const day = 24 * hour;
+            const week = 7 * day;
+            const month = 30 * day;
+
+            if (diff < minute) return "방금 전";
+            if (diff < hour) return `${Math.floor(diff / minute)}분 전`;
+            if (diff < day) return `${Math.floor(diff / hour)}시간 전`;
+            if (diff < week) return `${Math.floor(diff / day)}일 전`;
+            if (diff < month) return `${Math.floor(diff / week)}주 전`;
+
+            return `${Math.floor(diff / month)}달 전`;
+        }
+
+        function getAssetStatusText(asset) {
+            if (asset.status === "PENDING") return "대기 중";
+            if (asset.status === "RUNNING") return "생성 중...";
+            if (asset.status === "ERROR") return "실패";
+
+            return formatRelativeTime(asset.finished_at || asset.created_at);
+        }
+
         async function loadKnowledgeAssets(targetDocId) {
             const assetEl = document.getElementById('sbAssetList')
             if (!assetEl) return
@@ -1220,8 +1261,8 @@
             try {
                 let query = sb
                     .from('learning_assets')
-                    .select('id, type, status, document_id, documents(file_name)')
-                    .eq('status', 'DONE')
+                    .select('id, type, status, document_id, created_at, requested_at, started_at, finished_at, updated_at, error_message, documents(file_name)')
+                    .order('updated_at', { ascending: false })
 
                 if (targetDocId) {
                     query = query.eq('document_id', targetDocId)
@@ -1241,23 +1282,81 @@
 
                 const { data: assets } = await query
 
-                if (!assets || !assets.length) {
-                    assetEl.innerHTML = '<div class="sb-empty-text">생성된 자산 없음</div>'
-                    return
+                const dbAssets = assets || [];
+
+                const localJobs = aiSidebarJobs
+                    .filter(job => {
+                        if (!targetDocId) return true;
+                        return job.document_id === targetDocId;
+                    })
+                    .map(job => ({
+                        id: job.id,
+                        type: job.type,
+                        status: job.status,
+                        document_id: job.document_id,
+                        created_at: job.created_at,
+                        documents: {
+                            file_name: job.title,
+                        },
+                        isLocalJob: true,
+                    }));
+
+                // 진행 중인 local job만 DB보다 우선 표시
+                const activeLocalJobs = localJobs.filter(job => {
+                    return (
+                        job.status === "PENDING" ||
+                        job.status === "RUNNING" ||
+                        job.status === "ERROR"
+                    );
+                });
+
+                const activeLocalJobKeys = new Set(
+                    activeLocalJobs.map(job => `${job.document_id}:${job.type}`)
+                );
+
+                // DB 자산 중 진행 중 local job과 겹치는 것만 숨김
+                // DONE local job은 DB 자산을 가리면 안 됨
+                const visibleDbAssets = dbAssets.filter(asset => {
+                    const key = `${asset.document_id}:${asset.type}`;
+                    return !activeLocalJobKeys.has(key);
+                });
+
+                const mergedAssets = [
+                    ...activeLocalJobs,
+                    ...visibleDbAssets,
+                ];
+
+                if (!mergedAssets.length) {
+                    assetEl.innerHTML = '<div class="sb-empty-text">생성된 자산 없음</div>';
+                    return;
                 }
 
                 const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
 
-                assetEl.innerHTML = assets.map(a => {
+                assetEl.innerHTML = mergedAssets.map(a => {
                     const fname = cleanDocTitle(a.documents?.file_name ?? '')
                     const label = `${fname} ${typeLabel[a.type] ?? a.type}`
 
+                    const statusText = getAssetStatusText(a);
+                    const isTemp = a.status === "PENDING" || a.status === "RUNNING" || a.status === "ERROR";
+
                     return `
-                    <button class="sb-item sb-asset-item" data-tool="${toolName[a.type]}" data-doc-id="${a.document_id}" data-asset-id="${a.id}">
+                    <button
+                        class="sb-item sb-asset-item ${isTemp ? "is-temp" : ""}"
+                        data-tool="${toolName[a.type]}"
+                        data-doc-id="${a.document_id}"
+                        data-asset-id="${a.id}"
+                        data-asset-status="${a.status}"
+                    >
                         <span class="sb-asset-icon">${typeIcon[a.type]}</span>
                         <span class="sb-item-text sb-asset-text">${fname} ${typeLabel[a.type] ?? a.type}</span>
-                        <span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>
-                    </button>`
+                        <span class="sb-asset-status ${a.status?.toLowerCase()}">${statusText}</span>
+                        ${
+                            a.isLocalJob
+                                ? ""
+                                : `<span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>`
+                        }
+                    </button>`;
                 }).join('')
 
                 assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
