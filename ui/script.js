@@ -92,23 +92,23 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 /* ══════════════════════════════════════════════════════════
-   메모장
+   메모장  (Supabase document_notes 연동 + localStorage 캐시)
 ══════════════════════════════════════════════════════════ */
+let _noteDebounceTimer = null;
+
 function togNote() {
-    const s       = document.getElementById('noteSb');
-    const btn     = document.getElementById('noteBtn');
-    const et      = document.getElementById('etP');
+    const s   = document.getElementById('noteSb');
+    const btn = document.getElementById('noteBtn');
+    const et  = document.getElementById('etP');
 
     s.classList.toggle('open');
     const isOpen = s.classList.contains('open');
     if (btn) btn.classList.toggle('active', isOpen);
 
     if (isOpen) {
-        // ET 버튼 좌측 이동
         if (et && et.classList.contains('min')) et.style.right = '370px';
         setTimeout(() => { document.querySelector('.note-ta')?.focus({ preventScroll: true }); }, 300);
     } else {
-        // 닫힐 때 ET 버튼 원위치
         if (et && et.classList.contains('min')) et.style.right = '24px';
     }
 }
@@ -118,12 +118,39 @@ function initMemoStorage() {
     if (!ta) return;
     _loadMemoContent(ta);
     ta.addEventListener('input', () => {
+        // 즉시 localStorage 캐시 → 타이핑 끊김 없음
         localStorage.setItem(`nungil_note_${getDocId()}`, ta.value);
+        // 1초 debounce 후 DB 저장
+        clearTimeout(_noteDebounceTimer);
+        _noteDebounceTimer = setTimeout(() => { _saveNoteToDB(getDocId(), ta.value); }, 1000);
     });
 }
 
-function _loadMemoContent(ta) {
-    ta.value = localStorage.getItem(`nungil_note_${getDocId()}`) || '';
+async function _loadMemoContent(ta) {
+    const docId = getDocId();
+    const userId = window._userId;
+    // localStorage로 먼저 표시 (빠른 렌더)
+    ta.value = localStorage.getItem(`nungil_note_${docId}`) || '';
+    // DB에서 실제 값 덮어씌우기
+    if (userId && docId && docId !== 'default' && window._getNote) {
+        try {
+            const content = await window._getNote(userId, docId);
+            ta.value = content;
+            localStorage.setItem(`nungil_note_${docId}`, content);
+        } catch (e) {
+            console.warn('[메모] DB 로드 실패, localStorage 사용:', e.message);
+        }
+    }
+}
+
+async function _saveNoteToDB(docId, content) {
+    const userId = window._userId;
+    if (!userId || !docId || docId === 'default' || !window._upsertNote) return;
+    try {
+        await window._upsertNote(userId, docId, content);
+    } catch (e) {
+        console.warn('[메모] DB 저장 실패:', e.message);
+    }
 }
 
 window.reloadMemoForDoc = function () {
@@ -132,12 +159,13 @@ window.reloadMemoForDoc = function () {
 };
 
 // 메모 저장 버튼 핸들러
-function saveNote() {
+async function saveNote() {
     const ta  = document.querySelector('.note-ta');
     const msg = document.getElementById('noteSaveMsg');
     if (!ta || !msg) return;
-    const key = `nungil_note_${getDocId()}`;
-    localStorage.setItem(key, ta.value);
+    const docId = getDocId();
+    localStorage.setItem(`nungil_note_${docId}`, ta.value);
+    await _saveNoteToDB(docId, ta.value);
     msg.style.display = 'block';
     setTimeout(() => { msg.style.display = 'none'; }, 2000);
 }
