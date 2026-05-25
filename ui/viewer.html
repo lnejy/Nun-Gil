@@ -1362,8 +1362,8 @@
                 // 지식 자산 갱신
                 loadKnowledgeAssets(id)
 
-                // AI 모듈 상태 재초기화
-                window.dispatchEvent(new CustomEvent('doc-changed'))
+                // AI 모듈 상태 재초기화 (skipRender: loadDocInViewer가 이미 PDF를 렌더했으므로 중복 렌더 방지)
+                window.dispatchEvent(new CustomEvent('doc-changed', { detail: { skipRender: true } }))
 
                 // 워크스페이스 세션 유지 — 현재 문서만 갱신
                 if (S.sessionId) {
