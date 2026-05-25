@@ -438,7 +438,8 @@
             blinkFrames: 0, lastValidX: 0, lastValidY: 0,
             gazeCount: 0, gazeValid: 0,
             gazedWords: new Set(), totalWords: 0,
-            warmup: 0
+            warmup: 0,
+            _tracking: false
         };
 
         /* ── 경고창 상태 ── */
@@ -750,6 +751,7 @@
 
             var trackOk = await seeso.startTracking(onGaze, onDebug);
             if (!trackOk) { alert('카메라 시작 실패'); return; }
+            G._tracking = true;
 
             await new Promise(function (r) { setTimeout(r, 800); });
             gazeDot.classList.add('visible');
@@ -784,6 +786,7 @@
                     }
 
                     seeso.stopTracking();
+                    G._tracking = false;
                     gazeDot.classList.remove('visible');
                     trailCanvas.classList.remove('active');
                     if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
@@ -853,6 +856,7 @@
             if (etOn) {
                 etOn = false;
                 try { seeso.stopTracking(); } catch (ex) { }
+                G._tracking = false;
                 gazeDot.classList.remove('visible');
                 trailCanvas.classList.remove('active');
                 if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
@@ -924,6 +928,7 @@
 
                         var trackOk = await seeso.startTracking(onGaze, onDebug);
                         if (trackOk) {
+                            G._tracking = true;
                             G.calibDone = true;
                             hideCalibOverlay();
                             activateET();
@@ -977,8 +982,12 @@
             document.getElementById('etLbl').textContent = '아이트래킹 활성화';
             document.getElementById('etTog').textContent = '비활성화';
             document.getElementById('etTog').className = 'et-tog on';
-            var trackOk = await seeso.startTracking(onGaze, onDebug);
-            if (!trackOk) { alert('카메라 시작 실패'); etOn = false; return; }
+            // 캘리브레이션/캐시 적용 과정에서 이미 startTracking된 경우 건너뜀
+            if (!G._tracking) {
+                var trackOk = await seeso.startTracking(onGaze, onDebug);
+                if (!trackOk) { alert('카메라 시작 실패'); etOn = false; return; }
+                G._tracking = true;
+            }
             gazeDot.classList.add('visible');
             trailCanvas.classList.add('active');
             wrapWordsInViewer();
@@ -995,6 +1004,7 @@
             document.getElementById('etTog').textContent = '활성화';
             document.getElementById('etTog').className = 'et-tog off';
             try { seeso.stopTracking(); } catch (ex) { }
+            G._tracking = false;
             gazeDot.classList.remove('visible');
             trailCanvas.classList.remove('active');
             if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
