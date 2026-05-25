@@ -2822,6 +2822,7 @@ body.ws-only-mode .session-btn {
 .sb-asset-item {
     gap: 8px;
     align-items: center;
+    display: flex;
 }
 
 .sb-asset-icon {
@@ -2833,7 +2834,34 @@ body.ws-only-mode .session-btn {
 
 .sb-asset-text {
     font-size: 12px;
+    min-width: 0;
+    flex: 1;
 }
+
+.sb-asset-status {
+  flex-shrink: 0;
+  margin-left: 6px;
+  margin-right: 20px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.sb-asset-status.pending,
+.sb-asset-status.running {
+  color: #5b84d6;
+}
+
+.sb-asset-status.error {
+  color: #dc2626;
+}
+
+.sb-asset-item.is-temp {
+  opacity: 0.9;
+  cursor: pointer;
+}
+
 
 /* 캘리브레이션 재사용 화면 */
 .calib-reuse-card {
