@@ -1020,6 +1020,7 @@
         import { getWorkspaces } from '/src/lib/db/workspaces.js'
         import { getSignedUrl, uploadDocument, getLayoutSignedUrl } from '/src/lib/storage.js'
         import { createStudySession, updateStudySession, completeStudySession, saveSessionSnapshot } from '/src/lib/db/studySessions.js'
+        import { getNote, upsertNote } from '/src/lib/db/notes.js'
 
         const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
 
@@ -1451,6 +1452,9 @@
         window._sessionActive = false
         // script.js에서 사용할 수 있도록 전역 노출
         window.sb = sb
+        window._userId = session.user.id
+        window._getNote = getNote
+        window._upsertNote = upsertNote
         window._currentDocId = docId
         window._workspaceId = workspaceId
 
