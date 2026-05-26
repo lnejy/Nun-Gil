@@ -535,15 +535,30 @@
 
             if (etOn && !isBlink && G.blinkFrames === 0) {
                 if (window.detectGazedBlock) {
-                    window.detectGazedBlock(G.gx, G.gy)
-                    // 문단 재방문 추적
+                    // 시선 좌표의 블록을 감지 (없으면 null)
+                    var prevLastBlock = window._lastGazedBlock;
+                    window.detectGazedBlock(G.gx, G.gy);
+                    var curBlk = window._lastGazedBlock;
+
+                    // detectGazedBlock이 블록을 못 찾으면 _lastGazedBlock이 변경되지 않음
+                    // → elementFromPoint 결과가 gaze-block이 아니면 블록 밖
+                    var hitEl = document.elementFromPoint(G.gx, G.gy);
+                    var onBlock = hitEl && hitEl.classList && hitEl.classList.contains('gaze-block');
+
+                    // 문단 재응시 추적
                     if (window._sessionActive && window._S) {
-                        var blk = window._lastGazedBlock;
-                        if (blk && blk.blockId && blk.blockId !== window._S.currentBlock) {
-                            window._S.currentBlock = blk.blockId;
-                            var prev = window._S.blockVisits.get(blk.blockId) || 0;
-                            window._S.blockVisits.set(blk.blockId, prev + 1);
-                            if (prev >= 1) window._S.rereadCount++;
+                        if (onBlock && curBlk && curBlk.blockId) {
+                            // 블록 위에 시선이 있음
+                            if (curBlk.blockId !== window._S.currentBlock) {
+                                // 새 블록 진입 (이전과 다른 블록)
+                                var prev = window._S.blockVisits.get(curBlk.blockId) || 0;
+                                window._S.blockVisits.set(curBlk.blockId, prev + 1);
+                                if (prev >= 1) window._S.rereadCount++;
+                                window._S.currentBlock = curBlk.blockId;
+                            }
+                        } else {
+                            // 블록 밖 → currentBlock 리셋 (다시 같은 블록 돌아오면 재방문으로 인식)
+                            window._S.currentBlock = null;
                         }
                     }
                 } else {
@@ -1741,9 +1756,10 @@
             clearInterval(S.autosaveTimer)
             clearInterval(S.snapshotTimer)
 
-            // 세션 종료 → 아이트래킹 자동 비활성화 (_sessionActive가 아직 true인 상태에서 호출해야 집중시간 정산됨)
-            if (typeof deactivateET === 'function' && etOn) {
-                deactivateET()
+            // 집중 시간 정산 (아이트래킹은 유지)
+            if (window._S && window._S.focusStart) {
+                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000
+                window._S.focusStart = null
             }
 
             window._sessionActive = false
