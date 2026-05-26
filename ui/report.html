@@ -401,7 +401,7 @@
                     </div>
                 </div>
 
-                <div class="detail-section-title" style="margin-top:20px;">분당 집중 점수</div>
+                <div class="detail-section-title" style="margin-top:20px;">구간별 집중 점수</div>
                 <div id="focusChartWrap" style="margin-top:8px;">
                     <canvas id="focusChart" height="130" style="width:100%;display:block;"></canvas>
                     <p id="focusChartEmpty" style="display:none;font-size:12px;color:var(--text-gray);text-align:center;padding:20px 0;">
@@ -461,17 +461,16 @@
         }
 
         /**
-         * 분당 구간 독립 점수 계산 (0~100)
-         * 매 분 구간마다 독립적으로 산출 → 상승·하강 모두 가능
-         *   집중 기여 (0~60): focusDelta / 60 * 60
-         *   경고 없음 보너스 (0 또는 25): 해당 분에 경고 없으면 +25
-         *   재독 적음 보너스 (0~15): max(0, 15 - rereadDelta * 5)
+         * 10초 구간 독립 점수 계산 (0~100)
+         * 매 10초 구간마다 독립적으로 산출 → 상승·하강 모두 가능
+         *   기본 점수 (0~100): 10초 중 집중한 비율
+         *   경고 감점 (-15): 해당 구간에 경고 발생 시
+         *   재독 감점 (-5 × 횟수, 최대 -20): 재독 많을수록 감점
          */
-        function computeMinuteScore(focusDelta, hadWarning, rereadDelta) {
-            const focusPart  = Math.min(60, (focusDelta / 60) * 60)
-            const warnPart   = hadWarning ? 0 : 25
-            const rereadPart = Math.max(0, 15 - (rereadDelta || 0) * 5)
-            return Math.max(0, Math.min(100, Math.round(focusPart + warnPart + rereadPart)))
+        function computeIntervalScore(focusDelta, hadWarning, rereadDelta) {
+            const base    = Math.min(100, Math.round((focusDelta / 10) * 100))
+            const penalty = (hadWarning ? 15 : 0) + Math.min(20, (rereadDelta || 0) * 5)
+            return Math.max(0, base - penalty)
         }
 
         const session = await requireAuth()
@@ -613,32 +612,27 @@
             canvas.style.display = 'block'
             emptyMsg.style.display = 'none'
 
-            // 구간별 독립 점수 계산 (i=0은 시작점, i>=1부터 구간 점수)
+            // 구간별 독립 점수 계산 (10초 단위, i=0은 시작점)
             const points = []
-            // 0분 시작점 (점수 없음, 그래프 원점)
-            points.push({ min: snaps[0].elapsed_min, score: null, alert: false })
+            // 0초 시작점
+            points.push({ tick: snaps[0].elapsed_min, score: null, alert: false })
 
             for (let i = 1; i < snaps.length; i++) {
                 const focusDelta  = snaps[i].focus_seconds - snaps[i - 1].focus_seconds
                 const hadWarning  = (snaps[i].alert_count ?? 0) > (snaps[i - 1].alert_count ?? 0)
                 const rereadDelta = (snaps[i].reread_count ?? 0) - (snaps[i - 1].reread_count ?? 0)
-                const score = computeMinuteScore(focusDelta, hadWarning, rereadDelta)
-                points.push({ min: snaps[i].elapsed_min, score, alert: hadWarning })
+                const score = computeIntervalScore(focusDelta, hadWarning, rereadDelta)
+                points.push({ tick: snaps[i].elapsed_min, score, alert: hadWarning })
             }
 
-            // 0분의 score를 첫 구간 점수로 채움 (그래프 시작점)
+            // 0초의 score를 첫 구간 점수로 채움 (그래프 시작점)
             if (points.length > 1 && points[0].score === null) {
                 points[0].score = points[1].score
             }
 
-            // y축 동적 스케일: 데이터 범위에 맞게 (최소 20점 폭 보장)
-            const scores = points.map(p => p.score)
-            const dataMin = Math.min(...scores)
-            const dataMax = Math.max(...scores)
-            const range = dataMax - dataMin
-            const yMin = Math.max(0, Math.floor((dataMin - Math.max(range * 0.15, 5)) / 5) * 5)
-            const yMax = Math.min(100, Math.ceil((dataMax + Math.max(range * 0.15, 5)) / 5) * 5)
-            const yRange = Math.max(20, yMax - yMin)  // 최소 20점 폭
+            // y축 고정 0~100 (절대 수준이 바로 보이도록)
+            const yMin = 0
+            const yRange = 100
 
             // Canvas 그래프 렌더링
             const dpr = window.devicePixelRatio || 1
@@ -657,18 +651,17 @@
             // y좌표 변환 함수
             const toY = (v) => PAD.top + gH - ((v - yMin) / yRange) * gH
 
-            // 배경 그리드 (동적 스케일)
+            // 배경 그리드 (0~100 고정)
             ctx.strokeStyle = '#f1f3f5'
             ctx.lineWidth = 1
-            const gridStep = yRange <= 30 ? 5 : yRange <= 60 ? 10 : 25
-            for (let v = yMin; v <= yMin + yRange; v += gridStep) {
+            ;[0, 25, 50, 75, 100].forEach(v => {
                 const y = toY(v)
                 ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke()
                 ctx.fillStyle = '#aab0bc'
                 ctx.font = '10px Pretendard, sans-serif'
                 ctx.textAlign = 'right'
                 ctx.fillText(v + '점', PAD.left - 4, y + 3.5)
-            }
+            })
 
             if (n === 1) {
                 const x = PAD.left + gW / 2
@@ -710,14 +703,19 @@
                 })
             }
 
-            // X축 분 레이블
+            // X축 시간 레이블 (10초 틱 → m:ss 표시)
             ctx.fillStyle = '#aab0bc'
             ctx.font = '10px Pretendard, sans-serif'
             ctx.textAlign = 'center'
+            // 라벨 간격: 30초(3틱)마다, 데이터 많으면 1분(6틱)마다
+            const labelEvery = n > 40 ? 6 : 3
             points.forEach((p, i) => {
-                if (n <= 10 || i % Math.ceil(n / 8) === 0) {
+                if (i === 0 || i === n - 1 || p.tick % labelEvery === 0) {
+                    const totalSec = p.tick * 10
+                    const mm = Math.floor(totalSec / 60)
+                    const ss = String(totalSec % 60).padStart(2, '0')
                     const x = PAD.left + (n === 1 ? gW / 2 : (i / (n - 1)) * gW)
-                    ctx.fillText(p.min + '분', x, H - 6)
+                    ctx.fillText(`${mm}:${ss}`, x, H - 6)
                 }
             })
         }

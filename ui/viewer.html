@@ -1643,7 +1643,7 @@
             alertTimes: [],
             autosaveTimer: null,
             snapshotTimer: null,
-            snapshotElapsedMin: 0,
+            snapshotTick: 0,        // 10초 단위 틱 카운터
             // 문단 재방문 추적
             blockVisits: new Map(),   // blockId → 방문 횟수
             currentBlock: null,       // 현재 응시 중인 블록 ID
@@ -1703,7 +1703,7 @@
                 S.focusTotal = 0
                 S.alertCount = 0
                 S.alertTimes = []
-                S.snapshotElapsedMin = 0
+                S.snapshotTick = 0       // 10초 단위 틱 카운터
                 S.blockVisits = new Map()
                 S.currentBlock = null
                 S.rereadCount = 0
@@ -1721,7 +1721,7 @@
                 // ① 30초 자동저장
                 S.autosaveTimer = setInterval(autosave, 30_000)
 
-                // ⓪ 0분 스냅샷 (그래프 시작점)
+                // ⓪ 0초 스냅샷 (그래프 시작점)
                 await saveSessionSnapshot({
                     sessionId:    S.sessionId,
                     userId:       session.user.id,
@@ -1731,20 +1731,20 @@
                     rereadCount:  0,
                 })
 
-                // ② 1분마다 분당 집중율 스냅샷 저장
+                // ② 10초마다 스냅샷 저장 (elapsed_min 컬럼을 10초 틱으로 재활용)
                 S.snapshotTimer = setInterval(async () => {
                     if (!S.sessionId) return
-                    S.snapshotElapsedMin++
+                    S.snapshotTick++
                     const currentFocus = S.focusTotal + (S.focusStart ? (Date.now() - S.focusStart) / 1000 : 0)
                     await saveSessionSnapshot({
                         sessionId: S.sessionId,
                         userId: session.user.id,
-                        elapsedMin: S.snapshotElapsedMin,
+                        elapsedMin: S.snapshotTick,
                         focusSeconds: Math.round(currentFocus),
                         alertCount:   S.alertCount,
                         rereadCount:  S.rereadCount,
                     })
-                }, 60_000)
+                }, 10_000)
             } catch (e) {
                 alert('세션 시작 실패: ' + e.message)
             }
