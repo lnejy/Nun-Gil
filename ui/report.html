@@ -262,7 +262,7 @@
         /* 지표 카드 그리드 */
         .metrics-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 14px;
             margin-bottom: 28px;
         }
@@ -301,7 +301,7 @@
 
         .score-breakdown {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 14px;
         }
 
@@ -395,9 +395,13 @@
                         <span class="metric-label">정상 응시 비율</span>
                         <div class="metric-value" id="detailGazeRatio">--</div>
                     </div>
+                    <div class="metric-card">
+                        <span class="metric-label">문단 재독 횟수</span>
+                        <div class="metric-value" id="detailRereadCount">--</div>
+                    </div>
                 </div>
 
-                <div class="detail-section-title" style="margin-top:20px;">분당 집중율</div>
+                <div class="detail-section-title" style="margin-top:20px;">분당 집중 점수</div>
                 <div id="focusChartWrap" style="margin-top:8px;">
                     <canvas id="focusChart" height="130" style="width:100%;display:block;"></canvas>
                     <p id="focusChartEmpty" style="display:none;font-size:12px;color:var(--text-gray);text-align:center;padding:20px 0;">
@@ -409,15 +413,19 @@
                 <div class="score-breakdown">
                     <div class="score-card">
                         <span class="score-card-label">정상 응시 점수</span>
-                        <span class="score-card-value"><span id="detailSGaze">--</span><span class="score-max">&nbsp;/ 50점</span></span>
+                        <span class="score-card-value"><span id="detailSGaze">--</span><span class="score-max">&nbsp;/ 40점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">경고 점수</span>
-                        <span class="score-card-value"><span id="detailSWarn">--</span><span class="score-max">&nbsp;/ 30점</span></span>
+                        <span class="score-card-value"><span id="detailSWarn">--</span><span class="score-max">&nbsp;/ 25점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">반응 점수</span>
-                        <span class="score-card-value"><span id="detailSReact">--</span><span class="score-max">&nbsp;/ 20점</span></span>
+                        <span class="score-card-value"><span id="detailSReact">--</span><span class="score-max">&nbsp;/ 15점</span></span>
+                    </div>
+                    <div class="score-card">
+                        <span class="score-card-label">재독 점수</span>
+                        <span class="score-card-value"><span id="detailSReread">--</span><span class="score-max">&nbsp;/ 20점</span></span>
                     </div>
                 </div>
             </div>
@@ -428,17 +436,42 @@
         import { requireAuth } from '/src/lib/auth.js'
         import { sb }         from '/src/lib/supabase.js'
 
-        function computeScore(T, W, F, R) {
-            if (T <= 0) return { score: 0, sGaze: 0, sWarn: 0, sReact: 0 }
-            const sGaze  = (F / T) * 50
-            const sWarn  = Math.max(0, 30 * (1 - W / 10))
-            const sReact = W === 0 ? 20 : Math.max(0, 20 * (1 - (R - 1) / 9))
+        /**
+         * 종합 집중도 점수 계산 (100점 만점)
+         *   sGaze  (40점): 정상 응시 비율
+         *   sWarn  (25점): 경고 감점 (10회 이상이면 0점)
+         *   sReact (15점): 경고 반응 속도 (경고 없으면 만점)
+         *   sReread(20점): 문단 재독 감점 (분당 3회 이상이면 0점)
+         */
+        function computeScore(T, W, F, R, RR) {
+            if (T <= 0) return { score: 0, sGaze: 0, sWarn: 0, sReact: 0, sReread: 0 }
+            const sGaze   = (F / T) * 40
+            const sWarn   = Math.max(0, 25 * (1 - W / 10))
+            const sReact  = W === 0 ? 15 : Math.max(0, 15 * (1 - (R - 1) / 9))
+            const minutes = T / 60
+            const rrPerMin = minutes > 0 ? RR / minutes : 0
+            const sReread = Math.max(0, 20 * (1 - rrPerMin / 3))
             return {
-                score:  Math.round(sGaze + sWarn + sReact),
-                sGaze:  Math.round(sGaze * 10) / 10,
-                sWarn:  Math.round(sWarn * 10) / 10,
-                sReact: Math.round(sReact * 10) / 10,
+                score:   Math.round(sGaze + sWarn + sReact + sReread),
+                sGaze:   Math.round(sGaze * 10) / 10,
+                sWarn:   Math.round(sWarn * 10) / 10,
+                sReact:  Math.round(sReact * 10) / 10,
+                sReread: Math.round(sReread * 10) / 10,
             }
+        }
+
+        /**
+         * 분당 구간 독립 점수 계산 (0~100)
+         * 매 분 구간마다 독립적으로 산출 → 상승·하강 모두 가능
+         *   집중 기여 (0~60): focusDelta / 60 * 60
+         *   경고 없음 보너스 (0 또는 25): 해당 분에 경고 없으면 +25
+         *   재독 적음 보너스 (0~15): max(0, 15 - rereadDelta * 5)
+         */
+        function computeMinuteScore(focusDelta, hadWarning, rereadDelta) {
+            const focusPart  = Math.min(60, (focusDelta / 60) * 60)
+            const warnPart   = hadWarning ? 0 : 25
+            const rereadPart = Math.max(0, 15 - (rereadDelta || 0) * 5)
+            return Math.max(0, Math.min(100, Math.round(focusPart + warnPart + rereadPart)))
         }
 
         const session = await requireAuth()
@@ -448,7 +481,7 @@
         // ── 전체 학습 기록 로드 ────────────────────────────
         const { data: sessions } = await sb
             .from('study_sessions')
-            .select('id, start_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, documents(file_name)')
+            .select('id, start_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, reread_count, documents(file_name)')
             .eq('user_id', user.id)
             .eq('status', 'COMPLETED')
             .order('start_time', { ascending: false })
@@ -465,15 +498,17 @@
             // 전체 평균 점수 계산
             let sumScore = 0
             const computed = sessions.map(s => {
-                const T = (s.duration_minutes ?? 0) * 60
-                const W = s.alert_count ?? 0
-                const F = s.focus_time_seconds ?? 0
-                const R = s.avg_alert_response_seconds ?? 0
-                const result = computeScore(T, W, F, R)
+                const T  = (s.duration_minutes ?? 0) * 60
+                const W  = s.alert_count ?? 0
+                const F  = s.focus_time_seconds ?? 0
+                const R  = s.avg_alert_response_seconds ?? 0
+                const RR = s.reread_count ?? 0
+                const result = computeScore(T, W, F, R, RR)
 
-                const warnRate  = W
-                const gazeRatio = T > 0 ? ((F / T) * 100).toFixed(1)       : '0.0'
-                const reactTime = W > 0 ? R.toFixed(1)                      : '0.0'
+                const warnRate    = W
+                const gazeRatio   = T > 0 ? ((F / T) * 100).toFixed(1)       : '0.0'
+                const reactTime   = W > 0 ? R.toFixed(1)                      : '0.0'
+                const rereadCount = RR
 
                 sumScore += result.score
 
@@ -489,6 +524,7 @@
                     warnRate,
                     gazeRatio,
                     reactTime,
+                    rereadCount,
                     ...result,
                 }
             })
@@ -538,15 +574,17 @@
             activeBtn = btn
 
             // 상세 데이터 채우기
-            document.getElementById('detailDocName').textContent  = c.title
-            document.getElementById('detailDocMeta').textContent  = `${c.dateStr} · ${c.durMin}분 학습`
-            document.getElementById('detailScore').innerHTML      = `${c.score}<span class="unit">점</span>`
-            document.getElementById('detailWarnRate').textContent  = `${c.warnRate}회`
-            document.getElementById('detailReactTime').textContent = `${c.reactTime}초`
-            document.getElementById('detailGazeRatio').textContent = `${c.gazeRatio}%`
-            document.getElementById('detailSGaze').textContent    = `${c.sGaze}점`
-            document.getElementById('detailSWarn').textContent    = `${c.sWarn}점`
-            document.getElementById('detailSReact').textContent   = `${c.sReact}점`
+            document.getElementById('detailDocName').textContent     = c.title
+            document.getElementById('detailDocMeta').textContent     = `${c.dateStr} · ${c.durMin}분 학습`
+            document.getElementById('detailScore').innerHTML         = `${c.score}<span class="unit">점</span>`
+            document.getElementById('detailWarnRate').textContent    = `${c.warnRate}회`
+            document.getElementById('detailReactTime').textContent   = `${c.reactTime}초`
+            document.getElementById('detailGazeRatio').textContent   = `${c.gazeRatio}%`
+            document.getElementById('detailRereadCount').textContent = `${c.rereadCount}회`
+            document.getElementById('detailSGaze').textContent      = `${c.sGaze}점`
+            document.getElementById('detailSWarn').textContent      = `${c.sWarn}점`
+            document.getElementById('detailSReact').textContent     = `${c.sReact}점`
+            document.getElementById('detailSReread').textContent    = `${c.sReread}점`
 
             emptyState.style.display = 'none'
             detailView.classList.add('is-visible')
@@ -562,11 +600,12 @@
 
             const { data: snaps } = await sb
                 .from('session_snapshots')
-                .select('elapsed_min, focus_seconds, alert_count')
+                .select('elapsed_min, focus_seconds, alert_count, reread_count')
                 .eq('session_id', sessionId)
                 .order('elapsed_min', { ascending: true })
 
-            if (!snaps || snaps.length === 0) {
+            if (!snaps || snaps.length < 2) {
+                // 0분 스냅샷만 있으면 (또는 없으면) 그래프 미표시
                 canvas.style.display = 'none'
                 emptyMsg.style.display = 'block'
                 return
@@ -574,12 +613,32 @@
             canvas.style.display = 'block'
             emptyMsg.style.display = 'none'
 
-            // 분당 집중율 계산 (각 1분 구간의 집중 비율)
-            const points = snaps.map((s, i) => {
-                const prevFocus = i === 0 ? 0 : snaps[i - 1].focus_seconds
-                const rate = Math.min(100, Math.round(((s.focus_seconds - prevFocus) / 60) * 100))
-                return { min: s.elapsed_min, rate: Math.max(0, rate), alert: s.alert_count > (i === 0 ? 0 : snaps[i-1].alert_count) }
-            })
+            // 구간별 독립 점수 계산 (i=0은 시작점, i>=1부터 구간 점수)
+            const points = []
+            // 0분 시작점 (점수 없음, 그래프 원점)
+            points.push({ min: snaps[0].elapsed_min, score: null, alert: false })
+
+            for (let i = 1; i < snaps.length; i++) {
+                const focusDelta  = snaps[i].focus_seconds - snaps[i - 1].focus_seconds
+                const hadWarning  = (snaps[i].alert_count ?? 0) > (snaps[i - 1].alert_count ?? 0)
+                const rereadDelta = (snaps[i].reread_count ?? 0) - (snaps[i - 1].reread_count ?? 0)
+                const score = computeMinuteScore(focusDelta, hadWarning, rereadDelta)
+                points.push({ min: snaps[i].elapsed_min, score, alert: hadWarning })
+            }
+
+            // 0분의 score를 첫 구간 점수로 채움 (그래프 시작점)
+            if (points.length > 1 && points[0].score === null) {
+                points[0].score = points[1].score
+            }
+
+            // y축 동적 스케일: 데이터 범위에 맞게 (최소 20점 폭 보장)
+            const scores = points.map(p => p.score)
+            const dataMin = Math.min(...scores)
+            const dataMax = Math.max(...scores)
+            const range = dataMax - dataMin
+            const yMin = Math.max(0, Math.floor((dataMin - Math.max(range * 0.15, 5)) / 5) * 5)
+            const yMax = Math.min(100, Math.ceil((dataMax + Math.max(range * 0.15, 5)) / 5) * 5)
+            const yRange = Math.max(20, yMax - yMin)  // 최소 20점 폭
 
             // Canvas 그래프 렌더링
             const dpr = window.devicePixelRatio || 1
@@ -595,22 +654,25 @@
             const gH = H - PAD.top - PAD.bottom
             const n  = points.length
 
-            // 배경 그리드
+            // y좌표 변환 함수
+            const toY = (v) => PAD.top + gH - ((v - yMin) / yRange) * gH
+
+            // 배경 그리드 (동적 스케일)
             ctx.strokeStyle = '#f1f3f5'
             ctx.lineWidth = 1
-            ;[0, 25, 50, 75, 100].forEach(v => {
-                const y = PAD.top + gH - (v / 100) * gH
+            const gridStep = yRange <= 30 ? 5 : yRange <= 60 ? 10 : 25
+            for (let v = yMin; v <= yMin + yRange; v += gridStep) {
+                const y = toY(v)
                 ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + gW, y); ctx.stroke()
                 ctx.fillStyle = '#aab0bc'
                 ctx.font = '10px Pretendard, sans-serif'
                 ctx.textAlign = 'right'
-                ctx.fillText(v + '%', PAD.left - 4, y + 3.5)
-            })
+                ctx.fillText(v + '점', PAD.left - 4, y + 3.5)
+            }
 
             if (n === 1) {
-                // 점 하나만
                 const x = PAD.left + gW / 2
-                const y = PAD.top + gH - (points[0].rate / 100) * gH
+                const y = toY(points[0].score)
                 ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2)
                 ctx.fillStyle = '#78a3ea'; ctx.fill()
             } else {
@@ -621,11 +683,11 @@
                 ctx.beginPath()
                 points.forEach((p, i) => {
                     const x = PAD.left + (i / (n - 1)) * gW
-                    const y = PAD.top + gH - (p.rate / 100) * gH
+                    const y = toY(p.score)
                     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
                 })
-                ctx.lineTo(PAD.left + gW, PAD.top + gH)
-                ctx.lineTo(PAD.left, PAD.top + gH)
+                ctx.lineTo(PAD.left + gW, toY(yMin))
+                ctx.lineTo(PAD.left, toY(yMin))
                 ctx.closePath()
                 ctx.fillStyle = grad; ctx.fill()
 
@@ -634,7 +696,7 @@
                 ctx.strokeStyle = '#78a3ea'; ctx.lineWidth = 2; ctx.lineJoin = 'round'
                 points.forEach((p, i) => {
                     const x = PAD.left + (i / (n - 1)) * gW
-                    const y = PAD.top + gH - (p.rate / 100) * gH
+                    const y = toY(p.score)
                     i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)
                 })
                 ctx.stroke()
@@ -642,7 +704,7 @@
                 // 점 & 경고 표시
                 points.forEach((p, i) => {
                     const x = PAD.left + (i / (n - 1)) * gW
-                    const y = PAD.top + gH - (p.rate / 100) * gH
+                    const y = toY(p.score)
                     ctx.beginPath(); ctx.arc(x, y, p.alert ? 5 : 3.5, 0, Math.PI * 2)
                     ctx.fillStyle = p.alert ? '#ef4444' : '#78a3ea'; ctx.fill()
                 })

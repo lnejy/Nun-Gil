@@ -533,6 +533,16 @@
             if (etOn && !isBlink && G.blinkFrames === 0) {
                 if (window.detectGazedBlock) {
                     window.detectGazedBlock(G.gx, G.gy)
+                    // 문단 재방문 추적
+                    if (window._sessionActive && window._S) {
+                        var blk = window._lastGazedBlock;
+                        if (blk && blk.blockId && blk.blockId !== window._S.currentBlock) {
+                            window._S.currentBlock = blk.blockId;
+                            var prev = window._S.blockVisits.get(blk.blockId) || 0;
+                            window._S.blockVisits.set(blk.blockId, prev + 1);
+                            if (prev >= 1) window._S.rereadCount++;
+                        }
+                    }
                 } else {
                     detectGazedWord(G.gx, G.gy)
                 }
@@ -1555,6 +1565,10 @@
             autosaveTimer: null,
             snapshotTimer: null,
             snapshotElapsedMin: 0,
+            // 문단 재방문 추적
+            blockVisits: new Map(),   // blockId → 방문 횟수
+            currentBlock: null,       // 현재 응시 중인 블록 ID
+            rereadCount: 0,           // 이미 읽은 블록을 다시 본 횟수 (누적)
         }
         // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
         window._S = S
@@ -1573,17 +1587,19 @@
             const F = S.focusTotal + (S.focusStart ? (now - S.focusStart) / 1000 : 0)
             const R = S.alertTimes.length
                 ? S.alertTimes.reduce((a, b) => a + b, 0) / S.alertTimes.length : 0
-            return { T, F, R }
+            const RR = S.rereadCount || 0
+            return { T, F, R, RR }
         }
 
         async function autosave() {
             if (!S.sessionId) return
-            const { T, F, R } = calcMetrics()
+            const { T, F, R, RR } = calcMetrics()
             await updateStudySession(S.sessionId, {
                 durationMinutes: T / 60,
                 alertCount: S.alertCount,
                 focusTimeSeconds: F,
                 avgAlertResponseSeconds: R,
+                rereadCount: RR,
             }).catch(e => console.warn('자동저장 실패:', e.message))
         }
 
@@ -1609,6 +1625,9 @@
                 S.alertCount = 0
                 S.alertTimes = []
                 S.snapshotElapsedMin = 0
+                S.blockVisits = new Map()
+                S.currentBlock = null
+                S.rereadCount = 0
 
                 window._sessionActive = true
                 window._currentSessionId = sess.id
@@ -1623,6 +1642,16 @@
                 // ① 30초 자동저장
                 S.autosaveTimer = setInterval(autosave, 30_000)
 
+                // ⓪ 0분 스냅샷 (그래프 시작점)
+                await saveSessionSnapshot({
+                    sessionId:    S.sessionId,
+                    userId:       session.user.id,
+                    elapsedMin:   0,
+                    focusSeconds: 0,
+                    alertCount:   0,
+                    rereadCount:  0,
+                })
+
                 // ② 1분마다 분당 집중율 스냅샷 저장
                 S.snapshotTimer = setInterval(async () => {
                     if (!S.sessionId) return
@@ -1634,6 +1663,7 @@
                         elapsedMin:   S.snapshotElapsedMin,
                         focusSeconds: Math.round(currentFocus),
                         alertCount:   S.alertCount,
+                        rereadCount:  S.rereadCount,
                     })
                 }, 60_000)
             } catch (e) {
@@ -1662,7 +1692,7 @@
                 closeWarning()
             }
 
-            const { T, F, R } = calcMetrics()
+            const { T, F, R, RR } = calcMetrics()
             try {
                 await completeStudySession(S.sessionId, {
                     startTime: S.startTime,
@@ -1670,6 +1700,7 @@
                     alertCount: S.alertCount,
                     alertTimes: S.alertTimes,
                     focusStart: S.focusStart,
+                    rereadCount: RR,
                 })
             } catch (e) {
                 console.warn('세션 종료 실패:', e.message)
