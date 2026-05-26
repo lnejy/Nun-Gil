@@ -39,6 +39,7 @@ export async function updateStudySession(id, {
   alertCount,
   focusTimeSeconds,
   avgAlertResponseSeconds,
+  rereadCount,
   status,
   documentId,
 } = {}) {
@@ -47,6 +48,7 @@ export async function updateStudySession(id, {
   if (alertCount               !== undefined) payload.alert_count                = alertCount
   if (focusTimeSeconds         !== undefined) payload.focus_time_seconds         = focusTimeSeconds
   if (avgAlertResponseSeconds  !== undefined) payload.avg_alert_response_seconds = avgAlertResponseSeconds
+  if (rereadCount              !== undefined) payload.reread_count               = rereadCount
   if (documentId               !== undefined) payload.document_id               = documentId
   if (status                   !== undefined) {
     payload.status = status
@@ -68,7 +70,7 @@ export async function updateStudySession(id, {
  * @param {string} id
  * @param {{ startTime: number, focusTotal: number, alertCount: number, alertTimes: number[] }} metrics
  */
-export async function completeStudySession(id, { startTime, focusTotal, alertCount, alertTimes, focusStart }) {
+export async function completeStudySession(id, { startTime, focusTotal, alertCount, alertTimes, focusStart, rereadCount = 0 }) {
   const now      = Date.now()
   const T        = (now - startTime) / 1000                          // 총 측정 시간 (초)
   const F        = focusTotal + (focusStart ? (now - focusStart) / 1000 : 0)  // 마지막 집중 구간 포함
@@ -79,6 +81,7 @@ export async function completeStudySession(id, { startTime, focusTotal, alertCou
     alertCount,
     focusTimeSeconds:        F,
     avgAlertResponseSeconds: R,
+    rereadCount,
     status:                  'COMPLETED',
   })
 }
@@ -101,7 +104,7 @@ export async function abortStudySession(id, metrics) {
  * 분당 집중율 스냅샷 저장
  * @param {{ sessionId: string, userId: string, elapsedMin: number, focusSeconds: number, alertCount: number }} params
  */
-export async function saveSessionSnapshot({ sessionId, userId, elapsedMin, focusSeconds, alertCount }) {
+export async function saveSessionSnapshot({ sessionId, userId, elapsedMin, focusSeconds, alertCount, rereadCount = 0 }) {
   const { error } = await sb
     .from('session_snapshots')
     .insert({
@@ -110,6 +113,7 @@ export async function saveSessionSnapshot({ sessionId, userId, elapsedMin, focus
       elapsed_min:   elapsedMin,
       focus_seconds: focusSeconds,
       alert_count:   alertCount,
+      reread_count:  rereadCount,
     })
   if (error) console.warn('스냅샷 저장 실패:', error.message)
 }
@@ -121,7 +125,7 @@ export async function saveSessionSnapshot({ sessionId, userId, elapsedMin, focus
 export async function getSessionSnapshots(sessionId) {
   const { data, error } = await sb
     .from('session_snapshots')
-    .select('elapsed_min, focus_seconds, alert_count')
+    .select('elapsed_min, focus_seconds, alert_count, reread_count')
     .eq('session_id', sessionId)
     .order('elapsed_min', { ascending: true })
   if (error) throw error
@@ -136,7 +140,7 @@ export async function getSessionSnapshots(sessionId) {
 export async function getCompletedSessions(userId, limit = 50) {
   const { data, error } = await sb
     .from('study_sessions')
-    .select('id, document_id, start_time, end_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, total_focus_score')
+    .select('id, document_id, start_time, end_time, duration_minutes, alert_count, focus_time_seconds, avg_alert_response_seconds, reread_count, total_focus_score')
     .eq('user_id', userId)
     .eq('status', 'COMPLETED')
     .order('start_time', { ascending: false })
