@@ -27,7 +27,7 @@ window.addEventListener('open-help-popup', (e) => {
 
 window.addEventListener('doc-changed', () => {
   removePopup()
-  helpCacheMem = null            // ← 추가
+  helpCache = { docId: null, data: null }   // ← 수정 (helpCacheMem → helpCache)
   window._helpedBlocks = new Set()
   window._helpDoneTypes = {}
 })
@@ -58,15 +58,14 @@ function openPopup(block, markerEl) {
       <button class="help-popup-close" type="button" aria-label="닫기">×</button>
     </div>
     <div class="help-popup-tabs">
-      ${TABS.map(t => `
-        <button class="help-tab${done.has(t.type) ? ' done' : ''}"
-                data-type="${escapeHtml(t.type)}"
-                title="${escapeHtml(t.type)}">
-          <span class="help-tab-icon">${t.icon}</span>
-          <span class="help-tab-label">${t.label}</span>
-        </button>
-      `).join('')}
-    </div>
+  ${TABS.map(t => `
+    <button class="help-tab${done.has(t.type) ? ' done' : ''}"
+            data-type="${escapeHtml(t.type)}"
+            title="${escapeHtml(t.type)}">
+      ${escapeHtml(t.label)}
+    </button>
+  `).join('')}
+</div>
     <div class="help-popup-body">
       <div class="help-popup-intro">
         어떤 도움이 필요한가요?<br>위 탭을 눌러보세요.
@@ -93,18 +92,32 @@ function openPopup(block, markerEl) {
 }
 
 // ─── 탭 선택 ────────────────────────────────────────────────
-async function selectTab(popup, block, type) {
+// ─── 탭 선택 ────────────────────────────────────────────────
+async function selectTab(popup, block, type, opts = {}) {
+  // [3번] 이미 생성 중인 탭이면 무시 (연타 차단)
+  if (popup.dataset.loading) return
+
   popup.querySelectorAll('.help-tab').forEach(t => {
     t.classList.toggle('current', t.dataset.type === type)
   })
-
   const bodyEl = popup.querySelector('.help-popup-body')
-  const marker = document.querySelector(
-    `.page-help-marker[data-block-id="${cssEscape(block.blockId)}"]`
-  )
+  const marker = document.querySelector(`.page-help-marker[data-block-id="${cssEscape(block.blockId)}"]`)
 
+  // 단어 탭은 항상 picker
+  if (type === '어려운 단어 풀이') {
+    const chunks = await getChunksQuiet()
+    if (!popup.isConnected) return                     // [2번] 팝업 닫혔으면 중단
+    const targetChunk = findChunkByBlockId(chunks, block.blockId)
+    const result = await handleVocab({ targetChunk, contextText: '', userInput: '' })
+    if (!popup.isConnected) return                     // [2번]
+    renderResult(bodyEl, result, block, popup)
+    return
+  }
+
+  // 나머지 탭 — 캐시 있으면 즉시
   const cached = await getHelpCacheEntry(block.blockId, type, '')
   if (cached) {
+    if (!popup.isConnected) return                     // [2번]
     renderResult(bodyEl, cached, block, popup)
     return
   }
@@ -115,13 +128,16 @@ async function selectTab(popup, block, type) {
       <span>${escapeHtml(type)} 생성 중...</span>
     </div>
   `
-  setMarkerState(marker, 'loading')   // ← 생성 중
+  setMarkerState(marker, 'loading')
+  popup.dataset.loading = type                         // [3번] 생성 중 표시
 
   try {
     const chunks = await getChunksQuiet()
     const targetChunk = findChunkByBlockId(chunks, block.blockId)
     if (!targetChunk) {
-      bodyEl.innerHTML = `<div class="help-error">단락을 청크에서 찾을 수 없습니다.</div>`
+      if (popup.isConnected) {
+        bodyEl.innerHTML = `<div class="help-error">단락을 청크에서 찾을 수 없습니다.</div>`
+      }
       setMarkerState(marker, 'idle')
       return
     }
@@ -134,12 +150,18 @@ async function selectTab(popup, block, type) {
       await setHelpCacheEntry(block.blockId, type, '', result)
       markTabDone(popup, block.blockId, type)
     }
+
+    if (!popup.isConnected) return                     // [2번] 응답 도착했는데 팝업 닫힘 → 버림
     renderResult(bodyEl, result, block, popup)
     setMarkerState(marker, result.thin ? 'idle' : 'done')
   } catch (err) {
     console.error(err)
-    bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    if (popup.isConnected) {
+      bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    }
     setMarkerState(marker, 'idle')
+  } finally {
+    delete popup.dataset.loading                       // [3번] 생성 끝 → 플래그 해제
   }
 }
 
@@ -189,16 +211,33 @@ function renderResult(bodyEl, result, block, popup) {
   }
 }
 
-function renderVocabPicker(bodyEl, result, block, popup) {
-  const chips = result.suggestions
+async function renderVocabPicker(bodyEl, result, block, popup) {
+  // 이 단락에서 이미 물어본 단어들 (캐시 키에서 추출)
+  const cache = await loadHelpCache()
+  const askedWords = Object.keys(cache)
+    .filter(k => k.startsWith(`${block.blockId}::어려운 단어 풀이::`))
+    .map(k => k.split('::')[2])
+    .filter(Boolean)
+
+  const suggestChips = result.suggestions
     .map(w => `<button class="help-vocab-chip" data-word="${escapeHtml(w)}">${escapeHtml(w)}</button>`)
     .join('')
+
+  const askedChips = askedWords.length
+    ? `<div class="help-vocab-prompt" style="margin-top:10px;">이미 찾아본 단어</div>
+       <div class="help-vocab-chips">
+         ${askedWords.map(w =>
+           `<button class="help-vocab-chip asked" data-word="${escapeHtml(w)}">${escapeHtml(w)}</button>`
+         ).join('')}
+       </div>`
+    : ''
 
   bodyEl.innerHTML = `
     <div class="help-vocab-picker">
       <div class="help-vocab-prompt">어떤 단어가 어려운가요?</div>
-      <div class="help-vocab-chips">${chips}</div>
+      <div class="help-vocab-chips">${suggestChips}</div>
       <input class="help-vocab-input" placeholder="직접 입력 후 Enter" />
+      ${askedChips}
     </div>
   `
 
@@ -215,25 +254,57 @@ function renderVocabPicker(bodyEl, result, block, popup) {
 }
 
 async function askVocab(bodyEl, block, popup, word) {
+  if (popup.dataset.loading) return                    // [3번] 연타 차단
+
   bodyEl.innerHTML = `
     <div class="help-loading">
       <div class="help-spinner"></div>
       <span>"${escapeHtml(word)}" 설명 생성 중...</span>
     </div>
   `
+  popup.dataset.loading = 'vocab'
+
   try {
+    const cached = await getHelpCacheEntry(block.blockId, '어려운 단어 풀이', word)
+    if (cached) {
+      if (popup.isConnected) renderVocabResult(bodyEl, block, popup, cached)
+      return
+    }
+
     const chunks = await getChunksQuiet()
     const targetChunk = findChunkByBlockId(chunks, block.blockId)
     const helpCtx = buildHelpContext(targetChunk.chunk_id, chunks)
     const contextText = formatHelpContext(helpCtx, targetChunk.chunk_id)
 
     const result = await handleVocab({ targetChunk, contextText, userInput: word })
-    await setHelpCacheEntry(block.blockId, '어려운 단어 풀이', '', result)
-    markTabDone(popup, block.blockId, '어려운 단어 풀이')
-    renderResult(bodyEl, result, block, popup)
+
+    if (!result.thin) {
+      await setHelpCacheEntry(block.blockId, '어려운 단어 풀이', word, result)
+      markTabDone(popup, block.blockId, '어려운 단어 풀이')
+    }
+
+    if (!popup.isConnected) return                     // [2번]
+    renderVocabResult(bodyEl, block, popup, result)
   } catch (err) {
-    bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    if (popup.isConnected) {
+      bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    }
+  } finally {
+    delete popup.dataset.loading
   }
+}
+
+function renderVocabResult(bodyEl, block, popup, result) {
+  bodyEl.innerHTML = `
+    <div class="help-result-title">${escapeHtml(result.title)}</div>
+    <div class="help-result-body">${renderMarkdown(result.body)}</div>
+    <button class="help-vocab-again" type="button">다른 단어 물어보기</button>
+  `
+  bodyEl.querySelector('.help-vocab-again')
+    .addEventListener('click', () => {
+      // picker 다시 — 단, 이미 물어본 단어는 칩에 표시
+      selectTab(popup, block, '어려운 단어 풀이', { forcePicker: true })
+    })
 }
 
 // ─── 컨텍스트 헬퍼 ──────────────────────────────────────────
@@ -302,18 +373,18 @@ async function handleVocab({ targetChunk, contextText, userInput }) {
   }
 
   const prompt = `
-"${userInput}"라는 단어/용어의 뜻을 알려주세요.
+"${userInput}"의 뜻을 2문장으로 설명해라.
+1문장: "쉽게 말하면 ~" 정의. 2문장: 이 문서에서 왜 중요한지.
 
-[참고용 문서 맥락 — 설명에 직접 옮기지 말 것]
+[참고 맥락]
 ${contextText}
 
-[작성 규칙 — 반드시 지킬 것]
-- 정확히 2문장. 그 이상 절대 금지.
-- 1문장: "쉽게 말하면 ~" 으로 시작하는 핵심 정의
-- 2문장: 이 문서 맥락에서 왜 중요한지 한 줄
-- 헤딩(#), 목록, 번호 매기기 절대 사용 금지
-- 굵게(**)는 단어 1~2개에만
-- 맥락 요약하지 말 것. 오직 이 단어 하나만 설명.
+만약 "${userInput}"이 실제 단어·용어·약어가 아니면(오타·무작위 입력 등),
+설명하지 말고 아래 문장 하나만 그대로 출력해라:
+관련된 단어를 입력해 주세요.
+
+규칙: 서두·인사·분석 과정 쓰지 말고 곧바로 결과만. 표·이모지·목록 금지.
+"${userInput}" 외의 다른 용어를 대신 설명하지 마라.
 `.trim()
 
   const body = await askClaudeText(prompt)
@@ -323,7 +394,7 @@ ${contextText}
 async function handleSimplify({ targetChunk }) {
   if (isTooThin(targetChunk.text)) return thinResult('쉬운 말로 풀어보면')
   const prompt = `
-다음 단락을 중학생도 이해할 수 있게 쉬운 말로 다시 써주세요.
+다음 단락을, 이 분야를 처음 접하는 사람도 이해할 수 있게 쉬운 말로 다시 써주세요.
 
 [원문]
 ${targetChunk.text}
@@ -343,18 +414,20 @@ ${targetChunk.text}
 async function handleExample({ targetChunk, contextText }) {
   if (isTooThin(targetChunk.text)) return thinResult('예를 들면')
   const prompt = `
-다음 단락에서 설명한 개념을 일상적인 예시나 비유로 설명해주세요.
+다음 내용을 일상적인 예시나 비유로 설명해라.
 
-[원문이 속한 맥락]
+[설명할 내용]
+${targetChunk.text}
+
+[참고 맥락]
 ${contextText}
 
-[작성 지침]
-- 일상 비유 사용 (요리, 운동, 학교생활, 게임 등)
-- 구체적 예시 1~2개
+규칙:
+- 일상 비유 사용 (요리, 운동, 학교생활, 게임 등), 구체적 예시 1~2개
 - 비유가 원래 개념과 어떻게 대응되는지 한 줄로 짚기
 - 4~6문장
-- "예를 들어 ~을 생각해보세요" 로 시작 권장
-- 추상적이지 않고 이미 구체적이라면, 비유 대신 비슷한 다른 사례
+- 'c0003' 같은 식별자나 'before/after/target' 같은 내부 용어를 답변에 쓰지 마라.
+- 표·이모지·헤딩 금지.
 `.trim()
 
   const body = await askClaudeText(prompt)
@@ -366,16 +439,21 @@ async function handleContext({ targetChunk, contextText }) {
   if (isTooThin(realText)) return thinResult('앞뒤 흐름')
 
   const prompt = `
-아래 단락이 문서 흐름에서 어떤 위치이고 앞뒤와 어떻게 이어지는지, 학생에게 4~6문장으로 바로 설명해라.
+학생이 문서를 읽다가 아래 단락에서 막혔습니다.
+이 단락이 문서 흐름에서 어떤 역할인지, 앞 내용과 어떻게 이어지고 뒤로 어떻게 연결되는지 4~6문장으로 설명해라.
 
-[단락]
+[지금 막힌 단락]
 ${targetChunk.text}
 
-[주변 맥락]
+[주변 맥락 — 이해를 돕기 위한 자료]
 ${contextText}
 
+규칙:
+- 'c0003', 'c0004' 같은 식별자나 'before', 'after', 'target', 'role' 같은 내부 용어를 절대 답변에 쓰지 마라.
+- 대신 "앞에서는", "이 부분은", "이어지는 내용에서는" 처럼 자연스러운 한국어로 표현해라.
+- 학생은 문서가 조각으로 나뉜 걸 모른다. 하나의 글을 읽는 사람에게 말하듯 설명해라.
 - 설명문만 출력. 계획·단계·표·이모지·헤딩 금지.
-- 맥락이 적으면 그 안에서 짧게 설명하고 끝낼 것. 더 달라고 하지 말 것.
+- 맥락이 적으면 그 안에서 짧게 설명하고 끝낼 것.
 `.trim()
 
   const body = await askClaudeText(prompt)
@@ -425,25 +503,34 @@ async function saveHelpToDb(cache) {
 }
 
 // ─── 캐시 (sessionStorage + DB 2단) ─────────────────────────
-let helpCacheMem = null
+let helpCache = { docId: null, data: null }
 
 async function loadHelpCache() {
-  if (helpCacheMem) return helpCacheMem
-  // sessionStorage 먼저 (같은 세션 내 빠름)
+  const docId = AI_STATE.docId
+  // 같은 문서 메모리 캐시면 재사용
+  if (helpCache.docId === docId && helpCache.data) {
+    return helpCache.data
+  }
+  // sessionStorage
   try {
-    const ss = sessionStorage.getItem(`nungil_help_${AI_STATE.docId}`)
-    if (ss) { helpCacheMem = JSON.parse(ss); return helpCacheMem }
+    const ss = sessionStorage.getItem(`nungil_help_${docId}`)
+    if (ss) {
+      helpCache = { docId, data: JSON.parse(ss) }
+      return helpCache.data
+    }
   } catch { }
-  // 없으면 DB에서
-  helpCacheMem = await loadHelpFromDb()
-  return helpCacheMem
+  // DB
+  const data = await loadHelpFromDb()
+  helpCache = { docId, data }
+  return data
 }
 
 async function setHelpCacheEntry(blockId, type, userInput, value) {
+  const docId = AI_STATE.docId
   const cache = await loadHelpCache()
   cache[`${blockId}::${type}::${userInput || ''}`] = value
-  helpCacheMem = cache
-  sessionStorage.setItem(`nungil_help_${AI_STATE.docId}`, JSON.stringify(cache))
+  helpCache = { docId, data: cache }
+  sessionStorage.setItem(`nungil_help_${docId}`, JSON.stringify(cache))
   await saveHelpToDb(cache)
 }
 

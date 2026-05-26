@@ -398,3 +398,22 @@
   0%, 100% { transform: translateX(0) scale(1); }
   50%      { transform: translateX(0) scale(1.12); }
 }
+
+.help-vocab-chip.asked {
+  background: #eff6ff;
+  color: #78a3ea;
+  border-color: #bfdbfe;
+}
+.help-vocab-again {
+  margin-top: 12px;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafbfc;
+  font-family: inherit;
+  font-size: 12px;
+  color: #4b525d;
+  cursor: pointer;
+}
+.help-vocab-again:hover { background: #f1f5f9; }
