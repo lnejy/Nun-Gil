@@ -1,0 +1,1859 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>눈길</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="./ai/ai.css">
+    <link rel="stylesheet" href="./viewer/layoutViewer.css">
+</head>
+
+<body>
+
+    <!-- ──────────────────────────────────────────────
+         SPA 구조: 페이지 추가 시 여기에 나란히 붙이면 됨
+         <div id="page-home"  class="page"> ... </div>
+         <div id="page-files" class="page"> ... </div>
+    ─────────────────────────────────────────────── -->
+
+    <div id="page-viewer" class="page active">
+
+        <!-- EyeDID: 시선 궤적 캔버스 & 시선 점 -->
+        <canvas id="trail-canvas"></canvas>
+        <div id="gaze-dot"></div>
+
+        <!-- EyeDID: 캘리브레이션 오버레이 -->
+        <div id="calibOverlay" class="calib-overlay">
+
+            <!-- 1단계: 환경 확인 -->
+            <div class="calib-phase active" id="calibSetup">
+                <div class="calib-card">
+                    <div class="calib-card-icon">👀</div>
+                    <h2 class="calib-card-title">시선 캘리브레이션</h2>
+                    <p class="calib-card-desc">EyeDID SDK로 시선을 보정합니다.<br>화면에서 <strong>50–70cm</strong> 거리, 정면을 바라봐 주세요.
+                    </p>
+                    <div class="calib-steps">
+                        <div class="calib-step"><strong>1. 환경 확인</strong><span>브라우저와 카메라 권한을 자동으로 확인합니다.</span></div>
+                        <div class="calib-step"><strong>2. 캘리브레이션</strong><span>화면에 나타나는 6개의 점을 순서대로 응시합니다.</span></div>
+                        <div class="calib-step"><strong>3. 완료 후 진입</strong><span>보정이 끝나면 시선 추적을 활용할 수 있습니다.</span></div>
+                    </div>
+                    <div class="calib-check">
+                        <div class="calib-chk-item" id="chkBrowser"><span class="calib-chk-icon">○</span><span>브라우저 확인
+                                중...</span></div>
+                        <div class="calib-chk-item" id="chkCamera"><span class="calib-chk-icon">○</span><span>카메라 확인
+                                중...</span></div>
+                        <div class="calib-chk-item" id="chkSdk"><span class="calib-chk-icon">○</span><span>EyeDID SDK 로딩
+                                확인 중...</span></div>
+                    </div>
+                    <button class="btn-dark" id="btnStartCalib" disabled>캘리브레이션 시작</button>
+                    <p class="calib-privacy-text">
+                        카메라 데이터는 브라우저 내에서만 처리됩니다.
+                    </p>
+                </div>
+            </div>
+
+            <!-- 2단계: 풀스크린 점 응시 -->
+            <div class="calib-fullscreen" id="calibScreen">
+                <div class="calib-hud">
+                    <div class="calib-phase-lbl">CALIBRATION</div>
+                    <div class="calib-title" id="calibTitle">파란색 점을 바라봐 주세요</div>
+                    <div class="calib-sub-text" id="calibSub">각 점이 나타나면 점을 정확히 응시하세요.<br>정밀도 향상을 위해 6개 점을 수집합니다.</div>
+                </div>
+                <div class="calib-bottom-bar">
+                    <div class="calib-pips" id="calibPips"></div>
+                    <div class="calib-prog-txt" id="calibProgTxt">0 / 6</div>
+                </div>
+            </div>
+
+            <!-- 3단계: 완료 -->
+            <div class="calib-phase" id="calibDonePhase">
+                <div class="calib-card calib-done-card">
+                    <div class="calib-done-icon">✔️</div>
+                    <h2 class="calib-card-title">캘리브레이션 완료!</h2>
+                    <p class="calib-card-desc">시선 보정이 성공적으로 완료되었습니다.<br>이제 문서를 읽으며 시선 추적을 활용할 수 있습니다.</p>
+                    <button class="btn-dark" id="btnCalibDone">워크스페이스로 진입 &rarr;</button>
+                </div>
+            </div>
+
+        </div><!-- /#calibOverlay -->
+
+        <!-- 사이드바 -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="sb-brand sb-brand-link" onclick="location.href='mainpage.html'">&#128064; <span
+                        class="sb-name">눈길</span></div>
+                <button class="sb-toggle-btn" id="sidebarToggle">&#10216;</button>
+            </div>
+            <div class="sb-add-section">
+                <button class="sb-add-btn sb-add-doc-btn" id="sbAddDocBtn">
+                    <span>새 문서 추가</span>
+                </button>
+                <button class="sb-workspace-list-btn" onclick="location.href='workspace.html'">
+                    워크스페이스 목록
+                </button>
+            </div>
+
+            <!-- 새 문서 업로드 모달 -->
+            <div id="sbUploadOverlay" class="sb-upload-overlay">
+                <div class="sb-upload-modal">
+                    <div class="sb-upload-header">
+                        <div class="sb-upload-title">새 문서 추가</div>
+                        <button id="sbUploadClose" class="sb-upload-close">×</button>
+                    </div>
+
+                    <div id="sbUploadWsName" class="sb-upload-ws-name"></div>
+
+                    <label id="sbDropzone" class="sb-dropzone">
+                        <div class="sb-dropzone-icon">📄</div>
+                        <div id="sbDropLabel" class="sb-dropzone-label">
+                            파일을 선택하거나 드래그하세요
+                        </div>
+                        <div class="sb-dropzone-desc">PDF, PPT, PPTX</div>
+                        <input type="file" id="sbFileInput" accept=".pdf,.ppt,.pptx" class="sb-file-input">
+                    </label>
+
+                    <div class="sb-upload-actions">
+                        <button id="sbUploadCancel" class="sb-upload-cancel">취소</button>
+                        <button id="sbUploadSubmit" class="sb-upload-submit">추가하기</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sb-tool-section">
+                <div class="sb-tool-grid">
+                    <button class="sb-tool-item" data-ai-tool="original">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span>원본</span>
+                    </button>
+                    <button class="sb-tool-item" data-ai-tool="summary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <polyline points="9 11 12 14 22 4" />
+                            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+                        </svg>
+                        <span>요약</span>
+                    </button>
+                    <button class="sb-tool-item" data-ai-tool="mindmap">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"
+                            stroke-linecap="round" stroke-linejoin="round" width="26" height="26">
+
+                            <!-- 연결선 -->
+                            <line x1="9" y1="12" x2="16" y2="7.5"></line>
+                            <line x1="9" y1="12" x2="16" y2="16.5"></line>
+
+                            <!-- 노드 -->
+                            <circle cx="6" cy="12" r="3"></circle>
+                            <circle cx="18" cy="7" r="3"></circle>
+                            <circle cx="18" cy="17" r="3"></circle>
+                        </svg>
+
+                        <span>마인드맵</span>
+                    </button>
+                    <button class="sb-tool-item" data-ai-tool="quiz">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                        </svg>
+                        <span>퀴즈</span>
+                    </button>
+                </div>
+            </div>
+            <div class="sidebar-scroll">
+                <button class="sb-label sb-workspace-label" id="sbWorkspaceButton" type="button">
+                    <span class="sb-workspace-label-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"
+                            stroke-linejoin="round">
+                            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z">
+                            </path>
+                        </svg>
+                    </span>
+                    <span id="sbWorkspaceLabel">문서</span>
+                </button>
+                <div class="sb-list" id="sbDocList">
+                    <div class="sb-empty-text">불러오는 중...</div>
+                </div>
+                <div class="sb-label sb-asset-divider">✦ 지식 자산</div>
+                <div class="sb-list" id="sbAssetList">
+                    <div class="sb-empty-text">문서를 선택하면 생성된 자산이 표시됩니다.</div>
+                </div>
+            </div>
+
+            <div class="sidebar-profile">
+                <div class="sidebar-profile-left">
+                    <div class="sidebar-profile-avatar" aria-hidden="true">
+                        <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                            <rect width="64" height="64" rx="32" fill="#edf2f8" />
+                            <circle cx="32" cy="25" r="10" fill="#aab4c2" />
+                            <path d="M16 52c2.5-11 9.5-17 16-17s13.5 6 16 17" fill="#aab4c2" />
+                        </svg>
+                    </div>
+                    <div class="sidebar-profile-name" id="sbProfileName">—</div>
+                </div>
+
+                <div class="sidebar-profile-actions">
+                    <button class="sidebar-profile-button" onclick="location.href='profile.html'">
+                        계정 설정
+                    </button>
+                    <button class="sidebar-profile-button report" onclick="location.href='report.html'">
+                        집중도 레포트
+                    </button>
+                </div>
+            </div>
+        </aside><!-- /.sidebar -->
+
+        <!-- 삭제 확인 모달 -->
+        <div id="sbDeleteOverlay" class="sb-delete-overlay">
+            <div class="sb-delete-modal">
+                <div class="sb-delete-title">삭제 확인</div>
+                <div id="sbDeleteMsg" class="sb-delete-message"></div>
+
+                <div class="sb-delete-actions">
+                    <button id="sbDeleteCancelBtn" class="sb-delete-cancel">
+                        취소
+                    </button>
+                    <button id="sbDeleteConfirmBtn" class="sb-delete-confirm">
+                        삭제
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 메인 콘텐츠 -->
+        <main class="main-wrapper">
+            <div class="toolbar-wrapper">
+
+                <header class="floating-toolbar">
+                    <div class="group-left">
+                        <button class="session-btn start" id="sessionStartBtn">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <polygon points="5,3 19,12 5,21" />
+                            </svg>
+                            <span>세션 시작</span>
+                        </button>
+                        <button class="session-btn end" id="sessionEndBtn">
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+                            <span>세션 종료</span>
+                        </button>
+                        <div class="font-island toolbar-font-island">
+                            <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
+                            <span id="zoomLevel">100%</span>
+                            <button class="zoom-btn" onclick="zoomIn()">&#43;</button>
+                        </div>
+                    </div>
+                    <div class="group-right">
+                        <div class="toolbar-sep"></div>
+                        <button class="tool-btn-main" id="noteBtn" onclick="togNote()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7" />
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                            </svg>
+                            <span>메모장</span>
+                        </button>
+                        <button class="tool-btn-main" id="bookmarkBtn" onclick="toggleBookmarkMode()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span>북마크</span>
+                        </button>
+                        <button class="tool-btn-main" id="bookmarkListBtn" onclick="togBookmarkList()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+                            </svg>
+                            <span>북마크함</span>
+                        </button>
+                    </div>
+                </header>
+            </div>
+
+            <div class="content-container">
+                <div class="center-area">
+                    <div class="paper-canvas" id="pdfContainer">
+                        <div class="pdf-loading">문서 로딩 중...</div>
+                    </div>
+                </div>
+
+                <div class="side-area"></div>
+            </div>
+
+            <!-- 북마크 오버레이 -->
+            <div class="bookmark-overlay" id="bookmarkOverlay">
+                <div class="bookmark-modal">
+                    <div class="bm-modal-header">
+                        <h2>저장된 북마크</h2>
+                        <button class="bm-close-btn" onclick="togBookmarkList()">&#10005;</button>
+                    </div>
+                    <div class="bm-modal-grid">
+                        <!-- script.js가 동적으로 채움 -->
+                    </div>
+                </div>
+            </div>
+
+        </main><!-- /.main-wrapper -->
+
+        <!-- 메모장: main-wrapper 밖에서 position:fixed로 뷰포트에 고정 -->
+        <aside class="note-sb" id="noteSb">
+            <div class="note-box">
+                <div class="note-h note-header-row">
+                    <span>메모장</span>
+                    <button id="noteSaveBtn" class="note-save-btn" onclick="saveNote()">저장</button>
+                </div>
+                <textarea class="note-ta" placeholder="여기에 메모를 작성하세요..."></textarea>
+                <div id="noteSaveMsg" class="note-save-msg">
+                    ✓ 저장됐어요
+                </div>
+            </div>
+        </aside>
+
+        <!-- EyeDID: ET 패널 -->
+        <div class="et min" id="etP" onclick="etExpand()">
+            <div class="et-dot r" id="etDot"></div>
+            <div class="et-c" id="etC">
+                <span class="et-lbl" id="etLbl">아이트래킹 비활성화</span>
+                <div class="et-acts">
+                    <button class="et-tog off" id="etTog" onclick="etToggle(event)">활성화</button>
+                    <button class="et-tog et-recalib-btn" id="etRecalib" onclick="recalibrate(event)">
+                        재보정
+                    </button>
+                    <button class="et-cx" onclick="etCollapse(event)">&#10005;</button>
+                </div>
+            </div>
+        </div>
+        <button id="etHandle" type="button" onclick="etShowPanel()" aria-label="아이트래킹 패널 열기">‹</button>
+
+    </div><!-- /#page-viewer -->
+
+    <!-- 페이지 초기 로딩 오버레이 (모듈 스크립트 완료 전 노출) -->
+    <div id="pageLoadOverlay" class="page-load-overlay">
+        <div class="page-load-icon">👀</div>
+        <div class="page-load-text">뷰어 로딩 중...</div>
+    </div>
+
+    <!-- 경고 위젯 -->
+    <script src="./components/warningWidget.js"></script>
+
+    <!-- pdf.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <script type="module">
+        import { initPdfRenderer } from "./viewer/pdfRenderer.js"
+        await initPdfRenderer({
+            containerId: "pdfContainer",
+            zoomLabelId: "zoomLevel",
+        })
+    </script>
+
+    <script type="module" src="./viewer/layoutViewer.js"></script>
+    <script type="module" src="./ai/index.js"></script>
+
+    <!-- EyeDID: SDK 로드 -->
+    <script type="module">
+        import EasySeeSo from '../easy-seeso.js';
+        window.EasySeeSo = EasySeeSo;
+        window._sdkLoaded = true;
+        window.dispatchEvent(new Event('seeso-ready'));
+    </script>
+
+    <!-- EyeDID: 시선 추적 로직 -->
+    <script>
+        /* ══════════════════════════════════════════════════════
+           SPA 라우터
+           - 현재: page-viewer 하나만 존재
+           - 추가 시: goHome(), goFiles() 주석 해제 후 html에 div 추가
+        ══════════════════════════════════════════════════════ */
+        function showPage(id) {
+            document.querySelectorAll('.page').forEach(function (p) {
+                p.classList.remove('active');
+            });
+            document.getElementById(id).classList.add('active');
+        }
+
+        async function goViewer() {
+            showPage('page-viewer');
+            if (!window._viewerInit) {
+                window._viewerInit = true;
+                resizeCanvas();
+                // PDF 렌더링 (캘리브레이션과 병렬 진행)
+                if (window._layoutJsonUrl && window.renderLayoutViewer) {
+                    await window.renderLayoutViewer(window._layoutJsonUrl, {
+                        containerId: 'pdfContainer',
+                        pdfUrl: window._pdfUrl,
+                    })
+                } else if (window._pdfUrl) {
+                    // 최초 렌더링 후 북마크 복원
+                    window.addEventListener('pdf-rendered', function () {
+                        if (typeof window.loadBookmarks === 'function') window.loadBookmarks();
+                    }, { once: true });
+                    renderPdf(window._pdfUrl);
+                } else if (window._pdfConversionPending) {
+                    var c = document.getElementById('pdfContainer');
+                    if (c) c.innerHTML = '<div class="pdf-no-content">PPT 파일 변환 중입니다.<br>잠시 후 다시 시도해 주세요.</div>';
+                } else if (window._wsOnlyMode) {
+                    var wsName = window._wsName || '워크스페이스';
+                    var c = document.getElementById('pdfContainer');
+                    if (c) c.innerHTML = `
+                        <div class="workspace-welcome">
+                            <div class="workspace-welcome-icon">📁</div>
+                            <h1>${wsName} 워크스페이스입니다.</h1>
+                            <p>왼쪽에서 문서를 선택해 주세요.</p>
+                        </div>
+                    `;
+                } else {
+                    var c = document.getElementById('pdfContainer');
+                    if (c) c.innerHTML = '<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>';
+                }
+                // 워크스페이스 모드(문서 미선택)엔 캘리브레이션 불필요
+                if (!window._wsOnlyMode && !window._aiViewMode) {
+                    if (window._cachedCalib) {
+                        applyAndActivate(window._cachedCalib);
+                    } else {
+                        showCalibOverlay();
+                    }
+                }
+            }
+        }
+
+
+        /*
+        function goHome() {
+            showPage('page-home');
+            document.title = '눈길';
+        }
+        function goFiles() {
+            showPage('page-files');
+            document.title = '눈길 — 파일';
+        }
+        */
+
+        /* ══════════════════════════════════════════════════════
+           EyeDID 전역 상태
+        ══════════════════════════════════════════════════════ */
+        var G = {
+            prevX: 0, prevY: 0, stabBuf: [], gx: 0, gy: 0,
+            calibDone: false, calibPointIdx: 0,
+            blinkFrames: 0, lastValidX: 0, lastValidY: 0,
+            gazeCount: 0, gazeValid: 0,
+            gazedWords: new Set(), totalWords: 0,
+            warmup: 0,
+            _tracking: false
+        };
+
+        /* ── 경고창 상태 ── */
+        var AWAY_THRESH_MS = 5000;   // 5초 이탈 시 경고
+        var AWAY_MARGIN = -50;    // 경계 여유값(px): 50px 더 나가야 이탈로 판단
+        var awayStart = null;   // 이탈 시작 시각 (null = 화면 보는 중)
+        var alertActive = false;  // 경고창이 현재 떠 있는지
+        var alertShownAt = null;   // 경고창이 뜬 시각
+
+        var LICENSE_KEY = 'dev_f6i6bdr9rg68788vmhh0tsnifv5js2e6zfyh84qb';
+        var seeso = null;
+        var CALIB_POINTS = 6;
+        var etOn = false;
+        var _isRecalib = false;
+
+        var gazeDot = document.getElementById('gaze-dot');
+        var trailCanvas = document.getElementById('trail-canvas');
+        var tCtx = trailCanvas ? trailCanvas.getContext('2d') : null;
+        var trail = [];
+
+        function resizeCanvas() {
+            if (!trailCanvas) return;
+            trailCanvas.width = window.innerWidth;
+            trailCanvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        /* ── 스무딩 ── */
+        var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 100, WARMUP_FRAMES = 5;
+
+        function smoothGaze(rx, ry, isBlink) {
+            if (isBlink) { G.blinkFrames++; return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY }; }
+            if (G.prevX === 0 && G.prevY === 0) {
+                G.prevX = rx; G.prevY = ry; G.lastValidX = rx; G.lastValidY = ry; G.warmup = 0;
+                return { x: rx, y: ry };
+            }
+            var dy = ry - G.prevY;
+            if (Math.abs(dy) > BLINK_Y_JUMP && dy > 0) {
+                G.blinkFrames++;
+                return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY };
+            }
+            G.blinkFrames = 0;
+            G.warmup = (G.warmup || 0) + 1;
+            var alpha = G.warmup < WARMUP_FRAMES ? 0.6 : SMOOTH_A;
+            var ex = alpha * rx + (1 - alpha) * G.prevX;
+            var ey = alpha * ry + (1 - alpha) * G.prevY;
+            var dx2 = ex - G.prevX, dy2 = ey - G.prevY;
+            var vel = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+            if (vel > VEL_MAX) { ex = G.prevX + dx2 * VEL_DAMP; ey = G.prevY + dy2 * VEL_DAMP; }
+            G.prevX = ex; G.prevY = ey; G.lastValidX = ex; G.lastValidY = ey;
+            G.stabBuf.push(vel);
+            if (G.stabBuf.length > 30) G.stabBuf.shift();
+            return { x: ex, y: ey };
+        }
+
+        /* ── 시선 콜백 ── */
+        function onGaze(gazeInfo) {
+            G.gazeCount++;
+            if (!gazeInfo) return;
+            var x = gazeInfo.x, y = gazeInfo.y;
+            if (typeof x !== 'number' || !isFinite(x) || typeof y !== 'number' || !isFinite(y)) return;
+            G.gazeValid++;
+
+            var lo = gazeInfo.leftOpenness, ro = gazeInfo.rightOpenness;
+            var isBlink = (lo !== -1 && ro !== -1) ? (lo < 0.3 && ro < 0.3) : false;
+
+            var useX = x, useY = y;
+            if (gazeInfo.eyemovementState === 0 && gazeInfo.fixationX && gazeInfo.fixationY) {
+                useX = gazeInfo.fixationX; useY = gazeInfo.fixationY;
+            }
+
+            var raw = smoothGaze(useX, useY, isBlink);
+            G.gx = raw.x; G.gy = raw.y;
+
+            var isCalibrating = !G.calibDone
+                && document.getElementById('calibScreen')
+                && document.getElementById('calibScreen').classList.contains('active');
+            if (!etOn && !isCalibrating) return;
+
+            if (isBlink || G.blinkFrames > 0) gazeDot.classList.add('blink');
+            else gazeDot.classList.remove('blink');
+            gazeDot.style.left = G.gx + 'px';
+            gazeDot.style.top = G.gy + 'px';
+
+            if (!isBlink && G.blinkFrames === 0) {
+                trail.push({ x: G.gx, y: G.gy, t: Date.now() });
+                if (trail.length > 50) trail.shift();
+            }
+            drawTrail();
+
+            if (etOn && !isBlink && G.blinkFrames === 0) {
+                if (window.detectGazedBlock) {
+                    // 시선 좌표의 블록을 감지 (없으면 null)
+                    var prevLastBlock = window._lastGazedBlock;
+                    window.detectGazedBlock(G.gx, G.gy);
+                    var curBlk = window._lastGazedBlock;
+
+                    // detectGazedBlock이 블록을 못 찾으면 _lastGazedBlock이 변경되지 않음
+                    // → elementFromPoint 결과가 gaze-block이 아니면 블록 밖
+                    var hitEl = document.elementFromPoint(G.gx, G.gy);
+                    var onBlock = hitEl && hitEl.classList && hitEl.classList.contains('gaze-block');
+
+                    // 문단 재응시 추적 (블록 간 전환 시에만 판정, 빈 공간은 무시)
+                    if (window._sessionActive && window._S && onBlock && curBlk && curBlk.blockId) {
+                        if (curBlk.blockId !== window._S.currentBlock) {
+                            // 다른 블록으로 진입 → 이전에 본 적 있으면 재독
+                            var prev = window._S.blockVisits.get(curBlk.blockId) || 0;
+                            window._S.blockVisits.set(curBlk.blockId, prev + 1);
+                            if (prev >= 1) window._S.rereadCount++;
+                            window._S.currentBlock = curBlk.blockId;
+                        }
+                    }
+                } else {
+                    detectGazedWord(G.gx, G.gy)
+                }
+            }
+            // ── 시선 이탈 감지 (세션 진행 중에만) ──────────────
+            if (etOn && window._sessionActive) {
+                // 블링크는 이탈로 판단하지 않음
+                if (!isBlink && G.blinkFrames === 0) {
+                    var isOnScreen = G.gx > AWAY_MARGIN
+                        && G.gx < window.innerWidth - AWAY_MARGIN
+                        && G.gy > AWAY_MARGIN
+                        && G.gy < window.innerHeight - AWAY_MARGIN;
+
+                    if (!isOnScreen) {
+                        // 이탈 중
+                        if (!awayStart && !alertActive) {
+                            // 이탈 시작: 집중 시간 일시 중단
+                            awayStart = Date.now();
+                            if (window._S && window._S.focusStart) {
+                                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000;
+                                window._S.focusStart = null;
+                            }
+                        }
+                        // 5초 경과 + 경고창 안 떠 있으면 경고 표시
+                        if (awayStart && !alertActive && (Date.now() - awayStart >= AWAY_THRESH_MS)) {
+                            showGazeWarning();
+                        }
+                    } else {
+                        // 화면으로 복귀
+                        if (!alertActive && awayStart) {
+                            // 경고 없이 복귀: 집중 시간 재개
+                            awayStart = null;
+                            if (window._S) window._S.focusStart = Date.now();
+                        }
+                        // 경고창이 떠 있는 상태에서 복귀해도 사용자가 직접 닫아야 함
+                    }
+                }
+            }
+        }
+
+        function showGazeWarning() {
+            alertActive = true;
+            alertShownAt = Date.now();
+            if (window._S) window._S.alertCount++;
+            showWarning(); // warningWidget.js
+        }
+
+        function dismissGazeWarning(btnCenter) {
+            if (!alertActive) return;
+            var responseTime = (Date.now() - alertShownAt) / 1000;
+            if (window._S) window._S.alertTimes.push(responseTime);
+            alertActive = false;
+            alertShownAt = null;
+            awayStart = null;
+
+            // 확인 버튼 위치로 시선 기준점 리셋
+            // → 스무딩이 버튼 위치(사용자가 실제로 보던 곳)에서 재시작
+            if (btnCenter) {
+                G.prevX = btnCenter.x;
+                G.prevY = btnCenter.y;
+                G.lastValidX = btnCenter.x;
+                G.lastValidY = btnCenter.y;
+                G.warmup = 0;
+                G.stabBuf = [];
+            }
+
+            if (window._S) window._S.focusStart = Date.now();
+        }
+
+        // warningWidget의 닫기 버튼(× / 확인) → dismissGazeWarning 연결
+        onCloseWarning = dismissGazeWarning;
+
+        function onDebug() { }
+
+        function drawTrail() {
+            if (!tCtx) return;
+            tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+            if (trail.length < 2) return;
+            var now = Date.now();
+            for (var i = 1; i < trail.length; i++) {
+                var a = trail[i - 1], b = trail[i];
+                var alpha = Math.max(0, (1 - (now - b.t) / 700) * 0.35);
+                tCtx.beginPath(); tCtx.moveTo(a.x, a.y); tCtx.lineTo(b.x, b.y);
+                tCtx.strokeStyle = 'rgba(59,130,246,' + alpha + ')';
+                tCtx.lineWidth = 2; tCtx.stroke();
+            }
+        }
+
+        function detectGazedWord(x, y) {
+            var canvas = document.querySelector('.paper-canvas');
+            if (canvas && !canvas.querySelector('.word')) wrapWordsInViewer();
+            var prev = document.querySelector('.paper-canvas .word.gazed');
+            if (prev) prev.classList.replace('gazed', 'visited');
+            var el = document.elementFromPoint(x, y);
+            if (el && el.classList.contains('word')) { el.classList.add('gazed'); G.gazedWords.add(el.id); }
+        }
+
+        function wrapWordsInViewer() {
+            var canvas = document.querySelector('.paper-canvas');
+            if (!canvas) return;
+            canvas.querySelectorAll('p, li').forEach(function (p, pi) {
+                if (p.querySelector('.word')) return;
+                var html = '', wi = 0;
+                p.textContent.split(/(\s+)/).forEach(function (w) {
+                    if (/^\s+$/.test(w)) { html += w; return; }
+                    if (!w) return;
+                    html += '<span class="word" id="gw-' + pi + '-' + (wi++) + '">' + w + '</span> ';
+                });
+                p.innerHTML = html;
+            });
+            G.totalWords = canvas.querySelectorAll('.word').length;
+            G.gazedWords = new Set();
+        }
+
+        /* ══════════════════════════════════════════════════════
+           캘리브레이션
+        ══════════════════════════════════════════════════════ */
+        var _origCalibCardHTML = null;
+        function showCalibOverlay() {
+            document.getElementById('calibOverlay').classList.add('active');
+            document.getElementById('calibSetup').classList.add('active');
+            document.getElementById('calibScreen').classList.remove('active');
+            document.getElementById('calibDonePhase').classList.remove('active');
+            var card = document.querySelector('#calibSetup .calib-card');
+            if (card && _origCalibCardHTML) {
+                card.innerHTML = _origCalibCardHTML;
+                var btn = document.getElementById('btnStartCalib');
+                if (btn) btn.addEventListener('click', startCalibration);
+            }
+            runCalibSetup();
+        }
+
+        function hideCalibOverlay() {
+            document.getElementById('calibOverlay').classList.remove('active');
+        }
+
+        async function runCalibSetup() {
+            var hasMD = !!navigator.mediaDevices;
+            setCalibChk('chkBrowser', hasMD, hasMD ? '브라우저 확인됨' : '카메라 API 미지원');
+
+            if (window._sdkLoaded) {
+                setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+            } else {
+                setCalibChk('chkSdk', false, 'EyeDID SDK 로딩 중...');
+                window.addEventListener('seeso-ready', function () {
+                    setCalibChk('chkSdk', true, 'EyeDID SDK 로딩됨');
+                    tryEnableCalibBtn();
+                });
+            }
+
+            try {
+                var s = await navigator.mediaDevices.getUserMedia({ video: true });
+                s.getTracks().forEach(function (t) { t.stop(); });
+                setCalibChk('chkCamera', true, '카메라 접근 허용됨');
+            } catch (e) {
+                setCalibChk('chkCamera', false, '카메라 접근 거부됨');
+            }
+            tryEnableCalibBtn();
+        }
+
+        function setCalibChk(id, ok, msg) {
+            var el = document.getElementById(id);
+            if (!el) return;
+            el.className = 'calib-chk-item ' + (ok ? 'ok' : 'err');
+            el.querySelector('.calib-chk-icon').textContent = ok ? '✓' : '✗';
+            el.querySelector('span:last-child').textContent = msg;
+        }
+
+        function tryEnableCalibBtn() {
+            var btn = document.getElementById('btnStartCalib');
+            if (btn) btn.disabled = document.querySelectorAll('.calib-chk-item.ok').length < 3;
+        }
+
+        async function startCalibration() {
+            var EasySeesoClass = window.EasySeeSo;
+            if (!EasySeesoClass) { alert('SDK 미로드'); return; }
+
+            document.getElementById('calibSetup').classList.remove('active');
+            document.getElementById('calibScreen').classList.add('active');
+
+            seeso = new EasySeesoClass();
+            try {
+                await seeso.init(LICENSE_KEY,
+                    function () {
+                        try {
+                            seeso.setMonitorSize(15);
+                            seeso.setFaceDistance(60);
+                            seeso.setCameraPosition(window.innerWidth / 2, true);
+                        } catch (e) { console.warn('설정 오류:', e); }
+                        beginCalibPoints();
+                    },
+                    function () {
+                        alert('EyeDID SDK 인증 실패.');
+                        document.getElementById('calibScreen').classList.remove('active');
+                        document.getElementById('calibSetup').classList.add('active');
+                    }
+                );
+            } catch (e) {
+                alert('SDK 오류: ' + e.message);
+                document.getElementById('calibScreen').classList.remove('active');
+                document.getElementById('calibSetup').classList.add('active');
+            }
+        }
+
+        async function beginCalibPoints() {
+            G.calibPointIdx = 0; G.calibDone = false;
+            G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+            G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+
+            var pipsEl = document.getElementById('calibPips');
+            pipsEl.innerHTML = '';
+            for (var i = 0; i < CALIB_POINTS; i++)
+                pipsEl.innerHTML += '<div class="c-pip" id="cpip-' + i + '"></div>';
+            document.getElementById('calibProgTxt').textContent = '0 / ' + CALIB_POINTS;
+            document.querySelectorAll('.calib-dot').forEach(function (el) { el.remove(); });
+
+            var trackOk = await seeso.startTracking(onGaze, onDebug);
+            if (!trackOk) { alert('카메라 시작 실패'); return; }
+            G._tracking = true;
+
+            await new Promise(function (r) { setTimeout(r, 800); });
+            gazeDot.classList.add('visible');
+            trailCanvas.classList.add('active');
+
+            seeso.startCalibration(
+                function (x, y) {
+                    showCalibDot(x, y);
+                    setTimeout(function () { try { seeso.startCollectSamples(); } catch (e) { } }, 2000);
+                },
+                function (progress) {
+                    var ring = document.getElementById('cring-active');
+                    if (ring) ring.style.strokeDashoffset = 106.8 * (1 - progress);
+                },
+                function (calibrationData) {
+                    var lastPip = document.getElementById('cpip-' + (CALIB_POINTS - 1));
+                    if (lastPip) { lastPip.classList.remove('active'); lastPip.classList.add('done'); }
+                    document.querySelectorAll('.calib-dot').forEach(function (el) {
+                        el.classList.remove('visible', 'sampling'); el.classList.add('done');
+                    });
+                    G.calibDone = true;
+
+                    // 워크스페이스 캘리브레이션 캐시 저장 (1시간 유효)
+                    if (window._calibKey && calibrationData) {
+                        try {
+                            localStorage.setItem(window._calibKey, JSON.stringify({
+                                data: calibrationData,
+                                timestamp: Date.now(),
+                                workspaceId: window._workspaceId
+                            }));
+                        } catch (e) { console.warn('캘리브레이션 저장 실패:', e); }
+                    }
+
+                    seeso.stopTracking();
+                    G._tracking = false;
+                    gazeDot.classList.remove('visible');
+                    trailCanvas.classList.remove('active');
+                    if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                    trail.length = 0;
+                    G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+                    setTimeout(function () {
+                        document.getElementById('calibScreen').classList.remove('active');
+                        document.querySelectorAll('.calib-dot').forEach(function (el) { el.remove(); });
+                        document.getElementById('calibDonePhase').classList.add('active');
+                    }, 800);
+                },
+                CALIB_POINTS
+            );
+        }
+
+        function showCalibDot(x, y) {
+            var prev = document.getElementById('cdot-active');
+            if (prev) { prev.classList.remove('visible', 'sampling'); prev.classList.add('done'); prev.id = ''; }
+            if (G.calibPointIdx > 0) {
+                var pp = document.getElementById('cpip-' + (G.calibPointIdx - 1));
+                if (pp) { pp.classList.remove('active'); pp.classList.add('done'); }
+            }
+            var cp = document.getElementById('cpip-' + G.calibPointIdx);
+            if (cp) cp.classList.add('active');
+            G.calibPointIdx++;
+            document.getElementById('calibProgTxt').textContent = G.calibPointIdx + ' / ' + CALIB_POINTS;
+
+            var d = document.createElement('div');
+            d.className = 'calib-dot visible sampling'; d.id = 'cdot-active';
+            d.style.left = x + 'px'; d.style.top = y + 'px';
+            d.innerHTML = '<svg class="calib-ring-svg" viewBox="0 0 42 42">'
+                + '<circle cx="21" cy="21" r="17" fill="none" stroke="rgba(59,130,246,.15)" stroke-width="2"/>'
+                + '<circle id="cring-active" cx="21" cy="21" r="17" fill="none" stroke="#3b82f6" '
+                + 'stroke-width="2.5" stroke-linecap="round" stroke-dasharray="106.8" stroke-dashoffset="106.8" '
+                + 'transform="rotate(-90 21 21)"/></svg>'
+                + '<div class="calib-dot-inner"></div>';
+            document.body.appendChild(d);
+        }
+
+        /* ── 버튼 바인딩 ── */
+        document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
+        document.getElementById('btnCalibDone').addEventListener('click', function () {
+            hideCalibOverlay();
+            activateET();
+            if (_isRecalib) {
+                document.getElementById('btnCalibDone').textContent = '워크스페이스로 진입 →';
+                _isRecalib = false;
+            }
+        });
+
+        /* ── 진입점: 모듈 스크립트(하단)에서 goViewer() 호출 ── */
+        // DOMContentLoaded 제거 → viewer-init 커스텀 이벤트로 대체
+        window.addEventListener('viewer-init', function (e) {
+            window._cachedCalib = e.detail.cachedCalib ?? null;
+            window._workspaceId = e.detail.workspaceId ?? null;
+            window._calibKey = e.detail.calibKey ?? null;
+            document.getElementById('pageLoadOverlay')?.remove();
+            goViewer();
+        }, { once: true });
+
+        /* ══════════════════════════════════════════════════════
+           재보정
+        ══════════════════════════════════════════════════════ */
+        function recalibrate(e) {
+            if (e) e.stopPropagation();
+            _isRecalib = true;
+            if (etOn) {
+                etOn = false;
+                try { seeso.stopTracking(); } catch (ex) { }
+                G._tracking = false;
+                gazeDot.classList.remove('visible');
+                trailCanvas.classList.remove('active');
+                if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+                trail.length = 0;
+            }
+            G.calibDone = false; seeso = null;
+            G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+            G.blinkFrames = 0; G.lastValidX = 0; G.lastValidY = 0;
+            document.getElementById('btnCalibDone').textContent = '뷰어로 돌아가기 →';
+            showCalibOverlay();
+        }
+
+        /* ══════════════════════════════════════════════════════
+           캘리브레이션 캐시 재적용
+           같은 워크스페이스 이전 캘리브레이션 데이터를 사용해
+           전체 캘리브레이션 과정 없이 트래킹 시작
+        ══════════════════════════════════════════════════════ */
+        async function applyAndActivate(calibDataStr) {
+            // 간단한 "재사용 중" 표시
+            var overlay = document.getElementById('calibOverlay');
+            overlay.classList.add('active');
+            var card = document.querySelector('#calibSetup .calib-card');
+            if (card) {
+                if (!_origCalibCardHTML) _origCalibCardHTML = card.innerHTML;
+                card.innerHTML = `
+                    <div class="calib-reuse-card">
+                        <div class="calib-reuse-icon">👀</div>
+
+                        <div class="calib-reuse-badge">CALIBRATION</div>
+
+                        <h2 class="calib-card-title">이전 캘리브레이션 적용 중...</h2>
+
+                        <p class="calib-card-desc">
+                            저장된 시선 보정 데이터를 불러오고 있어요.<br>
+                        </p>
+
+                        <div class="calib-reuse-progress">
+                            <div class="calib-reuse-progress-bar"></div>
+                        </div>
+                    </div>
+                `;
+    
+            }
+            document.getElementById('calibSetup').classList.add('active');
+
+            // SDK 로드 대기
+            if (!window._sdkLoaded) {
+                await new Promise(function (resolve) {
+                    window.addEventListener('seeso-ready', resolve, { once: true });
+                });
+            }
+
+            var EasySeesoClass = window.EasySeeSo;
+            if (!EasySeesoClass) { showCalibOverlay(); return; }
+
+            seeso = new EasySeesoClass();
+            try {
+                await seeso.init(
+                    LICENSE_KEY,
+                    async function () {
+                        try {
+                            seeso.setMonitorSize(15);
+                            seeso.setFaceDistance(60);
+                            seeso.setCameraPosition(window.innerWidth / 2, true);
+                            await seeso.setCalibrationData(calibDataStr);  // 캐시 적용
+                        } catch (e) {
+                            console.warn('캘리브레이션 데이터 적용 오류:', e);
+                        }
+
+                        var trackOk = await seeso.startTracking(onGaze, onDebug);
+                        if (trackOk) {
+                            G._tracking = true;
+                            G.calibDone = true;
+                            hideCalibOverlay();
+                            activateET();
+                        } else {
+                            // 트래킹 실패 → 새 캘리브레이션으로 fallback
+                            console.warn('트래킹 시작 실패, 새 캘리브레이션으로 전환');
+                            seeso = null; G.calibDone = false;
+                            showCalibOverlay();
+                        }
+                    },
+                    function () {
+                        // SDK 인증 실패 → 새 캘리브레이션
+                        seeso = null;
+                        showCalibOverlay();
+                    }
+                );
+            } catch (e) {
+                console.warn('SDK 초기화 오류:', e);
+                seeso = null;
+                showCalibOverlay();
+            }
+        }
+
+        /* ══════════════════════════════════════════════════════
+           ET 패널
+        ══════════════════════════════════════════════════════ */
+        function etExpand() { document.getElementById('etP').classList.remove('min'); }
+        function etCollapse(e) { e.stopPropagation(); document.getElementById('etP').classList.add('min'); }
+
+        async function etToggle(e) {
+            e.stopPropagation();
+            if (!G.calibDone || !seeso) { showCalibOverlay(); return; }
+            if (etOn) deactivateET(); else activateET();
+        }
+
+        async function activateET() {
+            if (etOn) {
+                // 이미 활성 상태 → 세션 중이면 집중시간만 재개
+                if (window._sessionActive && window._S && !window._S.focusStart) {
+                    window._S.focusStart = Date.now();
+                }
+                return;
+            }
+            if (!G.calibDone || !seeso) {
+                // 캘리브레이션 미완료 → 먼저 캘리브레이션 진행 후 자동 활성화
+                showCalibOverlay();
+                return;
+            }
+            etOn = true;
+            document.getElementById('etDot').className = 'et-dot g';
+            document.getElementById('etLbl').textContent = '아이트래킹 활성화';
+            document.getElementById('etTog').textContent = '비활성화';
+            document.getElementById('etTog').className = 'et-tog on';
+            // 캘리브레이션/캐시 적용 과정에서 이미 startTracking된 경우 건너뜀
+            if (!G._tracking) {
+                var trackOk = await seeso.startTracking(onGaze, onDebug);
+                if (!trackOk) { alert('카메라 시작 실패'); etOn = false; return; }
+                G._tracking = true;
+            }
+            gazeDot.classList.add('visible');
+            trailCanvas.classList.add('active');
+            wrapWordsInViewer();
+            // 세션 진행 중이면 집중시간 재개
+            if (window._sessionActive && window._S && !window._S.focusStart) {
+                window._S.focusStart = Date.now();
+            }
+        }
+
+        function deactivateET() {
+            etOn = false;
+            document.getElementById('etDot').className = 'et-dot r';
+            document.getElementById('etLbl').textContent = '아이트래킹 비활성화';
+            document.getElementById('etTog').textContent = '활성화';
+            document.getElementById('etTog').className = 'et-tog off';
+            try { seeso.stopTracking(); } catch (ex) { }
+            G._tracking = false;
+            gazeDot.classList.remove('visible');
+            trailCanvas.classList.remove('active');
+            if (tCtx) tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+            trail.length = 0;
+            G.prevX = 0; G.prevY = 0; G.stabBuf = []; G.warmup = 0;
+            // 세션 진행 중이면 집중시간 일시중지
+            if (window._sessionActive && window._S && window._S.focusStart) {
+                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000;
+                window._S.focusStart = null;
+            }
+        }
+
+        /* ══════════════════════════════════════════════════════
+       ET 패널 드래그로 숨기기 / 핸들로 다시 꺼내기
+    ══════════════════════════════════════════════════════ */
+        function initEtDragHide() {
+    var panel = document.getElementById('etP');
+    var handle = document.getElementById('etHandle');
+    if (!panel || !handle) {
+        console.warn('ET 드래그: etP/etHandle 없음');
+        return;
+    }
+
+    var dragging = false, startX = 0, moved = 0;
+    var DRAG_THRESHOLD = 60;
+
+    panel.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('button')) return;
+        dragging = true; moved = 0; startX = e.clientX;
+        panel.classList.add('dragging');
+        panel.setPointerCapture(e.pointerId);
+    });
+    panel.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        moved = Math.max(0, e.clientX - startX);
+        panel.style.transform = 'translateX(' + moved + 'px)';
+        panel.style.opacity = String(Math.max(0, 1 - moved / 200));
+    });
+    panel.addEventListener('pointerup', function () {
+        if (!dragging) return;
+        dragging = false;
+        panel.classList.remove('dragging');
+        panel.style.transform = '';
+        panel.style.opacity = '';
+        if (moved >= DRAG_THRESHOLD) hideEtPanel();
+    });
+    panel.addEventListener('pointercancel', function () {
+        dragging = false;
+        panel.classList.remove('dragging');
+        panel.style.transform = '';
+        panel.style.opacity = '';
+    });
+
+    function hideEtPanel() {
+        panel.classList.add('slide-hidden');
+        handle.classList.add('show');
+    }
+    function showEtPanel() {
+        panel.classList.remove('slide-hidden');
+        handle.classList.remove('show');
+    }
+
+    // 전역 노출 — 다른 코드(메모장/도움말)에서 호출
+    window.etHidePanel = hideEtPanel;
+    window.etShowPanel = showEtPanel;
+}
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initEtDragHide);
+        } else {
+            initEtDragHide();
+        }
+
+    </script>
+
+    <!-- 북마크 / 메모장 등 뷰어 기능 -->
+    <script src="script.js"></script>
+
+    <!-- 뷰어 초기화: 인증 확인 + 문서 로드 + 캘리브레이션 캐시 -->
+    <script type="module">
+        import { sb } from '/src/lib/supabase.js'
+        import { requireAuth, getCurrentUser } from '/src/lib/auth.js'
+        import { getDocument, getDocuments, getRecentDocuments, getFavoriteDocuments, createDocument, deleteDocument } from '/src/lib/db/documents.js'
+        import { deleteAsset } from '/src/lib/db/learningAssets.js'
+        import { getWorkspaces } from '/src/lib/db/workspaces.js'
+        import { getSignedUrl, uploadDocument, getLayoutSignedUrl } from '/src/lib/storage.js'
+        import { createStudySession, updateStudySession, completeStudySession, saveSessionSnapshot } from '/src/lib/db/studySessions.js'
+        import { getNote, upsertNote } from '/src/lib/db/notes.js'
+
+        const CALIB_TTL = 8 * 60 * 60 * 1000  // 8시간
+
+        function cleanDocTitle(name) {
+            return String(name || '문서')
+                .replace(/^눈길\s*[-–—:]*\s*/i, '')
+                .replace(/\.(pdf|ppt|pptx)$/i, '')
+                .replace(/\s*퀴즈\s*$/i, '')
+                .trim() || '문서'
+        }
+
+        // ── 인증 가드 ─────────────────────────────────────
+        const session = await requireAuth()
+        if (!session) throw new Error('unauthenticated')
+
+        // ── URL 파라미터 ───────────────────────────────────
+        const params = new URLSearchParams(location.search)
+        let docId = params.get('doc_id')              // let: in-place 전환 시 갱신
+        let workspaceId = params.get('workspace_id') ?? null
+
+        const sbWorkspaceButton = document.getElementById('sbWorkspaceButton')
+
+        if (sbWorkspaceButton) {
+            sbWorkspaceButton.addEventListener('click', () => {
+                if (workspaceId) {
+                    location.href = `viewer.html?workspace_id=${workspaceId}`
+                }
+            })
+        }
+
+        // 워크스페이스만 있고 문서 없으면 웰컴 모드
+        if (!docId && workspaceId) {
+            window._wsOnlyMode = true
+            document.body.classList.add('ws-only-mode')
+        }
+
+        // ── 문서 조회 → PDF URL + workspace_id ────────────
+        if (docId) {
+            try {
+                const doc = await getDocument(docId)
+
+                const pdfPath = doc?.file_type === 'PDF'
+                    ? doc.file_url
+                    : (doc?.converted_pdf_path ?? null)
+
+                if (pdfPath) {
+                    window._pdfUrl = await getSignedUrl(pdfPath)
+                    window._docTitle = doc?.file_name || '문서'
+                } else if (doc?.file_type === 'PPT') {
+                    window._pdfConversionPending = true
+                }
+
+                if (doc?.layout_json_path) {
+                    window._layoutJsonUrl = await getLayoutSignedUrl(doc.layout_json_path)
+                }
+            } catch (e) {
+                console.warn('문서 조회 실패:', e.message)
+            }
+        }
+
+        // ── 캘리브레이션 캐시 확인 (사용자 전역, 8시간 유효) ─
+        const userId = session.user.id
+        const calibKey = `nungil_calib_ws_${workspaceId || userId}`
+        let cachedCalib = null
+
+        try {
+            const raw = localStorage.getItem(calibKey)
+            if (raw) {
+                const parsed = JSON.parse(raw)
+                if (Date.now() - parsed.timestamp < CALIB_TTL) {
+                    cachedCalib = parsed.data
+                } else {
+                    localStorage.removeItem(calibKey)
+                }
+            }
+        } catch (e) {
+            console.warn('캘리브레이션 캐시 읽기 실패:', e)
+        }
+
+        // 워크스페이스 이름 미리 세팅 (goViewer의 웰컴화면에서 사용)
+        if (workspaceId && !docId) {
+            try {
+                const wsList = await getWorkspaces()
+                const ws = wsList.find(w => w.id === workspaceId)
+                window._wsName = ws?.title ?? ''
+            } catch (e) { console.warn('워크스페이스 이름 로드 실패:', e) }
+        }
+
+        // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
+        window.dispatchEvent(new CustomEvent('viewer-init', {
+            detail: { cachedCalib, workspaceId, calibKey }
+        }))
+
+        // ── 사이드바: 프로필 + 문서 목록 (비동기, viewer-init 이후) ────
+        try {
+            const result = await getCurrentUser()
+            const nameEl = document.getElementById('sbProfileName')
+            const emailEl = document.getElementById('sbProfileEmail')
+            if (nameEl) nameEl.textContent = result?.profile?.name ?? result?.email?.split('@')[0] ?? '—'
+            if (emailEl) emailEl.textContent = result?.email ?? '—'
+        } catch (e) {
+            console.warn('프로필 로드 실패:', e.message)
+        }
+
+        async function reloadDocList() {
+            try {
+                const listEl = document.getElementById('sbDocList')
+                const labelEl = document.getElementById('sbWorkspaceLabel')
+
+                let docs = []
+                if (workspaceId) {
+                    const workspaces = await getWorkspaces()
+                    const ws = workspaces.find(w => w.id === workspaceId)
+                    const wsName = ws?.title ?? '워크스페이스 문서'
+                    window._wsName = wsName
+                    if (labelEl) labelEl.textContent = wsName
+                    docs = await getDocuments(workspaceId)
+                } else {
+                    if (labelEl) labelEl.textContent = '개인 문서'
+                    docs = await getRecentDocuments(5)
+                }
+
+                if (!docs.length) {
+                    listEl.innerHTML = '<div class="sb-empty-text">문서 없음</div>'
+                } else {
+                    listEl.innerHTML = docs.map(d => `
+                        <button class="sb-item${d.id === docId ? ' active' : ''}" data-doc-id="${d.id}">
+                            <span class="sb-item-text">${d.file_name}</span>
+                            <span class="sb-item-delete" data-delete-type="doc" data-delete-id="${d.id}" data-delete-name="${d.file_name}">×</span>
+                        </button>
+                    `).join('')
+
+                    listEl.querySelectorAll('.sb-item').forEach(el => {
+                        el.addEventListener('click', (e) => {
+                            if (e.target.closest('.sb-item-delete')) return
+                            const id = el.dataset.docId
+                            if (id && id !== docId) loadDocInViewer(id)
+                        })
+                    })
+
+                    listEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                        btn.addEventListener('click', (e) => {
+                            e.stopPropagation()
+                            showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
+                        })
+                    })
+                }
+            } catch (e) {
+                console.warn('문서 목록 로드 실패:', e.message)
+            }
+        }
+
+        await reloadDocList()
+
+        // ── 지식 자산 로드 함수 (common.js의 saveAssetToDb에서 window로 호출)
+        window.loadKnowledgeAssets = loadKnowledgeAssets
+
+        let aiSidebarJobs = [];
+
+        window.addEventListener("ai-asset-status-changed", (e) => {
+            aiSidebarJobs = e.detail?.jobs || [];
+
+            if (typeof loadKnowledgeAssets === "function") {
+                loadKnowledgeAssets(docId || null);
+            }
+        });
+
+        function formatRelativeTime(value) {
+            if (!value) return "";
+
+            const time = new Date(value).getTime();
+            if (Number.isNaN(time)) return "";
+
+            const diff = Date.now() - time;
+            const minute = 60 * 1000;
+            const hour = 60 * minute;
+            const day = 24 * hour;
+            const week = 7 * day;
+            const month = 30 * day;
+
+            if (diff < minute) return "방금 전";
+            if (diff < hour) return `${Math.floor(diff / minute)}분 전`;
+            if (diff < day) return `${Math.floor(diff / hour)}시간 전`;
+            if (diff < week) return `${Math.floor(diff / day)}일 전`;
+            if (diff < month) return `${Math.floor(diff / week)}주 전`;
+
+            return `${Math.floor(diff / month)}달 전`;
+        }
+
+        function getAssetStatusText(asset) {
+            if (asset.status === "PENDING") return "대기 중";
+            if (asset.status === "RUNNING") return "생성 중...";
+            if (asset.status === "ERROR") return "실패";
+
+            return formatRelativeTime(asset.finished_at || asset.created_at);
+        }
+
+        async function loadKnowledgeAssets(targetDocId) {
+            const assetEl = document.getElementById('sbAssetList')
+            if (!assetEl) return
+
+            const typeIcon = {
+                SUMMARY: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`,
+                MINDMAP: `
+                <svg viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    width="14"
+                    height="14">
+
+                    <!-- 연결선 -->
+                    <line x1="9" y1="12" x2="16" y2="7.5"></line>
+                    <line x1="9" y1="12" x2="16" y2="16.5"></line>
+
+                    <!-- 노드 -->
+                    <circle cx="6" cy="12" r="3"></circle>
+                    <circle cx="18" cy="7" r="3"></circle>
+                    <circle cx="18" cy="17" r="3"></circle>
+                </svg>
+                `,
+                QUIZ: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" width="14" height="14"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            }
+            const toolName = { SUMMARY: 'summary', MINDMAP: 'mindmap', QUIZ: 'quiz' }
+
+            try {
+                let query = sb
+                    .from('learning_assets')
+                    .select('id, type, status, document_id, created_at, requested_at, started_at, finished_at, updated_at, error_message, documents(file_name)')
+                    .order('updated_at', { ascending: false })
+
+                if (targetDocId) {
+                    query = query.eq('document_id', targetDocId)
+                } else if (workspaceId) {
+                    // 워크스페이스 전체 문서 자산 조회
+                    const wsDocs = await getDocuments(workspaceId)
+                    const docIds = wsDocs.map(d => d.id)
+                    if (!docIds.length) {
+                        assetEl.innerHTML = '<div class="sb-empty-text">생성된 자산 없음</div>'
+                        return
+                    }
+                    query = query.in('document_id', docIds)
+                } else {
+                    assetEl.innerHTML = '<div class="sb-empty-text">문서를 선택하면 표시됩니다.</div>'
+                    return
+                }
+
+                const { data: assets } = await query
+
+                const dbAssets = assets || [];
+
+                const localJobs = aiSidebarJobs
+                    .filter(job => {
+                        if (!targetDocId) return true;
+                        return job.document_id === targetDocId;
+                    })
+                    .map(job => ({
+                        id: job.id,
+                        type: job.type,
+                        status: job.status,
+                        document_id: job.document_id,
+                        created_at: job.created_at,
+                        documents: {
+                            file_name: job.title,
+                        },
+                        isLocalJob: true,
+                    }));
+
+                // 진행 중인 local job만 DB보다 우선 표시
+                const activeLocalJobs = localJobs.filter(job => {
+                    return (
+                        job.status === "PENDING" ||
+                        job.status === "RUNNING" ||
+                        job.status === "ERROR"
+                    );
+                });
+
+                const activeLocalJobKeys = new Set(
+                    activeLocalJobs.map(job => `${job.document_id}:${job.type}`)
+                );
+
+                // DB 자산 중 진행 중 local job과 겹치는 것만 숨김
+                // DONE local job은 DB 자산을 가리면 안 됨
+                const visibleDbAssets = dbAssets.filter(asset => {
+                    const key = `${asset.document_id}:${asset.type}`;
+                    return !activeLocalJobKeys.has(key);
+                });
+
+                const mergedAssets = [
+                    ...activeLocalJobs,
+                    ...visibleDbAssets,
+                ];
+
+                if (!mergedAssets.length) {
+                    assetEl.innerHTML = '<div class="sb-empty-text">생성된 자산 없음</div>';
+                    return;
+                }
+
+                const typeLabel = { SUMMARY: '요약', MINDMAP: '마인드맵', QUIZ: '퀴즈' }
+
+                assetEl.innerHTML = mergedAssets.map(a => {
+                    const fname = cleanDocTitle(a.documents?.file_name ?? '')
+                    const label = `${fname} ${typeLabel[a.type] ?? a.type}`
+
+                    const statusText = getAssetStatusText(a);
+                    const isTemp = a.status === "PENDING" || a.status === "RUNNING" || a.status === "ERROR";
+
+                    return `
+                    <button
+                        class="sb-item sb-asset-item ${isTemp ? "is-temp" : ""}"
+                        data-tool="${toolName[a.type]}"
+                        data-doc-id="${a.document_id}"
+                        data-asset-id="${a.id}"
+                        data-asset-status="${a.status}"
+                    >
+                        <span class="sb-asset-icon">${typeIcon[a.type]}</span>
+                        <span class="sb-item-text sb-asset-text">${fname} ${typeLabel[a.type] ?? a.type}</span>
+                        <span class="sb-asset-status ${a.status?.toLowerCase()}">${statusText}</span>
+                        ${
+                            a.isLocalJob
+                                ? ""
+                                : `<span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>`
+                        }
+                    </button>`;
+                }).join('')
+
+                assetEl.querySelectorAll('.sb-item-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation()
+                        showDeleteConfirm(btn.dataset.deleteType, btn.dataset.deleteId, btn.dataset.deleteName)
+                    })
+                })
+
+                // 자산 항목 클릭 → AI 도구 열기
+                assetEl.querySelectorAll('.sb-item').forEach(el => {
+                    el.addEventListener('click', async (e) => {
+                        if (e.target.closest('.sb-item-delete')) return
+                        const tool = el.dataset.tool
+                        const dId = el.dataset.docId
+
+                        // 다른 문서 자산이면 먼저 해당 문서 로드
+                        if (dId && dId !== docId) await loadDocInViewer(dId)
+
+                        const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
+                        if (btn) btn.click()
+
+                        assetEl.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'))
+                        el.classList.add('active')
+                    })
+                })
+            } catch (e) {
+                console.warn('지식 자산 로드 실패:', e.message)
+            }
+        }
+
+        // 진입 시 자산 로드 (문서 또는 워크스페이스 기준)
+        loadKnowledgeAssets(docId || null)
+
+        // ── 문서 in-place 로드 (script.js에서도 접근 가능하도록 전역 노출) ──
+        window.loadDocInViewer = loadDocInViewer
+        async function loadDocInViewer(id) {
+            try {
+                // 상태 초기화
+                window._pdfUrl = null
+                window._layoutJsonUrl = null
+                window._pdfDoc = null
+
+                // 문서 조회
+                const doc = await getDocument(id)
+
+                // PDF URL
+                const pdfPath = doc?.file_type === 'PDF'
+                    ? doc.file_url
+                    : (doc?.converted_pdf_path ?? null)
+
+                if (pdfPath) {
+                    window._pdfUrl = await getSignedUrl(pdfPath)
+                }
+
+                // Layout JSON URL
+                if (doc?.layout_json_path) {
+                    window._layoutJsonUrl = await getLayoutSignedUrl(doc.layout_json_path)
+                }
+
+                // 렌더링
+                if (window._layoutJsonUrl && window.renderLayoutViewer) {
+                    await window.renderLayoutViewer(window._layoutJsonUrl, {
+                        containerId: 'pdfContainer',
+                        pdfUrl: window._pdfUrl,
+                    })
+                } else if (window._pdfUrl) {
+                    window.renderPdf(window._pdfUrl)
+                } else {
+                    document.getElementById('pdfContainer').innerHTML =
+                        '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
+                }
+
+                // 상태 갱신
+                docId = id
+                window._currentDocId = id
+                window._wsOnlyMode = false
+                document.body.classList.remove('ws-only-mode')
+
+                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+
+                // 북마크 초기화 + PDF 렌더 후 복원
+                document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
+                if (typeof window._resetBookmarks === 'function') window._resetBookmarks()
+                window.addEventListener('pdf-rendered', function () {
+                    if (typeof window.loadBookmarks === 'function') window.loadBookmarks()
+                }, { once: true })
+
+                // URL 갱신
+                history.pushState({}, '', workspaceId
+                    ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
+                    : `viewer.html?doc_id=${id}`)
+
+                // 메모장 갱신
+                if (typeof window.reloadMemoForDoc === 'function') window.reloadMemoForDoc()
+
+                // 사이드바 활성 아이템 갱신
+                document.querySelectorAll('#sbDocList .sb-item').forEach(el => {
+                    el.classList.toggle('active', el.dataset.docId === id)
+                })
+
+                // 지식 자산 갱신
+                loadKnowledgeAssets(id)
+
+                // AI 모듈 상태 재초기화 (skipRender: loadDocInViewer가 이미 PDF를 렌더했으므로 중복 렌더 방지)
+                window.dispatchEvent(new CustomEvent('doc-changed', { detail: { skipRender: true } }))
+
+                // 워크스페이스 세션 유지 — 현재 문서만 갱신
+                if (S.sessionId) {
+                    updateStudySession(S.sessionId, { documentId: id }).catch(() => { })
+                }
+
+            } catch (e) {
+                console.warn('문서 전환 실패:', e.message)
+            }
+        }
+        // ── 새 문서 추가 버튼 ─────────────────────────────
+        const sbOverlay = document.getElementById('sbUploadOverlay')
+        const sbFileInput = document.getElementById('sbFileInput')
+        const sbDropLabel = document.getElementById('sbDropLabel')
+        const sbDropzone = document.getElementById('sbDropzone')
+        const sbWsName = document.getElementById('sbUploadWsName')
+
+        // 워크스페이스 이름 표시
+        if (workspaceId && sbWsName) {
+            const wsList = await getWorkspaces().catch(() => [])
+            const ws = wsList.find(w => w.id === workspaceId)
+            sbWsName.textContent = ws ? `📁 ${ws.title}` : ''
+        }
+
+        document.getElementById('sbAddDocBtn').addEventListener('click', () => {
+            sbOverlay.style.display = 'flex'
+        })
+        const closeModal = () => {
+            sbOverlay.style.display = 'none'
+            sbFileInput.value = ''
+            sbDropLabel.textContent = '파일을 선택하거나 드래그하세요'
+        }
+        document.getElementById('sbUploadClose').addEventListener('click', closeModal)
+        document.getElementById('sbUploadCancel').addEventListener('click', closeModal)
+        sbOverlay.addEventListener('click', (e) => { if (e.target === sbOverlay) closeModal() })
+
+        sbFileInput.addEventListener('change', () => {
+            if (sbFileInput.files[0]) sbDropLabel.textContent = sbFileInput.files[0].name
+        })
+        sbDropzone.addEventListener('dragover', (e) => { e.preventDefault(); sbDropzone.style.borderColor = '#78a3ea' })
+        sbDropzone.addEventListener('dragleave', () => { sbDropzone.style.borderColor = '#dbe4f0' })
+        sbDropzone.addEventListener('drop', (e) => {
+            e.preventDefault()
+            sbDropzone.style.borderColor = '#dbe4f0'
+            if (e.dataTransfer.files[0]) {
+                sbFileInput.files = e.dataTransfer.files
+                sbDropLabel.textContent = e.dataTransfer.files[0].name
+            }
+        })
+
+        document.getElementById('sbUploadSubmit').addEventListener('click', async () => {
+            const file = sbFileInput.files[0]
+            if (!file) { alert('파일을 선택해 주세요.'); return }
+
+            const submitBtn = document.getElementById('sbUploadSubmit')
+            submitBtn.textContent = '업로드 중...'
+            submitBtn.disabled = true
+
+            try {
+                const { storagePath, fileType } =
+                    await uploadDocument(file, session.user.id)
+
+                const doc = await createDocument({
+                    userId: session.user.id,
+                    workspaceId: workspaceId ?? null,
+                    fileName: file.name,
+                    storagePath,
+                    fileType,
+                })
+
+                location.href = workspaceId
+                    ? `processing.html?doc_id=${doc.id}&workspace_id=${workspaceId}`
+                    : `processing.html?doc_id=${doc.id}`
+
+            } catch (e) {
+                alert('업로드 실패: ' + e.message)
+                submitBtn.textContent = '추가하기'
+                submitBtn.disabled = false
+            }
+        })
+
+        // ── 세션 상태 ──────────────────────────────────────
+        const S = {
+            sessionId: null,
+            startTime: null,
+            focusStart: null,
+            focusTotal: 0,
+            alertCount: 0,
+            alertTimes: [],
+            autosaveTimer: null,
+            snapshotTimer: null,
+            snapshotTick: 0,        // 10초 단위 틱 카운터
+            // 문단 재방문 추적
+            blockVisits: new Map(),   // blockId → 방문 횟수
+            currentBlock: null,       // 현재 응시 중인 블록 ID
+            rereadCount: 0,           // 이미 읽은 블록을 다시 본 횟수 (누적)
+        }
+        // onGaze()(일반 스크립트)에서 접근할 수 있도록 window에 노출
+        window._S = S
+        window._sessionActive = false
+        // script.js에서 사용할 수 있도록 전역 노출
+        window.sb = sb
+        window._userId = session.user.id
+        window._getNote = getNote
+        window._upsertNote = upsertNote
+        window._currentDocId = docId
+        window._workspaceId = workspaceId
+
+        function calcMetrics() {
+            const now = Date.now()
+            const T = S.startTime ? (now - S.startTime) / 1000 : 0
+            const F = S.focusTotal + (S.focusStart ? (now - S.focusStart) / 1000 : 0)
+            const R = S.alertTimes.length
+                ? S.alertTimes.reduce((a, b) => a + b, 0) / S.alertTimes.length : 0
+            const RR = S.rereadCount || 0
+            return { T, F, R, RR }
+        }
+
+        async function autosave() {
+            if (!S.sessionId) return
+            const { T, F, R, RR } = calcMetrics()
+            await updateStudySession(S.sessionId, {
+                durationMinutes: T / 60,
+                alertCount: S.alertCount,
+                focusTimeSeconds: F,
+                avgAlertResponseSeconds: R,
+                rereadCount: RR,
+            }).catch(e => console.warn('자동저장 실패:', e.message))
+        }
+
+        function setSessionUI(active) {
+            document.getElementById('sessionStartBtn').style.display = active ? 'none' : 'flex'
+            document.getElementById('sessionEndBtn').style.display = active ? 'flex' : 'none'
+        }
+
+        // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
+        document.getElementById('sessionStartBtn').addEventListener('click', async () => {
+            if (S.sessionId) return
+            try {
+                const sess = await createStudySession({
+                    userId: session.user.id,
+                    workspaceId: workspaceId,
+                    documentId: docId ?? null,
+                    calibrationData: window._cachedCalib ?? null,
+                })
+                S.sessionId = sess.id
+                S.startTime = Date.now()
+                S.focusStart = Date.now()
+                S.focusTotal = 0
+                S.alertCount = 0
+                S.alertTimes = []
+                S.snapshotTick = 0       // 10초 단위 틱 카운터
+                S.blockVisits = new Map()
+                S.currentBlock = null
+                S.rereadCount = 0
+
+                window._sessionActive = true
+                window._currentSessionId = sess.id
+
+                setSessionUI(true)
+
+                // 세션 시작 → 아이트래킹 자동 활성화 (캘리브레이션 완료 시)
+                if (typeof activateET === 'function') {
+                    await activateET()
+                }
+
+                // ① 30초 자동저장
+                S.autosaveTimer = setInterval(autosave, 30_000)
+
+                // ⓪ 0초 스냅샷 (그래프 시작점)
+                await saveSessionSnapshot({
+                    sessionId:    S.sessionId,
+                    userId:       session.user.id,
+                    elapsedMin:   0,
+                    focusSeconds: 0,
+                    alertCount:   0,
+                    rereadCount:  0,
+                })
+
+                // ② 10초마다 스냅샷 저장 (elapsed_min 컬럼을 10초 틱으로 재활용)
+                S.snapshotTimer = setInterval(async () => {
+                    if (!S.sessionId) return
+                    S.snapshotTick++
+                    const currentFocus = S.focusTotal + (S.focusStart ? (Date.now() - S.focusStart) / 1000 : 0)
+                    await saveSessionSnapshot({
+                        sessionId: S.sessionId,
+                        userId: session.user.id,
+                        elapsedMin: S.snapshotTick,
+                        focusSeconds: Math.round(currentFocus),
+                        alertCount:   S.alertCount,
+                        rereadCount:  S.rereadCount,
+                    })
+                }, 10_000)
+            } catch (e) {
+                alert('세션 시작 실패: ' + e.message)
+            }
+        })
+
+        // 세션 종료
+        async function endSession(status = 'COMPLETED') {
+            if (!S.sessionId) return
+            clearInterval(S.autosaveTimer)
+            clearInterval(S.snapshotTimer)
+
+            // 집중 시간 정산 (아이트래킹은 유지)
+            if (window._S && window._S.focusStart) {
+                window._S.focusTotal += (Date.now() - window._S.focusStart) / 1000
+                window._S.focusStart = null
+            }
+
+            window._sessionActive = false
+
+            // 경고창 떠 있으면 닫기 (반응 시간 미기록)
+            if (window.alertActive) {
+                window.alertActive = false
+                window.alertShownAt = null
+                window.awayStart = null
+                closeWarning()
+            }
+
+            const { T, F, R, RR } = calcMetrics()
+            try {
+                await completeStudySession(S.sessionId, {
+                    startTime: S.startTime,
+                    focusTotal: S.focusTotal,
+                    alertCount: S.alertCount,
+                    alertTimes: S.alertTimes,
+                    focusStart: S.focusStart,
+                    rereadCount: RR,
+                })
+            } catch (e) {
+                console.warn('세션 종료 실패:', e.message)
+            }
+            S.sessionId = null
+            window._currentSessionId = null
+            setSessionUI(false)
+        }
+
+        document.getElementById('sessionEndBtn').addEventListener('click', () => endSession('COMPLETED'))
+
+        // ② visibilitychange — 탭 전환/닫기 시 자동 저장
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden && S.sessionId) autosave()
+        })
+
+        // ai 파라미터 감지 → 캘리브레이션 스킵 + 뷰어 UI 숨김
+        const aiParam = params.get('ai')
+        if (aiParam) {
+            window._aiViewMode = aiParam.toLowerCase()
+            document.body.classList.add('ai-view-mode')
+        }
+
+        // ── 사이드바 삭제 확인 모달 ─────────────────────────────
+        const deleteOverlay = document.getElementById('sbDeleteOverlay')
+        const deleteMsg = document.getElementById('sbDeleteMsg')
+        const deleteCancelBtn = document.getElementById('sbDeleteCancelBtn')
+        const deleteConfirmBtn = document.getElementById('sbDeleteConfirmBtn')
+
+        let _pendingDelete = null  // { type: 'doc'|'asset', id: string }
+
+        function showDeleteConfirm(type, id, name) {
+            _pendingDelete = { type, id }
+            const label = type === 'doc'
+                ? `'${name}' 문서를 삭제하시겠습니까?\n지식 자산도 함께 삭제됩니다.`
+                : `'${name}' 자산을 삭제하시겠습니까?`
+            deleteMsg.style.whiteSpace = 'pre-line'
+            deleteMsg.textContent = label
+            deleteOverlay.style.display = 'flex'
+        }
+        window.showDeleteConfirm = showDeleteConfirm
+
+        deleteCancelBtn.addEventListener('click', () => {
+            deleteOverlay.style.display = 'none'
+            _pendingDelete = null
+        })
+
+        deleteConfirmBtn.addEventListener('click', async () => {
+            if (!_pendingDelete) return
+            const { type, id } = _pendingDelete
+            deleteOverlay.style.display = 'none'
+            _pendingDelete = null
+
+            try {
+                if (type === 'doc') {
+                    await deleteDocument(id)
+                    // 현재 열려 있는 문서면 빈 화면으로
+                    if (id === docId) {
+                        document.getElementById('pdfContainer').innerHTML =
+                            '<div class="pdf-no-content">문서가 삭제됐습니다.</div>'
+                    }
+                } else {
+                    await deleteAsset(id)
+                    // sessionStorage 캐시 무효화
+                    const cache = JSON.parse(sessionStorage.getItem(`nungil_ai_${docId}`) || '{}')
+                    delete cache.summary; delete cache.mindmap; delete cache.quiz; delete cache.concepts
+                    sessionStorage.setItem(`nungil_ai_${docId}`, JSON.stringify(cache))
+                }
+                // 사이드바 갱신
+                loadKnowledgeAssets(docId || null)
+                // 문서 목록 갱신 (페이지 리로드 없이)
+                if (type === 'doc') await reloadDocList()
+            } catch (e) {
+                alert('삭제 실패: ' + e.message)
+            }
+        })
+
+    </script>
+
+</body>
+
+</html>

@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>계정 설정 - 눈길</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root {
+            --p: #78a3ea;
+            --outer-bg: #f6f7f9;
+            --inner-bg: rgba(255, 255, 255, 0.6);
+            --card-bg: #ffffff;
+            --text-dark: #2f3440;
+            --text-gray: #a0a6b0;
+            --border: #eceef2;
+            --success: #4caf50;
+            --tr: .3s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background:
+                radial-gradient(ellipse 75% 55% at 10% 0%, rgba(168, 200, 255, 0.4) 0%, transparent 60%),
+                radial-gradient(ellipse 65% 50% at 90% 0%, rgba(147, 184, 250, 0.3) 0%, transparent 60%),
+                #fbfcfd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app-wrapper {
+            width: 92vw;
+            max-width: 620px;
+            height: 84vh;
+            background-color: var(--inner-bg);
+            backdrop-filter: blur(30px) saturate(150%);
+            border-radius: 32px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 16px 45px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.7);
+        }
+
+        .panel {
+            flex: 1;
+            padding: 38px 48px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .back-btn {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            background: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: none;
+            color: var(--text-gray);
+            margin-bottom: 24px;
+            margin-left: -8px;
+            transition: all 0.2s ease;
+        }
+
+        .back-btn i {
+            font-size: 14px;
+        }
+
+        .back-btn:hover {
+            color: var(--text-dark);
+            transform: translateX(-3px);
+        }
+
+        .section-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-dark);
+            margin: 0 0 24px 0;
+            letter-spacing: -0.4px;
+        }
+
+        .form-group {
+            margin-bottom: 22px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-gray);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .input-container {
+            position: relative;
+        }
+
+        .input-container input {
+            width: 100%;
+            padding: 13px 16px;
+            border: 1px solid var(--border);
+            background: #fafbfc;
+            border-radius: 13px;
+            font-size: 14px;
+            transition: var(--tr);
+            outline: none;
+            font-family: inherit;
+            color: var(--text-dark);
+        }
+
+        .input-container input:disabled {
+            color: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .verified-badge {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 11px;
+            color: var(--p);
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .divider {
+            height: 1px;
+            background: var(--border);
+            margin: 4px 0 24px;
+        }
+
+        .section-sub {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin: 0 0 18px 0;
+            letter-spacing: -0.2px;
+        }
+
+        .password-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .password-field {
+            flex: 1;
+        }
+
+        .password-field label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-gray);
+            font-weight: 500;
+            margin-bottom: 8px;
+        }
+
+        .password-field input {
+            width: 100%;
+            padding: 13px 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: #fafbfc;
+            font-size: 13px;
+            font-family: inherit;
+            outline: none;
+            transition: var(--tr);
+            color: var(--text-dark);
+        }
+
+        .btn-save {
+            background: var(--p);
+            color: white;
+            padding: 13px 28px;
+            border-radius: 13px;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(120, 163, 234, 0.18);
+            transition: var(--tr);
+            font-size: 14px;
+            font-family: inherit;
+            width: fit-content;
+        }
+
+        .btn-save:hover {
+            transform: translateY(-2px);
+            opacity: 0.9;
+        }
+
+        .edit-mode input:not([disabled]) {
+            background: #fff !important;
+            border-color: var(--p) !important;
+            box-shadow: 0 0 0 4px rgba(120, 163, 234, 0.1);
+        }
+
+        .save-msg {
+            display: none;
+            font-size: 12px;
+            color: var(--success);
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        .btn-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 4px;
+        }
+
+        .btn-logout {
+            background: rgba(120, 163, 234, 0.07);
+            color: #8fa8d0;
+            padding: 13px 22px;
+            border-radius: 13px;
+            font-weight: 600;
+            border: 1.5px solid rgba(120, 163, 234, 0.18);
+            cursor: pointer;
+            transition: var(--tr);
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+        .btn-logout:hover {
+            background: rgba(120, 163, 234, 0.13);
+            color: #6b90c4;
+            border-color: rgba(120, 163, 234, 0.35);
+        }
+
+        /* 확인 모달 */
+        .logout-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.35);
+            backdrop-filter: blur(6px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .logout-modal-overlay.open {
+            display: flex;
+        }
+
+        .logout-modal {
+            background: #fff;
+            border-radius: 20px;
+            padding: 32px 36px;
+            width: 320px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12);
+            text-align: center;
+        }
+
+        .logout-modal p {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-dark);
+            margin: 0 0 24px;
+            letter-spacing: -0.3px;
+        }
+
+        .logout-modal-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .logout-modal-btns button {
+            flex: 1;
+            padding: 12px 0;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            font-family: inherit;
+            cursor: pointer;
+            transition: var(--tr);
+            border: none;
+        }
+
+        .modal-btn-yes {
+            background: #e05c5c;
+            color: #fff;
+        }
+
+        .modal-btn-yes:hover {
+            background: #c94848;
+        }
+
+        .modal-btn-no {
+            background: #f4f5f7;
+            color: var(--text-dark);
+        }
+
+        .modal-btn-no:hover {
+            background: #e8eaee;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 10px;
+        }
+
+        @media (max-width: 640px) {
+            .app-wrapper {
+                width: 94vw;
+                height: 88vh;
+                border-radius: 28px;
+            }
+
+            .panel {
+                padding: 32px 30px;
+            }
+
+            .section-title {
+                font-size: 21px;
+            }
+
+            .password-row {
+                flex-direction: column;
+                gap: 14px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app-wrapper">
+        <div class="panel" id="section-profile">
+            <button class="back-btn" onclick="history.back()" title="뒤로가기">
+                <i class="fa-solid fa-chevron-left"></i>
+            </button>
+
+            <h1 class="section-title">계정 설정</h1>
+
+            <div class="form-group">
+                <label>이름</label>
+                <div class="input-container">
+                    <input type="text" id="input-name" value="" readonly>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>이메일</label>
+                <div class="input-container">
+                    <input type="email" id="input-email" value="" disabled>
+                    <span class="verified-badge">
+                        <i class="fa-solid fa-circle-check"></i>
+                        Verified
+                    </span>
+                </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <h2 class="section-sub">보안 설정</h2>
+
+            <div class="form-group" id="pw-status-row">
+                <label>비밀번호</label>
+                <div class="input-container">
+                    <input type="password" value="********" disabled>
+                </div>
+            </div>
+
+            <div id="password-change-fields" style="display: none; margin-bottom: 22px;">
+                <div class="password-row">
+                    <div class="password-field">
+                        <label>New Password</label>
+                        <input type="password" id="new-pw" placeholder="새 비밀번호">
+                    </div>
+
+                    <div class="password-field">
+                        <label>Confirm</label>
+                        <input type="password" id="confirm-pw" placeholder="비밀번호 확인">
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button id="main-action-btn" class="btn-save">프로필 수정하기</button>
+                <button class="btn-logout" id="logoutBtn">로그아웃</button>
+            </div>
+            <p class="save-msg" id="saveMsg">✓ 저장되었습니다.</p>
+        </div>
+    </div>
+
+    <!-- 로그아웃 확인 모달 -->
+    <div class="logout-modal-overlay" id="logoutModal">
+        <div class="logout-modal">
+            <p>로그아웃 하시겠습니까?</p>
+            <div class="logout-modal-btns">
+                <button class="modal-btn-yes" id="logoutConfirmBtn">예</button>
+                <button class="modal-btn-no" id="logoutCancelBtn">아니오</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+    import { requireAuth, signOut } from '/src/lib/auth.js'
+    import { sb } from '/src/lib/supabase.js'
+
+    const session = await requireAuth()
+    if (!session) throw new Error('unauthenticated')
+
+    const user = session.user
+
+    const { data: profile } = await sb
+        .from('users')
+        .select('name')
+        .eq('id', user.id)
+        .single()
+
+    const name = profile?.name ?? user.email.split('@')[0]
+    const email = user.email
+
+    const btn = document.getElementById('main-action-btn')
+    const nameInput = document.getElementById('input-name')
+    const emailInput = document.getElementById('input-email')
+    const pwFields = document.getElementById('password-change-fields')
+    const pwStatus = document.getElementById('pw-status-row')
+    const section = document.getElementById('section-profile')
+    const saveMsg = document.getElementById('saveMsg')
+
+    const profileNameSmall = document.getElementById('profileNameSmall')
+    const profileEmailSmall = document.getElementById('profileEmailSmall')
+    const avatar = document.getElementById('profileAvatar')
+
+    nameInput.value = name
+    emailInput.value = email
+
+    if (profileNameSmall) {
+        profileNameSmall.textContent = name
+    }
+
+    if (profileEmailSmall) {
+        profileEmailSmall.textContent = email
+    }
+
+    if (avatar) {
+        avatar.textContent = name.charAt(0).toUpperCase()
+    }
+
+    let isEditMode = false
+
+    btn.addEventListener('click', async () => {
+        if (!isEditMode) {
+            isEditMode = true
+
+            section.classList.add('edit-mode')
+            nameInput.readOnly = false
+            nameInput.removeAttribute('readonly')
+            nameInput.focus()
+
+            pwStatus.style.display = 'none'
+            pwFields.style.display = 'block'
+
+            btn.textContent = '변경사항 저장하기'
+            btn.style.background = '#333'
+
+            return
+        }
+
+        const newName = nameInput.value.trim()
+        const newPw = document.getElementById('new-pw').value
+        const confirmPw = document.getElementById('confirm-pw').value
+
+        try {
+            if (newName) {
+                const { error: updateNameError } = await sb
+                    .from('users')
+                    .update({ name: newName })
+                    .eq('id', user.id)
+
+                if (updateNameError) {
+                    throw updateNameError
+                }
+            }
+
+            if (newPw) {
+                if (newPw !== confirmPw) {
+                    alert('비밀번호가 일치하지 않아요.')
+                    return
+                }
+
+                const { error: updatePwError } = await sb.auth.updateUser({
+                    password: newPw
+                })
+
+                if (updatePwError) {
+                    throw updatePwError
+                }
+            }
+
+            if (profileNameSmall) {
+                profileNameSmall.textContent = newName || name
+            }
+
+            if (avatar) {
+                avatar.textContent = (newName || name).charAt(0).toUpperCase()
+            }
+
+            isEditMode = false
+
+            section.classList.remove('edit-mode')
+            nameInput.readOnly = true
+            nameInput.setAttribute('readonly', true)
+
+            pwFields.style.display = 'none'
+            pwStatus.style.display = 'block'
+
+            document.getElementById('new-pw').value = ''
+            document.getElementById('confirm-pw').value = ''
+
+            btn.textContent = '프로필 수정하기'
+            btn.style.background = 'var(--p)'
+
+            saveMsg.style.display = 'block'
+
+            setTimeout(() => {
+                saveMsg.style.display = 'none'
+            }, 3000)
+
+        } catch (e) {
+            alert('저장 실패: ' + e.message)
+        }
+    })
+
+    const logoutModal = document.getElementById('logoutModal')
+    document.getElementById('logoutBtn').addEventListener('click', () => {
+        logoutModal.classList.add('open')
+    })
+    document.getElementById('logoutCancelBtn').addEventListener('click', () => {
+        logoutModal.classList.remove('open')
+    })
+    document.getElementById('logoutConfirmBtn').addEventListener('click', async () => {
+        await signOut()
+    })
+    logoutModal.addEventListener('click', (e) => {
+        if (e.target === logoutModal) logoutModal.classList.remove('open')
+    })
+</script>
+</body>
+
+</html>

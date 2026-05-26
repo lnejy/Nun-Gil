@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>회원가입</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: "Pretendard", "Noto Sans KR", sans-serif;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse 75% 55% at 10% 0%, #a8c8ff 0%, transparent 60%),
+        radial-gradient(ellipse 65% 50% at 90% 0%, #93b8fa 0%, transparent 60%),
+        #f8faff;
+      color: #1f2937;
+    }
+
+    .signup-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      gap: 80px;
+    }
+
+    .left-section {
+      flex: 1;
+      max-width: 480px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .welcome-text {
+      font-size: clamp(36px, 5vw, 56px);
+      font-weight: 700;
+      color: #1f2937;
+      letter-spacing: -0.03em;
+    }
+
+    .right-section {
+      flex: 1;
+      max-width: 500px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .signup-card {
+      width: 100%;
+      background: rgba(255, 255, 255, .92);
+      border-radius: 28px;
+      padding: 40px 36px 38px;
+      box-shadow: 0 20px 60px rgba(104, 146, 219, .18);
+      backdrop-filter: blur(10px);
+    }
+
+    .signup-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #111827;
+      letter-spacing: -0.03em;
+    }
+
+    .signup-subtitle {
+      font-size: 13px;
+      color: #8a94a6;
+      margin-bottom: 24px;
+    }
+
+    .form-group {
+      margin-bottom: 18px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #374151;
+    }
+
+    .form-input {
+      width: 100%;
+      height: 45px;
+      border: 1px solid #e4eaf5;
+      border-radius: 12px;
+      padding: 0 16px;
+      font-size: 15px;
+      outline: none;
+      background: #ffffff;
+      transition: 0.2s ease;
+    }
+
+    .form-input:focus {
+      border-color: #7aa9f3;
+      box-shadow: 0 0 0 4px rgba(123, 168, 242, .12);
+    }
+
+    .auth-message {
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      margin-bottom: 16px;
+      display: none;
+    }
+
+    .auth-message.error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+      display: block;
+    }
+
+    .auth-message.success {
+      background: #f0fdf4;
+      color: #16a34a;
+      border: 1px solid #bbf7d0;
+      display: block;
+    }
+
+    .button-group {
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .signup-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+      color: white;
+      box-shadow: 0 10px 24px rgba(115, 162, 240, .28);
+      transition: 0.2s ease;
+    }
+
+    .signup-btn:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+
+    .signup-btn:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+
+    .google-btn {
+      width: 100%;
+      height: 52px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: #ffffff;
+      color: #374151;
+      border: 1px solid #dbe4f2;
+      transition: 0.2s ease;
+    }
+
+    .google-btn:hover {
+      box-shadow: 0 8px 20px rgba(120, 140, 180, .12);
+      transform: translateY(-1px);
+    }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 4px 0;
+      color: #9aa4b2;
+      font-size: 13px;
+    }
+
+    .divider::before,
+    .divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: #e7edf7;
+    }
+
+    .bottom-text {
+      margin-top: 20px;
+      text-align: center;
+      font-size: 14px;
+      color: #7b8594;
+    }
+
+    .bottom-text a {
+      color: #6f9eec;
+      text-decoration: none;
+      font-weight: 600;
+    }
+
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, .4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 960px) {
+      .signup-page {
+        flex-direction: column;
+        gap: 36px;
+        padding: 28px 18px;
+      }
+
+      .left-section {
+        max-width: none;
+      }
+
+      .welcome-text {
+        font-size: 34px;
+        text-align: center;
+      }
+
+      .right-section {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .signup-card {
+        padding: 32px 22px 26px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="signup-page">
+    <div class="left-section">
+      <div class="welcome-text">환영합니다 :)</div>
+    </div>
+    <div class="right-section">
+      <div class="signup-card">
+        <h1 class="signup-title">회원가입</h1>
+        <p class="signup-subtitle">계정을 만들고 서비스를 시작해보세요</p>
+        <div class="auth-message" id="authMessage"></div>
+        <form id="signupForm">
+          <div class="form-group">
+            <label for="name">이름</label>
+            <input type="text" id="name" class="form-input" placeholder="이름을 입력하세요" />
+          </div>
+          <div class="form-group">
+            <label for="email">이메일</label>
+            <input type="email" id="email" class="form-input" placeholder="이메일을 입력하세요" />
+          </div>
+          <div class="form-group">
+            <label for="password">비밀번호</label>
+            <input type="password" id="password" class="form-input" placeholder="비밀번호를 입력하세요 (6자 이상)" />
+          </div>
+          <div class="form-group">
+            <label for="passwordCheck">비밀번호 확인</label>
+            <input type="password" id="passwordCheck" class="form-input" placeholder="비밀번호를 다시 입력하세요" />
+          </div>
+          <div class="button-group">
+            <button type="submit" class="signup-btn" id="signupBtn">회원가입</button>
+            <div class="divider">또는</div>
+            <button type="button" class="google-btn" id="googleSignupBtn">
+              <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M44.5 20H24V28.5H35.8C34.1 33.4 29.5 36.5 24 36.5C17.1 36.5 11.5 30.9 11.5 24C11.5 17.1 17.1 11.5 24 11.5C27 11.5 29.8 12.6 31.9 14.5L38 8.4C34.4 5.1 29.5 3 24 3C12.4 3 3 12.4 3 24C3 35.6 12.4 45 24 45C35 45 44 36 44 25C44 23.3 43.8 21.6 44.5 20Z"
+                  fill="#FFC107" />
+                <path
+                  d="M6.3 14.7L13.3 19.8C15.2 15.1 19.2 11.5 24 11.5C27 11.5 29.8 12.6 31.9 14.5L38 8.4C34.4 5.1 29.5 3 24 3C16 3 9 7.5 6.3 14.7Z"
+                  fill="#FF3D00" />
+                <path
+                  d="M24 45C29.3 45 34.1 43 37.6 39.8L31 34.2C29 35.7 26.6 36.5 24 36.5C18.5 36.5 13.9 33.4 12.2 28.6L5.2 34C7.9 41.3 15.2 45 24 45Z"
+                  fill="#4CAF50" />
+                <path
+                  d="M44.5 20H24V28.5H35.8C35 30.8 33.5 32.7 31 34.2L37.6 39.8C41.4 36.3 44 31.2 44 25C44 23.3 43.8 21.6 44.5 20Z"
+                  fill="#1976D2" />
+              </svg>
+              Google로 계속하기
+            </button>
+          </div>
+        </form>
+        <p class="bottom-text">이미 계정이 있으신가요? <a href="start.html">로그인</a></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showMessage(text, type = 'error') {
+      const el = document.getElementById('authMessage')
+      el.textContent = text
+      el.className = 'auth-message ' + type
+    }
+    function clearMessage() {
+      const el = document.getElementById('authMessage')
+      el.className = 'auth-message'
+      el.textContent = ''
+    }
+  </script>
+
+  <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+
+  <script>
+    const SUPABASE_URL = 'https://cnaublclebiysmqatwzu.supabase.co/'
+    const SUPABASE_ANON = 'sb_publishable_0ln6TcRbDTyfzKiROO4xGA_1LZjS_Sn'
+
+    const { createClient } = supabase
+    const sb = createClient(SUPABASE_URL, SUPABASE_ANON)
+
+    sb.auth.getSession().then(({ data: { session } }) => {
+      if (session) location.href = 'mainpage.html'
+    })
+
+    sb.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) location.href = 'mainpage.html'
+    })
+
+    const signupBtn = document.getElementById('signupBtn')
+
+    document.getElementById('signupForm').addEventListener('submit', async (e) => {
+      e.preventDefault()
+      clearMessage()
+
+      const name = document.getElementById('name').value.trim()
+      const email = document.getElementById('email').value.trim()
+      const password = document.getElementById('password').value
+      const passwordCheck = document.getElementById('passwordCheck').value
+
+      if (!name) { showMessage('이름을 입력해주세요.'); return }
+      if (!email) { showMessage('이메일을 입력해주세요.'); return }
+      if (password.length < 6) { showMessage('비밀번호는 6자 이상이어야 해요.'); return }
+      if (password !== passwordCheck) { showMessage('비밀번호가 일치하지 않아요.'); return }
+
+      signupBtn.disabled = true
+      signupBtn.innerHTML = '<div class="spinner"></div>'
+
+      const { error } = await sb.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { name },
+          emailRedirectTo: window.location.origin + '/ui/mainpage.html'
+        }
+      })
+
+      signupBtn.disabled = false
+      signupBtn.textContent = '회원가입'
+
+      if (error) {
+        if (error.message.includes('already registered')) {
+          showMessage('이미 사용 중인 이메일이에요.')
+        } else {
+          showMessage('회원가입 오류: ' + error.message)
+        }
+      } else {
+        showMessage('가입 완료! 이메일을 확인하고 인증 링크를 클릭해주세요 📩', 'success')
+        document.getElementById('signupForm').reset()
+      }
+    })
+
+    document.getElementById('googleSignupBtn').addEventListener('click', async () => {
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + '/ui/mainpage.html' }
+      })
+      if (error) showMessage('Google 로그인 오류: ' + error.message)
+    })
+  </script>
+</body>
+
+</html>
