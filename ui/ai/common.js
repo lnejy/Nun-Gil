@@ -195,6 +195,18 @@ export async function getChunks({ shouldRender = () => true } = {}) {
   return chunks;
 }
 
+// 로딩 화면(showAiLoading) 없이 청크만 — 도움말 팝업/프리로드용
+export async function getChunksQuiet() {
+  const cache = getAiCache()
+  if (Array.isArray(cache.chunks) && cache.chunks.length > 0) {
+    return cache.chunks
+  }
+  // showAiLoading 호출 안 함 — 문서 화면 안 건드림
+  const chunks = await loadChunksFromLayoutJson()
+  setAiCache({ chunks })
+  return chunks
+}
+
 async function loadChunksFromLayoutJson() {
   const { data: doc, error: docErr } = await sb
     .from('documents')
@@ -221,16 +233,50 @@ async function loadChunksFromLayoutJson() {
 
   const layout = JSON.parse(layoutText)
 
-  const chunks = Array.isArray(layout.chunks) && layout.chunks.length > 0
+  const rawChunks = Array.isArray(layout.chunks) && layout.chunks.length > 0
     ? layout.chunks
     : createChunksFromLayout(layout, {
-        documentId: AI_STATE.docId,
-        title: doc.file_name || AI_STATE.docTitle,
-      })
+      documentId: AI_STATE.docId,
+      title: doc.file_name || AI_STATE.docTitle,
+    })
+
+  const chunks = rawChunks.map((c, i) => ({
+    ...c,
+    chunk_index: c.chunk_index ?? i,
+    section_id: c.section_id ?? makeSectionId(c.section),
+    keywords: c.keywords?.length ? c.keywords : extractKeywordsHeuristic(c.text || ''),
+  }))
+
 
   AI_STATE.pageCount = layout.pages?.length || chunks.length
   return chunks
 }
+
+function finalizeLayoutChunk(chunk, index) {
+  const text = chunk.text
+    .replace(/\s+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  return {
+    ...chunk,
+    chunk_id: `c${String(index).padStart(4, '0')}`,
+    chunk_index: index - 1,
+    section_id: makeSectionId(chunk.section),
+    keywords: extractKeywordsHeuristic(text),
+    source_blocks: [...new Set(chunk.source_blocks.filter(Boolean))],
+    text,
+  }
+}
+function makeSectionId(section = '') {
+  return String(section || 'unknown')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w가-힣-]/g, '')
+    .slice(0, 80)
+}
+
 
 function createChunksFromLayout(
   layout,
@@ -322,18 +368,6 @@ function makeLayoutChunk(documentId, title, section, page) {
   }
 }
 
-function finalizeLayoutChunk(chunk, index) {
-  return {
-    ...chunk,
-    chunk_id: `c${String(index).padStart(4, '0')}`,
-    source_blocks: [...new Set(chunk.source_blocks.filter(Boolean))],
-    text: chunk.text
-      .replace(/\s+\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .trim(),
-  }
-}
-
 function getOverlapText(text, overlapChars) {
   if (!text || text.length <= overlapChars) return text || ''
   return text.slice(-overlapChars).trim()
@@ -348,8 +382,8 @@ export function buildContext(chunks, maxChars = 22000) {
     const pe = chunk.page_end ?? chunk.page
     const pageInfo =
       ps == null ? "page ?" :
-      ps === pe  ? `page ${ps}` :
-                   `pages ${ps}-${pe}`
+        ps === pe ? `page ${ps}` :
+          `pages ${ps}-${pe}`
 
     const section = chunk.section || chunk.type || "unknown"
     // section이 없으면 type(table/paragraph/heading)이라도 보내주면
@@ -612,6 +646,111 @@ export function setCanvasMode(mode) {
   return container;
 }
 
+export function extractKeywordsHeuristic(text) {
+  // 1. 한글 2~6글자 연속 또는 영문 단어 추출
+  const tokens = text.match(/[가-힣]{2,6}|[A-Za-z][A-Za-z0-9]{1,}/g) || []
+
+  // 2. 조사 제거
+  const particles = /(을|를|이|가|은|는|의|에|로|으로|와|과|도|만|에서|에게|부터|까지|보다|처럼|같이|마저|조차|으로써|으로서|에서는|에게서|부터|까지|보다|처럼|같이|마저|조차|에서|에게|으로|로|을|를|이|가|은|는|의|에|와|과|도|만)$/
+  const cleaned = tokens.map(t => t.replace(particles, '')).filter(t => t.length >= 2)
+
+  // 3. 불용어 제거
+  const stopwords = new Set(['그리고', '하지만', '그러나', '이것', '저것', '있다', '없다', '하다', '되다', '같다', '경우', '때문', '위해', '통해', '대한', '관한'])
+  const filtered = cleaned.filter(t => !stopwords.has(t))
+
+  // 4. 빈도 카운트 → 상위 3~5개만 (너무 많으면 정의 후보 폭증)
+  const freq = {}
+  filtered.forEach(t => freq[t] = (freq[t] || 0) + 1)
+  return Object.entries(freq)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([word]) => word)
+}
+
+// 키워드가 포함된 앞쪽 청크 중 target에 가까운 것 우선
+function findKeywordContextChunks(keywords, targetIdx, chunks, limit = 3) {
+  const scored = []
+
+  for (let i = 0; i < targetIdx; i++) {
+    const text = chunks[i].text || ''
+    const hitCount = keywords.filter(kw => text.includes(kw)).length
+
+    if (hitCount > 0) {
+      scored.push({
+        chunk: chunks[i],
+        score: hitCount * 10 - (targetIdx - i) * 0.05
+      })
+    }
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(x => x.chunk)
+}
+
+export function findDefinitionCandidates(keywords, targetIdx, allChunks, limit = 2) {
+  const candidates = []
+
+  for (const kw of keywords) {
+    for (let i = 0; i < targetIdx; i++) {
+      if ((allChunks[i].text || '').includes(kw)) {
+        candidates.push({ keyword: kw, chunk: allChunks[i] })
+        break
+      }
+    }
+
+    if (candidates.length >= limit) break
+  }
+
+  return candidates
+}
+
+export function buildHelpContext(targetChunkId, allChunks) {
+  const targetIdx = allChunks.findIndex(c => c.chunk_id === targetChunkId)
+  if (targetIdx < 0) throw new Error('대상 chunk를 찾을 수 없습니다.')
+
+  const target = allChunks[targetIdx]
+  const collected = new Map()
+
+  const add = (chunk, role) => {
+    if (!chunk?.chunk_id) return
+    if (!collected.has(chunk.chunk_id)) {
+      collected.set(chunk.chunk_id, { chunk, role })
+    }
+  }
+
+  add(target, 'target')
+  add(allChunks[targetIdx - 1], 'before')
+  add(allChunks[targetIdx + 1], 'after')
+
+  if (target.section_id || target.section) {
+    const first = allChunks.find(c =>
+      target.section_id
+        ? c.section_id === target.section_id
+        : c.section === target.section
+    )
+    add(first, 'section_intro')
+  }
+
+  const keywords = target.keywords?.length
+    ? target.keywords
+    : extractKeywordsHeuristic(target.text)
+
+  const defs = findDefinitionCandidates(keywords, targetIdx, allChunks, 2)
+  for (const { keyword, chunk } of defs) {
+    add(chunk, `def:${keyword}`)
+  }
+
+  const near = findKeywordContextChunks(keywords, targetIdx, allChunks, 2)
+  for (const chunk of near) {
+    add(chunk, 'near_keyword')
+  }
+
+  return [...collected.values()].sort((a, b) =>
+    (a.chunk.chunk_index ?? 0) - (b.chunk.chunk_index ?? 0)
+  )
+}
 // AI 생성 작업 대기열 + 사이드바 상태 관리
 const aiQueue = [];
 const aiJobMap = new Map();
