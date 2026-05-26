@@ -545,20 +545,14 @@
                     var hitEl = document.elementFromPoint(G.gx, G.gy);
                     var onBlock = hitEl && hitEl.classList && hitEl.classList.contains('gaze-block');
 
-                    // 문단 재응시 추적
-                    if (window._sessionActive && window._S) {
-                        if (onBlock && curBlk && curBlk.blockId) {
-                            // 블록 위에 시선이 있음
-                            if (curBlk.blockId !== window._S.currentBlock) {
-                                // 새 블록 진입 (이전과 다른 블록)
-                                var prev = window._S.blockVisits.get(curBlk.blockId) || 0;
-                                window._S.blockVisits.set(curBlk.blockId, prev + 1);
-                                if (prev >= 1) window._S.rereadCount++;
-                                window._S.currentBlock = curBlk.blockId;
-                            }
-                        } else {
-                            // 블록 밖 → currentBlock 리셋 (다시 같은 블록 돌아오면 재방문으로 인식)
-                            window._S.currentBlock = null;
+                    // 문단 재응시 추적 (블록 간 전환 시에만 판정, 빈 공간은 무시)
+                    if (window._sessionActive && window._S && onBlock && curBlk && curBlk.blockId) {
+                        if (curBlk.blockId !== window._S.currentBlock) {
+                            // 다른 블록으로 진입 → 이전에 본 적 있으면 재독
+                            var prev = window._S.blockVisits.get(curBlk.blockId) || 0;
+                            window._S.blockVisits.set(curBlk.blockId, prev + 1);
+                            if (prev >= 1) window._S.rereadCount++;
+                            window._S.currentBlock = curBlk.blockId;
                         }
                     }
                 } else {

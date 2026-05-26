@@ -133,6 +133,31 @@ export async function getSessionSnapshots(sessionId) {
 }
 
 /**
+ * 학습 세션 삭제 (관련 스냅샷도 함께 삭제)
+ * @param {string} sessionId
+ * @param {string} userId - 소유자 확인용
+ */
+export async function deleteStudySession(sessionId, userId) {
+  // 스냅샷 먼저 삭제
+  const { error: snapError } = await sb
+    .from('session_snapshots')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('user_id', userId)
+
+  if (snapError) throw snapError
+
+  // 세션 삭제
+  const { error } = await sb
+    .from('study_sessions')
+    .delete()
+    .eq('id', sessionId)
+    .eq('user_id', userId)
+
+  if (error) throw error
+}
+
+/**
  * 사용자의 완료된 세션 목록 조회
  * @param {string} userId
  * @param {number} limit
