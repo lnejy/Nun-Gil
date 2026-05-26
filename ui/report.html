@@ -413,19 +413,19 @@
                 <div class="score-breakdown">
                     <div class="score-card">
                         <span class="score-card-label">정상 응시 점수</span>
-                        <span class="score-card-value"><span id="detailSGaze">--</span><span class="score-max">&nbsp;/ 40점</span></span>
+                        <span class="score-card-value"><span id="detailSGaze">--</span><span class="score-max">&nbsp;/ 25점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">경고 점수</span>
-                        <span class="score-card-value"><span id="detailSWarn">--</span><span class="score-max">&nbsp;/ 25점</span></span>
+                        <span class="score-card-value"><span id="detailSWarn">--</span><span class="score-max">&nbsp;/ 15점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">반응 점수</span>
-                        <span class="score-card-value"><span id="detailSReact">--</span><span class="score-max">&nbsp;/ 15점</span></span>
+                        <span class="score-card-value"><span id="detailSReact">--</span><span class="score-max">&nbsp;/ 10점</span></span>
                     </div>
                     <div class="score-card">
                         <span class="score-card-label">재독 점수</span>
-                        <span class="score-card-value"><span id="detailSReread">--</span><span class="score-max">&nbsp;/ 20점</span></span>
+                        <span class="score-card-value"><span id="detailSReread">--</span><span class="score-max">&nbsp;/ 50점</span></span>
                     </div>
                 </div>
             </div>
@@ -438,19 +438,19 @@
 
         /**
          * 종합 집중도 점수 계산 (100점 만점)
-         *   sGaze  (40점): 정상 응시 비율
-         *   sWarn  (25점): 경고 감점 (10회 이상이면 0점)
-         *   sReact (15점): 경고 반응 속도 (경고 없으면 만점)
-         *   sReread(20점): 문단 재독 감점 (분당 3회 이상이면 0점)
+         *   sGaze  (25점): 정상 응시 비율
+         *   sWarn  (15점): 경고 감점 (10회 이상이면 0점)
+         *   sReact (10점): 경고 반응 속도 (경고 없으면 만점)
+         *   sReread(50점): 문단 재독 감점 — 핵심 학습 품질 지표
          */
         function computeScore(T, W, F, R, RR) {
             if (T <= 0) return { score: 0, sGaze: 0, sWarn: 0, sReact: 0, sReread: 0 }
-            const sGaze   = (F / T) * 40
-            const sWarn   = Math.max(0, 25 * (1 - W / 10))
-            const sReact  = W === 0 ? 15 : Math.max(0, 15 * (1 - (R - 1) / 9))
+            const sGaze   = (F / T) * 25
+            const sWarn   = Math.max(0, 15 * (1 - W / 10))
+            const sReact  = W === 0 ? 10 : Math.max(0, 10 * (1 - (R - 1) / 9))
             const minutes = T / 60
             const rrPerMin = minutes > 0 ? RR / minutes : 0
-            const sReread = Math.max(0, 20 * (1 - rrPerMin / 3))
+            const sReread = Math.max(0, 50 * (1 - rrPerMin / 3))
             return {
                 score:   Math.round(sGaze + sWarn + sReact + sReread),
                 sGaze:   Math.round(sGaze * 10) / 10,
