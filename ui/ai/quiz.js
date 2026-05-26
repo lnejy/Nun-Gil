@@ -24,6 +24,7 @@ import {
   showAiLoading,
   showAiError,
   setCanvasMode,
+  enqueueAiTask,
 } from "./common.js";
 
 import { createQuizPrompt } from "./prompt.js";
@@ -58,12 +59,26 @@ export async function loadQuiz({ shouldRender = () => true } = {}) {
   showAiLoading("퀴즈 목록 불러오는 중");
 
   const quizAssets = await loadQuizAssetsFromDb();
+
   renderQuizHome(container, quizAssets, {
-  getQuizTitle,
-  onCreateQuiz: createNewQuizFromOptions,
-  onOpenSolvedQuiz: openSolvedQuiz,
-  onOpenUnsolvedQuiz: openUnsolvedQuiz,
-});
+    getQuizTitle,
+    onCreateQuiz: (options) => {
+      enqueueAiTask(
+        "quiz",
+        () =>
+          createNewQuizFromOptions(options, {
+            shouldRender,
+          }),
+        {
+          type: "QUIZ",
+          title: window._docTitle || AI_STATE.docTitle || document.title || "문서",
+          docId: AI_STATE.docId || window._currentDocId,
+        }
+      );
+    },
+    onOpenSolvedQuiz: openSolvedQuiz,
+    onOpenUnsolvedQuiz: openUnsolvedQuiz,
+  });
 }
 
 // 사용자가 선택한 유형만 남긴다.
@@ -959,7 +974,7 @@ function bindResultBookmarkEvents() {
 }
 
 // 선택한 옵션으로 새 퀴즈를 생성하고 DB에 저장한 뒤 풀이 화면을 염.
-async function createNewQuizFromOptions(options) {
+async function createNewQuizFromOptions(options, { shouldRender = () => true } = {}) {
   if (isQuizGenerating) return;
 
   isQuizGenerating = true;
@@ -969,14 +984,14 @@ async function createNewQuizFromOptions(options) {
   try {
     const { questionCount, difficulty, types } = options;
 
-    if (createButton) {
+    if (shouldRender() && createButton) {
       createButton.disabled = true;
       createButton.textContent = "퀴즈 생성 중...";
     }
 
-    showAiLoading("새 퀴즈 생성 중");
+    if (shouldRender()) showAiLoading("새 퀴즈 생성 중");
 
-    const chunks = await getChunks();
+    const chunks = await getChunks({ shouldRender });
     let context = buildContext(chunks);
 
     if (!context || context.trim().length < 50) {
@@ -1055,8 +1070,10 @@ async function createNewQuizFromOptions(options) {
       console.warn("퀴즈 DB 저장 실패, 화면에는 임시 퀴즈로 표시합니다:", dbError.message);
     }
 
-          renderQuizLayout(getCanvas());
-       } catch (e) {
+      if (shouldRender()) {
+        renderQuizLayout(getCanvas());
+      }
+    } catch (e) {
     console.warn("퀴즈 생성 실패:", e);
 
     const message = String(e.message || "");
@@ -1067,17 +1084,23 @@ async function createNewQuizFromOptions(options) {
       message.includes("Too Many") ||
       message.includes("요청")
     ) {
-      showAiError?.("Claude 요청이 너무 많아 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.");
-      return;
+      if (shouldRender()) {
+        showAiError?.("Claude 요청이 너무 많아 잠시 제한되었습니다. 잠시 후 다시 시도해 주세요.");
+      }
+      throw e;
     }
 
-    showAiError?.(
-      e.message || "퀴즈 생성에 실패했습니다. 문서 내용을 다시 확인해 주세요."
-    );
+    if (shouldRender()) {
+      showAiError?.(
+        e.message || "퀴즈 생성에 실패했습니다. 문서 내용을 다시 확인해 주세요."
+      );
+    }
+
+    throw e;
   } finally {
     isQuizGenerating = false;
 
-    if (createButton) {
+    if (shouldRender() && createButton) {
       createButton.disabled = false;
       createButton.textContent = "퀴즈 생성하기";
     }
@@ -1115,12 +1138,26 @@ async function backToQuizHome() {
   showAiLoading("퀴즈 목록 불러오는 중");
 
   const quizAssets = await loadQuizAssetsFromDb();
+  
   renderQuizHome(container, quizAssets, {
-  getQuizTitle,
-  onCreateQuiz: createNewQuizFromOptions,
-  onOpenSolvedQuiz: openSolvedQuiz,
-  onOpenUnsolvedQuiz: openUnsolvedQuiz,
-});
+    getQuizTitle,
+    onCreateQuiz: (options) => {
+      enqueueAiTask(
+        "quiz",
+        () =>
+          createNewQuizFromOptions(options, {
+            shouldRender: () => true,
+          }),
+        {
+          type: "QUIZ",
+          title: window._docTitle || AI_STATE.docTitle || document.title || "문서",
+          docId: AI_STATE.docId || window._currentDocId,
+        }
+      );
+    },
+    onOpenSolvedQuiz: openSolvedQuiz,
+    onOpenUnsolvedQuiz: openUnsolvedQuiz,
+  });
 }
 
 function toggleFullscreen() {

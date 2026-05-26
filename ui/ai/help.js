@@ -253,15 +253,31 @@ function formatHelpContext(helpCtx, targetId) {
 }
 
 function isTooThin(text) {
-  return (String(text || '').replace(/\s+/g, '').trim().length) < 45
-}
+  const clean = String(text || '')
+    .replace(/\[.*?\]/g, '')
+    .trim()
 
+  const lines = clean
+    .split('\n')
+    .map(v => v.trim())
+    .filter(Boolean)
+
+  // 본문 없이 제목/키워드만 있는 경우
+  const looksLikeOnlyTitles = lines.every(line => {
+    return (
+      line.length < 40 &&
+      !/[.!?다요됨음]/.test(line)
+    )
+  })
+
+  return looksLikeOnlyTitles
+}
 function thinResult(title) {
   return {
     mode: 'text',
     thin: true,
     title,
-    body: '이 부분은 내용이 짧아 설명할 맥락이 부족합니다. 본문 단락에서 도움말을 받아보세요.'
+    body: '이 부분은 내용이 짧아 설명할 내용이 부족합니다.'
   }
 }
 
