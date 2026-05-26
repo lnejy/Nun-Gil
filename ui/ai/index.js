@@ -18,6 +18,7 @@ import {
 import { loadSummary } from "./summary.js";
 import { loadMindmap } from "./mindmap.js";
 import { loadQuiz } from "./quiz.js";
+import "./help.js";
 
 let initialized = false;
 let currentTool = null;  // 현재 사용자가 보고 있는 도구

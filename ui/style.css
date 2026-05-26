@@ -686,7 +686,14 @@ p {
     --sidebar-left: 14px;
     --sidebar-gap: 18px;
     --note-w: 0px;
+    --help-w: 0px; 
     --page-pad: 32px;
+}
+
+
+/* 도움말 팝업 열리면 우측 공간 확보 */
+#page-viewer:has(.help-popup) {
+  --help-w: 360px;   /* 팝업 폭만큼 */
 }
 
 #page-viewer:has(.sidebar.collapsed),
@@ -716,12 +723,27 @@ body.sidebar-collapsed #page-viewer {
     padding: 0 0 70px 0;
 }
 
+/* center-area 기본 속성 — width는 아래 :has() 규칙들이 결정 */
 #page-viewer .center-area {
-    width: calc(100% - var(--note-w));
-    min-width: 0;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  transition: width var(--tr);
+}
 
-    display: flex;
-    justify-content: center;
+/* 기본: 둘 다 안 열림 */
+#page-viewer .center-area {
+  width: 100%;
+}
+
+/* 메모장만 열림 → note-w 만큼 */
+#page-viewer:has(.note-sb.open) .center-area {
+  width: calc(100% - var(--note-w));
+}
+
+/* 도움말 팝업 열림 → help-w 만큼 (메모장 열렸든 말든 이게 우선) */
+#page-viewer:has(.help-popup) .center-area {
+  width: calc(100% - var(--help-w));
 }
 
 #page-viewer .paper-canvas,
@@ -1494,10 +1516,6 @@ body.bookmark-mode {
     margin: 0;
 }
 
-#page-viewer:has(.note-sb.open) .et.min {
-    right: calc(300px + 24px);
-}
-
 .et-c {
     display: flex;
     align-items: center;
@@ -1573,6 +1591,44 @@ body.bookmark-mode {
     font-size: .95rem;
     padding: 1px 3px;
 }
+
+/* 드래그로 숨긴 상태 */
+.et.slide-hidden {
+    transform: translateX(160%) !important;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 드래그 중 — transition 끄고 손가락 따라오게 */
+.et.dragging {
+    transition: none !important;
+    cursor: grabbing;
+}
+
+/* 꺼내기 핸들 — 숨겼을 때만 보임 */
+#etHandle {
+    position: fixed;
+    right: 0;
+    bottom: 28px;
+    width: 28px;
+    height: 56px;
+    border: 1px solid var(--border);
+    border-right: none;
+    border-radius: 12px 0 0 12px;
+    background: #fff;
+    font-size: 15px;
+    cursor: pointer;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    box-shadow: -3px 0 12px rgba(15, 23, 42, 0.07);
+    z-index: 1099;
+    transition: background .15s;
+}
+#etHandle:hover { bfackground: #f1f5f9; }
+
+/* 패널이 숨겨졌을 때만 핸들 노출 */
+#etHandle.show { display: flex; }
 
 
 /* ═══════════════════════════════════════════════════════
