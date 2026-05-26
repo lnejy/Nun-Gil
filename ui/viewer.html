@@ -231,7 +231,9 @@
                 <header class="floating-toolbar">
                     <div class="group-left">
                         <button class="session-btn start" id="sessionStartBtn">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><polygon points="5,3 19,12 5,21" /></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                                <polygon points="5,3 19,12 5,21" />
+                            </svg>
                             <span>세션 시작</span>
                         </button>
                         <button class="session-btn end" id="sessionEndBtn">
@@ -322,6 +324,7 @@
                 </div>
             </div>
         </div>
+        <button id="etHandle" type="button" onclick="etShowPanel()" aria-label="아이트래킹 패널 열기">‹</button>
 
     </div><!-- /#page-viewer -->
 
@@ -1016,6 +1019,67 @@
                 window._S.focusStart = null;
             }
         }
+
+        /* ══════════════════════════════════════════════════════
+       ET 패널 드래그로 숨기기 / 핸들로 다시 꺼내기
+    ══════════════════════════════════════════════════════ */
+        function initEtDragHide() {
+    var panel = document.getElementById('etP');
+    var handle = document.getElementById('etHandle');
+    if (!panel || !handle) {
+        console.warn('ET 드래그: etP/etHandle 없음');
+        return;
+    }
+
+    var dragging = false, startX = 0, moved = 0;
+    var DRAG_THRESHOLD = 60;
+
+    panel.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('button')) return;
+        dragging = true; moved = 0; startX = e.clientX;
+        panel.classList.add('dragging');
+        panel.setPointerCapture(e.pointerId);
+    });
+    panel.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        moved = Math.max(0, e.clientX - startX);
+        panel.style.transform = 'translateX(' + moved + 'px)';
+        panel.style.opacity = String(Math.max(0, 1 - moved / 200));
+    });
+    panel.addEventListener('pointerup', function () {
+        if (!dragging) return;
+        dragging = false;
+        panel.classList.remove('dragging');
+        panel.style.transform = '';
+        panel.style.opacity = '';
+        if (moved >= DRAG_THRESHOLD) hideEtPanel();
+    });
+    panel.addEventListener('pointercancel', function () {
+        dragging = false;
+        panel.classList.remove('dragging');
+        panel.style.transform = '';
+        panel.style.opacity = '';
+    });
+
+    function hideEtPanel() {
+        panel.classList.add('slide-hidden');
+        handle.classList.add('show');
+    }
+    function showEtPanel() {
+        panel.classList.remove('slide-hidden');
+        handle.classList.remove('show');
+    }
+
+    // 전역 노출 — 다른 코드(메모장/도움말)에서 호출
+    window.etHidePanel = hideEtPanel;
+    window.etShowPanel = showEtPanel;
+}
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initEtDragHide);
+        } else {
+            initEtDragHide();
+        }
+
     </script>
 
     <!-- 북마크 / 메모장 등 뷰어 기능 -->
@@ -1629,11 +1693,11 @@
                     S.snapshotElapsedMin++
                     const currentFocus = S.focusTotal + (S.focusStart ? (Date.now() - S.focusStart) / 1000 : 0)
                     await saveSessionSnapshot({
-                        sessionId:    S.sessionId,
-                        userId:       session.user.id,
-                        elapsedMin:   S.snapshotElapsedMin,
+                        sessionId: S.sessionId,
+                        userId: session.user.id,
+                        elapsedMin: S.snapshotElapsedMin,
                         focusSeconds: Math.round(currentFocus),
-                        alertCount:   S.alertCount,
+                        alertCount: S.alertCount,
                     })
                 }, 60_000)
             } catch (e) {

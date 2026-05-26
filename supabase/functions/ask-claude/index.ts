@@ -66,7 +66,7 @@ const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 8000,
     system: isTextMode
-      ? 'You are a helpful study assistant. Respond in Korean markdown format only. No JSON, no code fences wrapping the entire response.'
+      ? 'You are a helpful study assistant. Respond in Korean. Use ONLY plain paragraphs and **bold** for emphasis. Do NOT use headings (#), lists, tables, or code blocks. Keep it short.'
       : 'You are a JSON-only API for a grounded study assistant. Every output item that makes a claim about the document must include a "source_chunks" field — an array of chunk_ids (e.g., ["c0003","c0007"]) referencing the provided context. If the context lacks sufficient evidence for an item, omit that item rather than guessing. Respond with raw JSON only — no markdown, no code fences, no commentary. Output must start with { or [ and end with } or ].',
     messages,
   }),

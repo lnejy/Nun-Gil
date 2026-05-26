@@ -269,28 +269,35 @@ async function render() {
     let sx = 1
     let sy = 1
 
-    if (pdfDoc) {
-      const originalWidth = page.width
-      const originalHeight = page.height
+    let pageBaseWidth = page.width
+    let pageBaseHeight = page.height
 
+    if (pdfDoc) {
       const pdfPage = await pdfDoc.getPage(page.page)
       const viewport = pdfPage.getViewport({ scale: 1 })
 
-      page.width = viewport.width
-      page.height = viewport.height
+      sx = viewport.width / page.width
+      sy = viewport.height / page.height
 
-      sx = page.width / originalWidth
-      sy = page.height / originalHeight
+      pageBaseWidth = viewport.width
+      pageBaseHeight = viewport.height
     }
+
+    const pageScale = TARGET_PAGE_WIDTH / pageBaseWidth
 
     const pageEl = document.createElement('div')
     pageEl.className = 'layout-page'
     pageEl.dataset.page = page.page
-    pageEl.style.width = `${page.width * scale}px`
-    pageEl.style.height = `${page.height * scale}px`
+
+    pageEl.style.width = `${pageBaseWidth * pageScale}px`
+    pageEl.style.height = `${pageBaseHeight * pageScale}px`
+
+    const helpRail = document.createElement('div')
+    helpRail.className = 'page-help-rail'
+    pageEl.appendChild(helpRail)
 
     if (pdfDoc) {
-      await renderPdfPageBackground(pageEl, page.page)
+      await renderPdfPageBackground(pageEl, page.page, pageScale)
     } else {
       const bg = document.createElement('img')
       bg.className = 'layout-page-bg'
@@ -300,16 +307,23 @@ async function render() {
     }
 
     for (const block of page.overlays || []) {
-      pageEl.appendChild(renderOverlay(block, sx, sy))
+      const overlayEl = renderOverlay(block, sx, sy, pageScale)
+      pageEl.appendChild(overlayEl)
+
+      const marker = createHelpMarker(block, overlayEl, sx, sy, pageScale)
+      if (marker) helpRail.appendChild(marker)
     }
+
     container.appendChild(pageEl)
   }
 
   window._currentLayout = layout
+  window.dispatchEvent(new CustomEvent('layout-rendered'))
 }
-async function renderPdfPageBackground(pageEl, pageNum) {
+
+async function renderPdfPageBackground(pageEl, pageNum, pageScale) {
   const pdfPage = await pdfDoc.getPage(pageNum)
-  const viewport = pdfPage.getViewport({ scale })
+  const viewport = pdfPage.getViewport({ scale: pageScale })
 
   const canvas = document.createElement('canvas')
   canvas.className = 'layout-page-bg'
@@ -319,6 +333,7 @@ async function renderPdfPageBackground(pageEl, pageNum) {
 
   canvas.width = Math.floor(viewport.width * dpr)
   canvas.height = Math.floor(viewport.height * dpr)
+
   canvas.style.width = `${viewport.width}px`
   canvas.style.height = `${viewport.height}px`
 
@@ -330,6 +345,7 @@ async function renderPdfPageBackground(pageEl, pageNum) {
     transform: dpr !== 1 ? [dpr, 0, 0, dpr, 0, 0] : null,
   }).promise
 }
+
 function resolveBackground(page) {
   const bg = page.background || ''
 
@@ -345,7 +361,7 @@ function resolveBackground(page) {
   return `/public/demo-pages/page_${page.page}.png`
 }
 
-function renderOverlay(block, sx = 1, sy = 1) {
+function renderOverlay(block, sx = 1, sy = 1, pageScale = 1) {
   const el = document.createElement('div')
 
   el.className = `gaze-block ${block.type || ''}`
@@ -357,10 +373,10 @@ function renderOverlay(block, sx = 1, sy = 1) {
   el.dataset.html = block.html || ''
   el.dataset.markdown = block.markdown || ''
 
-  el.style.left = `${block.x * sx * scale}px`
-  el.style.top = `${block.y * sy * scale}px`
-  el.style.width = `${block.width * sx * scale}px`
-  el.style.height = `${block.height * sy * scale}px`
+  el.style.left = `${block.x * sx * pageScale}px`
+  el.style.top = `${block.y * sy * pageScale}px`
+  el.style.width = `${block.width * sx * pageScale}px`
+  el.style.height = `${block.height * sy * pageScale}px`
 
   el.addEventListener('pointerenter', () => {
     document
@@ -368,6 +384,16 @@ function renderOverlay(block, sx = 1, sy = 1) {
       .forEach(node => node.classList.remove('hovered', 'gazed'))
 
     el.classList.add('hovered')
+
+    document
+      .querySelectorAll('.page-help-marker.active')
+      .forEach(node => node.classList.remove('active'))
+
+    const marker = document.querySelector(
+      `.page-help-marker[data-block-id="${el.dataset.blockId}"]`
+    )
+
+    marker?.classList.add('active')
 
     window._lastGazedBlock = {
       blockId: el.dataset.blockId,
@@ -387,6 +413,99 @@ function renderOverlay(block, sx = 1, sy = 1) {
   return el
 }
 
+const NO_HELP_TYPES = new Set(['figure', 'table', 'footer', 'header'])
+
+// createHelpMarker — 배지 span 추가
+function createHelpMarker(block, overlayEl, sx = 1, sy = 1, pageScale = 1) {
+  if (NO_HELP_TYPES.has(block.type)) return null
+
+  const marker = document.createElement('button')
+  marker.className = 'page-help-marker'
+  marker.dataset.blockId = overlayEl.dataset.blockId
+  marker.type = 'button'
+  marker.innerHTML = `💡<span class="help-marker-badge"></span>`
+
+  marker.style.top = `${block.y * sy * pageScale}px`
+
+  if (window._helpedBlocks?.has(marker.dataset.blockId)) {
+    marker.classList.add('has-help')
+  }
+
+  marker.addEventListener('click', (e) => {
+    e.stopPropagation()
+    window.dispatchEvent(new CustomEvent('open-help-popup', {
+      detail: {
+        block: {
+          blockId: overlayEl.dataset.blockId,
+          page: overlayEl.dataset.page,
+          text: overlayEl.dataset.text,
+          source: overlayEl.dataset.source,
+          category: overlayEl.dataset.category,
+          html: overlayEl.dataset.html,
+          markdown: overlayEl.dataset.markdown,
+        },
+        element: marker,
+      }
+    }))
+  })
+
+  return marker
+}
+
+window.addEventListener('open-help-menu', (e) => {
+  const { block, element } = e.detail
+
+  document.querySelectorAll('.help-menu').forEach(el => el.remove())
+
+  const menu = document.createElement('div')
+  menu.className = 'help-menu'
+
+  const items = [
+    '어려운 단어 풀이',
+    '쉬운 말로 다시 설명',
+    '예시 들어주기',
+    '앞뒤 맥락 짚어주기',
+  ]
+
+  // 이 블록에서 이미 생성한 도움말 종류 (help.js가 window에 기록)
+  const done = window._helpDoneTypes?.[block.blockId] || new Set()
+
+  items.forEach(label => {
+    const btn = document.createElement('button')
+    btn.className = 'help-menu-item'
+    // 이미 본 종류엔 체크 표시
+    btn.innerHTML = done.has(label)
+      ? `<span class="help-menu-check">✓</span>${label}`
+      : label
+
+    btn.addEventListener('click', () => {
+      menu.remove()
+      window.dispatchEvent(new CustomEvent('request-help-ai', {
+        detail: { type: label, block }
+      }))
+    })
+
+    menu.appendChild(btn)
+  })
+
+  document.body.appendChild(menu)
+
+  const rect = element.getBoundingClientRect()
+  menu.style.left = `${rect.left + 44}px`
+  menu.style.top = `${rect.top}px`
+
+  // 바깥 클릭 시 닫기
+  setTimeout(() => {
+    const close = (ev) => {
+      if (!menu.contains(ev.target)) {
+        menu.remove()
+        document.removeEventListener('click', close)
+      }
+    }
+    document.addEventListener('click', close)
+  }, 0)
+})
+
 export function detectGazedBlock(x, y) {
   document
     .querySelectorAll('.gaze-block.gazed')
@@ -396,6 +515,16 @@ export function detectGazedBlock(x, y) {
 
   if (el?.classList.contains('gaze-block')) {
     el.classList.add('gazed')
+
+    document
+      .querySelectorAll('.page-help-marker.active')
+      .forEach(node => node.classList.remove('active'))
+
+    const marker = document.querySelector(
+      `.page-help-marker[data-block-id="${el.dataset.blockId}"]`
+    )
+
+    marker?.classList.add('active')
 
     window._lastGazedBlock = {
       blockId: el.dataset.blockId,
