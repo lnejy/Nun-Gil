@@ -1674,7 +1674,7 @@
 
         // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
         document.getElementById('sessionStartBtn').addEventListener('click', async () => {
-            if (S.sessionId || !workspaceId) return
+            if (S.sessionId) return
             try {
                 const sess = await createStudySession({
                     userId: session.user.id,
