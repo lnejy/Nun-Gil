@@ -829,7 +829,7 @@ body.quiz-inline-mode {
 }
 
 .ng-quiz-home-subtitle {
-  margin: 0 0 14px;
+  margin: 0 0 20px;
   font-size: 14px;
   font-weight: 650;
   color: #24324a;
@@ -837,13 +837,16 @@ body.quiz-inline-mode {
 
 .ng-quiz-form-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 16px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px 28px;
+  align-items: end;
+  margin: 10px 0 10px 0;
 }
 
-.ng-quiz-form-group.full {
+.ng-quiz-create-action {
   grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
 }
 
 .ng-quiz-form-group label {
@@ -929,6 +932,40 @@ body.quiz-inline-mode {
   font-size: 11px;
   font-weight: 400;
   color: #9aa7ba;
+}
+
+.ng-quiz-asset-item.pending {
+  border-color: #cfe0fb;
+  background: #f8fbff;
+}
+
+.ng-quiz-asset-side.center {
+  align-self: center;
+  justify-content: center;
+  align-items: center;
+  min-width: 74px;
+  color: #4f7fd6;
+}
+
+.ng-quiz-generating {
+  min-height: var(--quiz-height);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #94a3b8;
+  font-size: 13px;
+  text-align: center;
+}
+
+.ng-quiz-generating strong {
+  font-size: 18px;
+  color: #1e293b;
+}
+
+.ng-quiz-generating .ng-quiz-soft-btn {
+  margin-top: 8px;
 }
 
 .ng-quiz-home-empty {

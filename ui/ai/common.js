@@ -824,6 +824,12 @@ export function enqueueAiTask(taskKey, taskFn, meta = {}) {
     status: "PENDING", // PENDING | RUNNING | DONE | ERROR
     document_id: meta.docId || getCurrentAiDocId(),
     title: meta.title || getCurrentAiDocTitle(),
+
+    // 퀴즈 홈에서 생성 중 카드에 표시할 정보
+    questionCount: meta.questionCount ?? null,
+    difficulty: meta.difficulty ?? null,
+    types: meta.types ?? [],
+
     created_at: null,
     requested_at: now,
     updated_at: now,
