@@ -25,6 +25,7 @@ import {
   showAiError,
   setCanvasMode,
   enqueueAiTask,
+  getAiAssetJobs,
 } from "./common.js";
 
 import { createQuizPrompt } from "./prompt.js";
@@ -45,10 +46,13 @@ let quizState = {
 };
 
 let isQuizGenerating = false;
+let openedPendingQuizJobId = null;
 
 // 퀴즈 버튼 클릭 시 퀴즈 홈 화면을 표시
 export async function loadQuiz({ shouldRender = () => true } = {}) {
   if (!shouldRender()) return;
+
+  openedPendingQuizJobId = null;
 
   const container = setCanvasMode("quiz");
 
@@ -58,28 +62,163 @@ export async function loadQuiz({ shouldRender = () => true } = {}) {
 
   showAiLoading("퀴즈 목록 불러오는 중");
 
+  await renderQuizHomeScreen(container);
+}
+
+function getCurrentDocId() {
+  return AI_STATE.docId || window._currentDocId || "demo";
+}
+
+function getActiveQuizJobs() {
+  const docId = getCurrentDocId();
+
+  return getAiAssetJobs().filter((job) => {
+    return (
+      job.type === "QUIZ" &&
+      job.document_id === docId &&
+      (job.status === "PENDING" ||
+        job.status === "RUNNING" ||
+        job.status === "ERROR")
+    );
+  });
+}
+
+async function renderQuizHomeScreen(container = getCanvas()) {
   const quizAssets = await loadQuizAssetsFromDb();
+  const pendingQuizJobs = getActiveQuizJobs();
 
   renderQuizHome(container, quizAssets, {
     getQuizTitle,
+    pendingQuizJobs,
+
     onCreateQuiz: (options) => {
-      enqueueAiTask(
+      const docId = getCurrentDocId();
+      const jobId = `${docId}:QUIZ`;
+
+      const added = enqueueAiTask(
         "quiz",
         () =>
           createNewQuizFromOptions(options, {
-            shouldRender,
+            // 홈에서는 false라서 생성 중 화면으로 강제 이동하지 않음
+            // 생성 중 카드를 클릭해서 들어간 경우에만 true가 됨
+            shouldRender: () => openedPendingQuizJobId === jobId,
           }),
         {
           type: "QUIZ",
           title: window._docTitle || AI_STATE.docTitle || document.title || "문서",
-          docId: AI_STATE.docId || window._currentDocId,
+          docId,
+          questionCount: options.questionCount,
+          difficulty: options.difficulty,
+          types: options.types,
         }
       );
+
+      if (!added) {
+        return;
+      }
+
+      // 생성 버튼을 눌러도 홈은 유지하고, 목록에 생성 중 카드만 바로 반영
+      renderQuizHomeScreen(container);
     },
+
+    onOpenPendingQuiz: (pendingAsset) => {
+      if (!pendingAsset?.id) return;
+
+      openedPendingQuizJobId = pendingAsset.id;
+
+      const job = getAiAssetJobs().find((item) => item.id === pendingAsset.id);
+
+      renderQuizGeneratingScreen(job || pendingAsset);
+    },
+
     onOpenSolvedQuiz: openSolvedQuiz,
     onOpenUnsolvedQuiz: openUnsolvedQuiz,
   });
 }
+
+function renderQuizGeneratingScreen(job) {
+  const container = setCanvasMode("quiz");
+
+  document.body.classList.remove("ai-view-mode");
+  document.body.classList.remove("quiz-focus-mode");
+  document.body.classList.add("quiz-inline-mode");
+
+  const status = job?.status || "RUNNING";
+
+  const title =
+    status === "ERROR"
+      ? "퀴즈 생성에 실패했습니다"
+      : status === "PENDING"
+        ? "퀴즈 생성 대기 중"
+        : "퀴즈 생성 중...";
+
+  const desc =
+    status === "ERROR"
+      ? "문서 내용을 확인한 뒤 다시 생성해 주세요."
+      : status === "PENDING"
+        ? "앞선 지식 자산 생성이 끝나면 자동으로 시작됩니다."
+        : "문서 내용을 바탕으로 퀴즈를 만들고 있습니다.";
+
+  container.innerHTML = `
+    <section class="ng-quiz">
+      <div class="ng-quiz-panel">
+        <div class="ng-quiz-generating">
+          ${status === "ERROR" ? "" : `<div class="ai-spinner"></div>`}
+
+          <strong>${escapeHtml(title)}</strong>
+          <span>${escapeHtml(desc)}</span>
+
+          <button id="ngQuizBackHomeFromGeneratingBtn" class="ng-quiz-soft-btn" type="button">
+            ← 퀴즈 홈으로 돌아가기
+          </button>
+        </div>
+      </div>
+    </section>
+  `;
+
+  document
+    .getElementById("ngQuizBackHomeFromGeneratingBtn")
+    ?.addEventListener("click", async () => {
+      openedPendingQuizJobId = null;
+      await renderQuizHomeScreen(getCanvas());
+    });
+}
+
+window.addEventListener("ai-asset-status-changed", async () => {
+  const canvas = getCanvas();
+
+  // 생성 중인 퀴즈 카드를 클릭해서 들어온 상태라면 상태 화면 유지
+  if (openedPendingQuizJobId) {
+    const job = getAiAssetJobs().find((item) => item.id === openedPendingQuizJobId);
+
+    if (job?.status === "PENDING" || job?.status === "RUNNING" || job?.status === "ERROR") {
+      renderQuizGeneratingScreen(job);
+      return;
+    }
+
+    if (job?.status === "DONE") {
+      openedPendingQuizJobId = null;
+
+      const quizAssets = await loadQuizAssetsFromDb();
+      const latestAsset = [...quizAssets].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      )[0];
+
+      if (latestAsset) {
+        openUnsolvedQuiz(latestAsset);
+      } else {
+        await renderQuizHomeScreen(canvas);
+      }
+
+      return;
+    }
+  }
+
+  // 현재 퀴즈 홈을 보고 있다면 생성 중/완료 상태를 목록에 즉시 반영
+  if (canvas.querySelector(".ng-quiz-home")) {
+    await renderQuizHomeScreen(canvas);
+  }
+});
 
 // 사용자가 선택한 유형만 남긴다.
 function filterQuizBySelectedTypes(questions, selectedTypes) {
@@ -979,17 +1118,14 @@ async function createNewQuizFromOptions(options, { shouldRender = () => true } =
 
   isQuizGenerating = true;
 
-  const createButton = document.getElementById("ngQuizCreateBtn");
-
   try {
     const { questionCount, difficulty, types } = options;
 
-    if (shouldRender() && createButton) {
-      createButton.disabled = true;
-      createButton.textContent = "퀴즈 생성 중...";
+    if (shouldRender()) {
+      renderQuizGeneratingScreen({
+        status: "RUNNING",
+      });
     }
-
-    if (shouldRender()) showAiLoading("새 퀴즈 생성 중");
 
     const chunks = await getChunks({ shouldRender });
     let context = buildContext(chunks);
@@ -1099,11 +1235,6 @@ async function createNewQuizFromOptions(options, { shouldRender = () => true } =
     throw e;
   } finally {
     isQuizGenerating = false;
-
-    if (shouldRender() && createButton) {
-      createButton.disabled = false;
-      createButton.textContent = "퀴즈 생성하기";
-    }
   }
 }
 
@@ -1137,27 +1268,7 @@ async function backToQuizHome() {
 
   showAiLoading("퀴즈 목록 불러오는 중");
 
-  const quizAssets = await loadQuizAssetsFromDb();
-  
-  renderQuizHome(container, quizAssets, {
-    getQuizTitle,
-    onCreateQuiz: (options) => {
-      enqueueAiTask(
-        "quiz",
-        () =>
-          createNewQuizFromOptions(options, {
-            shouldRender: () => true,
-          }),
-        {
-          type: "QUIZ",
-          title: window._docTitle || AI_STATE.docTitle || document.title || "문서",
-          docId: AI_STATE.docId || window._currentDocId,
-        }
-      );
-    },
-    onOpenSolvedQuiz: openSolvedQuiz,
-    onOpenUnsolvedQuiz: openUnsolvedQuiz,
-  });
+  await renderQuizHomeScreen(container);
 }
 
 function toggleFullscreen() {
