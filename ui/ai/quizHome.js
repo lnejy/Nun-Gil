@@ -2,12 +2,32 @@
 
 import { escapeHtml } from "./common.js";
 
-
 // 퀴즈 생성 옵션과 기존 퀴즈 목록을 화면에 그림
 export function renderQuizHome(container, quizAssets = [], handlers = {}) {
-  const { getQuizTitle, onCreateQuiz, onOpenSolvedQuiz, onOpenUnsolvedQuiz } = handlers;
+  const {
+    getQuizTitle,
+    onCreateQuiz,
+    onOpenSolvedQuiz,
+    onOpenUnsolvedQuiz,
+    onOpenPendingQuiz,
+    pendingQuizJobs = [],
+  } = handlers;
 
-  const sortedQuizAssets = [...quizAssets].sort(
+  const pendingAssets = pendingQuizJobs.map((job) => ({
+    id: job.id,
+    __pending: true,
+    status: job.status,
+    requested_at: job.requested_at,
+    updated_at: job.updated_at,
+    created_at: job.requested_at || job.updated_at || new Date().toISOString(),
+    content: {
+      questionCount: job.questionCount,
+      difficulty: job.difficulty,
+      types: job.types,
+    },
+  }));
+
+  const sortedQuizAssets = [...pendingAssets, ...quizAssets].sort(
     (a, b) => new Date(a.created_at) - new Date(b.created_at)
   );
 
@@ -28,7 +48,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
           </div>
         </div>
 
-        <div class="ng-quiz-create-card">
+                <div class="ng-quiz-create-card">
           <h2 class="ng-quiz-home-subtitle">새 퀴즈 만들기</h2>
 
           <div class="ng-quiz-form-grid">
@@ -49,7 +69,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
               </div>
             </div>
 
-            <div class="ng-quiz-form-group full">
+            <div class="ng-quiz-form-group">
               <label>문제 유형 (복수 선택 가능)</label>
               <div class="ng-quiz-chip-row multi" data-quiz-field="types">
                 <button class="ng-quiz-chip active" type="button" data-value="MULTIPLE">객관식</button>
@@ -57,12 +77,21 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
                 <button class="ng-quiz-chip" type="button" data-value="SHORT">단답형</button>
               </div>
             </div>
-          </div>
 
-          <button id="ngQuizCreateBtn" class="ng-quiz-primary-btn" type="button">
-            퀴즈 생성하기
-          </button>
+            <div class="ng-quiz-create-action">
+              <button
+                id="ngQuizCreateBtn"
+                class="ng-quiz-primary-btn"
+                type="button"
+                ${pendingQuizJobs.length ? "disabled" : ""}
+              >
+                ${pendingQuizJobs.length ? "퀴즈 생성 중..." : "퀴즈 생성하기"}
+              </button>
+            </div>
+          </div>
         </div>
+
+        
 
         <div class="ng-quiz-list-card">
           <h2 class="ng-quiz-home-subtitle">이전에 생성한 퀴즈</h2>
@@ -78,6 +107,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
     onCreateQuiz,
     onOpenSolvedQuiz,
     onOpenUnsolvedQuiz,
+    onOpenPendingQuiz,
   });
 }
 
@@ -89,7 +119,38 @@ function renderQuizAssetItem(asset, getQuizTitle, index) {
   const difficulty = getDifficultyLabel(content.difficulty);
   const types = getTypeLabels(content.types || []);
 
+  if (asset.__pending) {
+    const statusText =
+      asset.status === "RUNNING"
+        ? "생성 중..."
+        : asset.status === "ERROR"
+          ? "생성 실패"
+          : "대기 중...";
+
+    return `
+      <button
+        class="ng-quiz-asset-item pending"
+        type="button"
+        data-pending-job-id="${escapeHtml(asset.id)}"
+      >
+        <div>
+          <div class="ng-quiz-asset-title">
+            ${escapeHtml(`${index + 1}. ${getQuizTitle?.() || "문서"} 퀴즈`)}
+          </div>
+          <div class="ng-quiz-asset-meta">
+            ${questionCount || "-"}문제 · ${difficulty} · ${types}
+          </div>
+        </div>
+
+        <div class="ng-quiz-asset-side center">
+          <span>${escapeHtml(statusText)}</span>
+        </div>
+      </button>
+    `;
+  }
+
   const latestAttempt = getLatestAttempt(asset);
+
   const scoreText = latestAttempt
     ? `${latestAttempt.score ?? 0}점`
     : "미풀이";
@@ -116,7 +177,12 @@ function renderQuizAssetItem(asset, getQuizTitle, index) {
 
 // 퀴즈 홈 화면 버튼 이벤트를 연결
 function bindQuizHomeEvents(quizAssets, handlers = {}) {
-  const { onCreateQuiz, onOpenSolvedQuiz, onOpenUnsolvedQuiz } = handlers;
+  const {
+    onCreateQuiz,
+    onOpenSolvedQuiz,
+    onOpenUnsolvedQuiz,
+    onOpenPendingQuiz,
+  } = handlers;
 
   document.querySelectorAll(".ng-quiz-chip-row").forEach((row) => {
     row.addEventListener("click", (e) => {
@@ -151,6 +217,14 @@ function bindQuizHomeEvents(quizAssets, handlers = {}) {
 
   document.querySelectorAll(".ng-quiz-asset-item").forEach((button) => {
     button.addEventListener("click", () => {
+      const pendingJobId = button.dataset.pendingJobId;
+
+      if (pendingJobId) {
+        const pendingAsset = quizAssets.find((item) => item.id === pendingJobId);
+        onOpenPendingQuiz?.(pendingAsset);
+        return;
+      }
+
       const asset = quizAssets.find((item) => item.id === button.dataset.assetId);
       if (!asset) return;
 
@@ -211,12 +285,22 @@ function getTypeLabels(types) {
   return types.map((type) => labelMap[type] || type).join(", ");
 }
 
-// 퀴즈 생성일을 짧게 표시
+// 퀴즈 생성일을 상대 시간으로 표시
 function formatQuizDate(value) {
   if (!value) return "";
 
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
+
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  const diffHour = Math.floor(diffMs / 3600000);
+  const diffDay = Math.floor(diffMs / 86400000);
+
+  if (diffMin < 1) return "방금 전";
+  if (diffMin < 60) return `${diffMin}분 전`;
+  if (diffHour < 24) return `${diffHour}시간 전`;
+  if (diffDay < 3) return `${diffDay}일 전`;
 
   return `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, "0")}.${String(date.getDate()).padStart(2, "0")}`;
 }
