@@ -23,8 +23,7 @@ export async function initPdfRenderer({
   }
 
   if (!window.pdfjsLib) {
-    state.container.innerHTML =
-      '<div class="pdf-no-content">pdf.js 로딩 실패</div>'
+    showPdfError("pdf.js 로딩 실패")
     throw new Error("pdf.js가 로드되지 않았습니다.")
   }
 
@@ -40,10 +39,7 @@ export async function initPdfRenderer({
 export async function renderPdf(url) {
   if (!state.container || !url) return
 
-  resetContainerToPdfMode()
-
-  state.container.innerHTML =
-    '<div class="pdf-loading">PDF 불러오는 중...</div>'
+  showPdfLoading("문서 로딩 중...")
 
   try {
     const pdf = await window.pdfjsLib.getDocument(url).promise
@@ -62,8 +58,7 @@ export async function renderPdf(url) {
 
     await renderPages()
   } catch (err) {
-    state.container.innerHTML =
-      `<div class="pdf-no-content">PDF 로드 실패: ${escapeHtml(err.message)}</div>`
+    showPdfError(`PDF 로드 실패: ${escapeHtml(err.message)}`)
   }
 }
 
@@ -185,6 +180,47 @@ function resetContainerToPdfMode() {
   )
 
   state.container.classList.add("paper-canvas", "pdf-viewer-mode")
+}
+
+function resetContainerToLoadingMode() {
+  if (!state.container) return
+
+  state.container.classList.remove(
+    "ai-mode",
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode",
+    "ai-loading-mode",
+    "pdf-viewer-mode"
+  )
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode",
+    "ai-view-mode"
+  )
+
+  state.container.classList.add("paper-canvas")
+}
+
+function showPdfLoading(message = "문서 로딩 중...") {
+  resetContainerToLoadingMode()
+
+  state.container.innerHTML = `
+    <div class="pdf-loading">
+      ${message}
+    </div>
+  `
+}
+
+function showPdfError(message) {
+  resetContainerToLoadingMode()
+
+  state.container.innerHTML = `
+    <div class="pdf-no-content">
+      ${message}
+    </div>
+  `
 }
 
 function updateZoomLabel() {

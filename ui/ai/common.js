@@ -497,7 +497,7 @@ export async function saveAssetToDb(type, content) {
 
   if (error) {
     console.error("지식 자산 저장 실패:", error.message, { docId, type });
-    return;
+    throw error;
   }
 
   if (typeof window.loadKnowledgeAssets === "function") {
@@ -779,11 +779,17 @@ function createAiJobId(taskKey, meta = {}) {
 }
 
 // 현재 실행 중이거나 대기 중인지 확인
-function isAiTaskPending(taskKey) {
-  const alreadyRunning = currentAiTask === taskKey;
-  const alreadyQueued = aiQueue.some((task) => task.taskKey === taskKey);
+function isAiTaskPendingByJobId(jobId) {
+  const alreadyRunning = currentAiTask?.jobId === jobId;
+  const alreadyQueued = aiQueue.some((task) => task.jobId === jobId);
+  const job = aiJobMap.get(jobId);
 
-  return alreadyRunning || alreadyQueued;
+  return (
+    alreadyRunning ||
+    alreadyQueued ||
+    job?.status === "PENDING" ||
+    job?.status === "RUNNING"
+  );
 }
 
 // 사이드바 상태 변경 이벤트 발생
@@ -809,27 +815,25 @@ export function getAiAssetJob(type, docId = getCurrentAiDocId()) {
 
 // AI 생성 작업을 클릭한 순서대로 대기열에 추가
 export function enqueueAiTask(taskKey, taskFn, meta = {}) {
-  if (isAiTaskPending(taskKey)) {
-    console.log(`${taskKey} 작업은 이미 실행 중이거나 대기 중입니다.`);
+  const jobId = createAiJobId(taskKey, meta);
+
+  if (isAiTaskPendingByJobId(jobId)) {
+    console.log(`${jobId} 작업은 이미 실행 중이거나 대기 중입니다.`);
     return false;
   }
 
-  const jobId = createAiJobId(taskKey, meta);
   const now = new Date().toISOString();
 
   const job = {
     id: jobId,
     taskKey,
     type: meta.type || taskKey.toUpperCase(),
-    status: "PENDING", // PENDING | RUNNING | DONE | ERROR
+    status: "PENDING",
     document_id: meta.docId || getCurrentAiDocId(),
     title: meta.title || getCurrentAiDocTitle(),
-
-    // 퀴즈 홈에서 생성 중 카드에 표시할 정보
     questionCount: meta.questionCount ?? null,
     difficulty: meta.difficulty ?? null,
     types: meta.types ?? [],
-
     created_at: null,
     requested_at: now,
     updated_at: now,
@@ -888,7 +892,7 @@ async function runNextAiTask() {
   const task = aiQueue.shift();
 
   isAiQueueRunning = true;
-  currentAiTask = task.taskKey;
+  currentAiTask = task;
 
   updateAiJobStatus(task.jobId, "RUNNING");
 
@@ -898,7 +902,7 @@ async function runNextAiTask() {
   } catch (error) {
     updateAiJobStatus(task.jobId, "ERROR", error.message || "생성 실패");
     console.error(`${task.taskKey} 생성 실패:`, error);
-  }finally {
+  } finally {
     isAiQueueRunning = false;
     currentAiTask = null;
     runNextAiTask();
