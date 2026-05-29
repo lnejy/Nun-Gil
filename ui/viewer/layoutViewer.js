@@ -10,7 +10,7 @@ export async function renderLayoutViewer(layoutUrl, options = {}) {
   container = document.getElementById(options.containerId || 'pdfContainer')
   if (!container) return
 
-  container.classList.add('pdf-viewer-mode')
+  showLayoutLoading("문서 로딩 중...")
   pdfUrl = options.pdfUrl || null
 
   const res = await fetch(layoutUrl)
@@ -262,6 +262,7 @@ function createChunks(pages) {
 }
 
 async function render() {
+  container.classList.add('paper-canvas', 'pdf-viewer-mode')
   container.innerHTML = ''
   container.classList.toggle('debug-layout', debug)
 
@@ -536,6 +537,37 @@ export function detectGazedBlock(x, y) {
       markdown: el.dataset.markdown,
     }
   }
+}
+
+function resetContainerToLayoutLoadingMode() {
+  if (!container) return
+
+  container.classList.remove(
+    "ai-mode",
+    "summary-mode",
+    "mindmap-mode",
+    "quiz-mode",
+    "ai-loading-mode",
+    "pdf-viewer-mode"
+  )
+
+  document.body.classList.remove(
+    "quiz-inline-mode",
+    "quiz-fullscreen-mode",
+    "ai-view-mode"
+  )
+
+  container.classList.add("paper-canvas")
+}
+
+function showLayoutLoading(message = "문서 로딩 중...") {
+  resetContainerToLayoutLoadingMode()
+
+  container.innerHTML = `
+    <div class="pdf-loading">
+      ${message}
+    </div>
+  `
 }
 
 export function zoomLayoutIn() {

@@ -49,7 +49,16 @@
                         <div class="calib-chk-item" id="chkSdk"><span class="calib-chk-icon">○</span><span>EyeDID SDK 로딩
                                 확인 중...</span></div>
                     </div>
-                    <button class="btn-dark" id="btnStartCalib" disabled>캘리브레이션 시작</button>
+                    <div class="calib-action-row">
+                        <button class="btn-dark" id="btnStartCalib" disabled>
+                            캘리브레이션 시작
+                        </button>
+
+                        <button class="btn-light" id="btnSkipCalib" type="button">
+                            아이트래킹 없이 읽기
+                        </button>
+                    </div>
+
                     <p class="calib-privacy-text">
                         카메라 데이터는 브라우저 내에서만 처리됩니다.
                     </p>
@@ -108,11 +117,25 @@
                     <div id="sbUploadWsName" class="sb-upload-ws-name"></div>
 
                     <label id="sbDropzone" class="sb-dropzone">
-                        <div class="sb-dropzone-icon">📄</div>
-                        <div id="sbDropLabel" class="sb-dropzone-label">
-                            파일을 선택하거나 드래그하세요
+                        <div class="sb-upload-inner">
+                            <div class="sb-upload-icon">
+                                <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M32 44V14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39"
+                                        stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                                </svg>
+                            </div>
+
+                            <div id="sbDropLabel" class="sb-upload-file-title">
+                                파일을 선택하거나 드래그하세요
+                            </div>
+
+                            <div class="sb-upload-file-desc">
+                                파일 형식 : PDF, PPT, PPTX
+                            </div>
                         </div>
-                        <div class="sb-dropzone-desc">PDF, PPT, PPTX</div>
+
                         <input type="file" id="sbFileInput" accept=".pdf,.ppt,.pptx" class="sb-file-input">
                     </label>
 
@@ -391,7 +414,8 @@
                     window.addEventListener('pdf-rendered', function () {
                         if (typeof window.loadBookmarks === 'function') window.loadBookmarks();
                     }, { once: true });
-                    renderPdf(window._pdfUrl);
+
+                    await renderPdf(window._pdfUrl);
                 } else if (window._pdfConversionPending) {
                     var c = document.getElementById('pdfContainer');
                     if (c) c.innerHTML = '<div class="pdf-no-content">PPT 파일 변환 중입니다.<br>잠시 후 다시 시도해 주세요.</div>';
@@ -411,26 +435,24 @@
                 }
                 // 워크스페이스 모드(문서 미선택)엔 캘리브레이션 불필요
                 if (!window._wsOnlyMode && !window._aiViewMode) {
-                    if (window._cachedCalib) {
-                        applyAndActivate(window._cachedCalib);
-                    } else {
-                        showCalibOverlay();
-                    }
+                    bootCalibrationOnce();
                 }
             }
         }
 
+        function bootCalibrationOnce() {
+            if (_calibrationBootDone) return;
+            _calibrationBootDone = true;
 
-        /*
-        function goHome() {
-            showPage('page-home');
-            document.title = '눈길';
+            if (G.calibDone && seeso) return;
+
+            if (window._cachedCalib) {
+                applyCachedCalibrationSilently(window._cachedCalib);
+            } else {
+                showCalibOverlay();
+            }
         }
-        function goFiles() {
-            showPage('page-files');
-            document.title = '눈길 — 파일';
-        }
-        */
+
 
         /* ══════════════════════════════════════════════════════
            EyeDID 전역 상태
@@ -444,6 +466,8 @@
             warmup: 0,
             _tracking: false
         };
+        var _calibrationBootDone = false;
+        var _calibrationApplying = false;
 
         /* ── 경고창 상태 ── */
         var AWAY_THRESH_MS = 5000;   // 5초 이탈 시 경고
@@ -697,6 +721,30 @@
             document.getElementById('calibOverlay').classList.remove('active');
         }
 
+        function skipEyeTracking() {
+            hideCalibOverlay();
+
+            window._pendingSessionStart = false;
+
+            G.calibDone = false;
+            G._tracking = false;
+            etOn = false;
+
+            document.getElementById('etDot').className = 'et-dot r';
+            document.getElementById('etLbl').textContent = '아이트래킹 사용 안 함';
+            document.getElementById('etTog').textContent = '활성화';
+            document.getElementById('etTog').className = 'et-tog off';
+
+            gazeDot.classList.remove('visible');
+            trailCanvas.classList.remove('active');
+
+            if (tCtx) {
+                tCtx.clearRect(0, 0, trailCanvas.width, trailCanvas.height);
+            }
+
+            trail.length = 0;
+        }
+
         async function runCalibSetup() {
             var hasMD = !!navigator.mediaDevices;
             setCalibChk('chkBrowser', hasMD, hasMD ? '브라우저 확인됨' : '카메라 API 미지원');
@@ -856,24 +904,42 @@
 
         /* ── 버튼 바인딩 ── */
         document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
-        document.getElementById('btnCalibDone').addEventListener('click', function () {
+        
+        document.getElementById('btnSkipCalib')?.addEventListener('click', function () {
+            skipEyeTracking();
+        });
+
+        document.getElementById('btnCalibDone').addEventListener('click', async function () {
             hideCalibOverlay();
-            activateET();
+
+            await activateET();
+
             if (_isRecalib) {
                 document.getElementById('btnCalibDone').textContent = '워크스페이스로 진입 →';
                 _isRecalib = false;
+                window._pendingSessionStart = false;
+                return;
+            }
+
+            // 세션 시작을 누른 뒤 캘리브레이션을 진행한 경우,
+            // 캘리브레이션 완료 후 세션 시작 버튼을 다시 실행
+            if (window._pendingSessionStart) {
+                window._pendingSessionStart = false;
+                document.getElementById('sessionStartBtn')?.click();
             }
         });
 
         /* ── 진입점: 모듈 스크립트(하단)에서 goViewer() 호출 ── */
         // DOMContentLoaded 제거 → viewer-init 커스텀 이벤트로 대체
-        window.addEventListener('viewer-init', function (e) {
-            window._cachedCalib = e.detail.cachedCalib ?? null;
-            window._workspaceId = e.detail.workspaceId ?? null;
-            window._calibKey = e.detail.calibKey ?? null;
-            document.getElementById('pageLoadOverlay')?.remove();
-            goViewer();
-        }, { once: true });
+        window.addEventListener('viewer-init', async function (e) {
+        window._cachedCalib = e.detail.cachedCalib ?? null;
+        window._workspaceId = e.detail.workspaceId ?? null;
+        window._calibKey = e.detail.calibKey ?? null;
+
+        await goViewer();
+
+        document.getElementById('pageLoadOverlay')?.remove();
+    }, { once: true });
 
         /* ══════════════════════════════════════════════════════
            재보정
@@ -897,51 +963,36 @@
             showCalibOverlay();
         }
 
-        /* ══════════════════════════════════════════════════════
-           캘리브레이션 캐시 재적용
-           같은 워크스페이스 이전 캘리브레이션 데이터를 사용해
-           전체 캘리브레이션 과정 없이 트래킹 시작
-        ══════════════════════════════════════════════════════ */
-        async function applyAndActivate(calibDataStr) {
-            // 간단한 "재사용 중" 표시
-            var overlay = document.getElementById('calibOverlay');
-            overlay.classList.add('active');
-            var card = document.querySelector('#calibSetup .calib-card');
-            if (card) {
-                if (!_origCalibCardHTML) _origCalibCardHTML = card.innerHTML;
-                card.innerHTML = `
-                    <div class="calib-reuse-card">
-                        <div class="calib-reuse-icon">👀</div>
+        async function applyCachedCalibrationSilently(calibDataStr) {
+            if (_calibrationApplying) return;
 
-                        <div class="calib-reuse-badge">CALIBRATION</div>
+            _calibrationApplying = true;
+            hideCalibOverlay();
 
-                        <h2 class="calib-card-title">이전 캘리브레이션 적용 중...</h2>
-
-                        <p class="calib-card-desc">
-                            저장된 시선 보정 데이터를 불러오고 있어요.<br>
-                        </p>
-
-                        <div class="calib-reuse-progress">
-                            <div class="calib-reuse-progress-bar"></div>
-                        </div>
-                    </div>
-                `;
-    
-            }
-            document.getElementById('calibSetup').classList.add('active');
-
-            // SDK 로드 대기
-            if (!window._sdkLoaded) {
-                await new Promise(function (resolve) {
-                    window.addEventListener('seeso-ready', resolve, { once: true });
-                });
-            }
-
-            var EasySeesoClass = window.EasySeeSo;
-            if (!EasySeesoClass) { showCalibOverlay(); return; }
-
-            seeso = new EasySeesoClass();
             try {
+                if (G.calibDone && seeso) {
+                    return;
+                }
+
+                if (!window._sdkLoaded) {
+                    await new Promise(function (resolve) {
+                        window.addEventListener('seeso-ready', resolve, { once: true });
+                    });
+                }
+
+                var EasySeesoClass = window.EasySeeSo;
+
+                if (!EasySeesoClass) {
+                    console.warn('EyeDID SDK 미로드');
+                    seeso = null;
+                    G.calibDone = false;
+                    G._tracking = false;
+                    showCalibOverlay();
+                    return;
+                }
+
+                seeso = new EasySeesoClass();
+
                 await seeso.init(
                     LICENSE_KEY,
                     async function () {
@@ -949,36 +1000,66 @@
                             seeso.setMonitorSize(15);
                             seeso.setFaceDistance(60);
                             seeso.setCameraPosition(window.innerWidth / 2, true);
-                            await seeso.setCalibrationData(calibDataStr);  // 캐시 적용
+                            await seeso.setCalibrationData(calibDataStr);
                         } catch (e) {
-                            console.warn('캘리브레이션 데이터 적용 오류:', e);
+                            console.warn('캘리브레이션 캐시 적용 실패:', e);
+                            seeso = null;
+                            G.calibDone = false;
+                            G._tracking = false;
+                            showCalibOverlay();
+                            return;
                         }
 
                         var trackOk = await seeso.startTracking(onGaze, onDebug);
-                        if (trackOk) {
-                            G._tracking = true;
-                            G.calibDone = true;
-                            hideCalibOverlay();
-                            activateET();
-                        } else {
-                            // 트래킹 실패 → 새 캘리브레이션으로 fallback
-                            console.warn('트래킹 시작 실패, 새 캘리브레이션으로 전환');
-                            seeso = null; G.calibDone = false;
+
+                        if (!trackOk) {
+                            console.warn('트래킹 시작 실패');
+                            seeso = null;
+                            G.calibDone = false;
+                            G._tracking = false;
                             showCalibOverlay();
+                            return;
+                        }
+
+                        G._tracking = true;
+                        G.calibDone = true;
+
+                        hideCalibOverlay();
+
+                        // 캐시 적용 중에는 이미 startTracking이 끝났으므로 activateET() 대신 UI만 켬
+                        etOn = true;
+                        document.getElementById('etDot').className = 'et-dot g';
+                        document.getElementById('etLbl').textContent = '아이트래킹 활성화';
+                        document.getElementById('etTog').textContent = '비활성화';
+                        document.getElementById('etTog').className = 'et-tog on';
+
+                        gazeDot.classList.add('visible');
+                        trailCanvas.classList.add('active');
+                        wrapWordsInViewer();
+
+                        if (window._sessionActive && window._S && !window._S.focusStart) {
+                            window._S.focusStart = Date.now();
                         }
                     },
                     function () {
-                        // SDK 인증 실패 → 새 캘리브레이션
+                        console.warn('EyeDID SDK 인증 실패');
                         seeso = null;
+                        G.calibDone = false;
+                        G._tracking = false;
                         showCalibOverlay();
                     }
                 );
             } catch (e) {
                 console.warn('SDK 초기화 오류:', e);
                 seeso = null;
+                G.calibDone = false;
+                G._tracking = false;
                 showCalibOverlay();
+            } finally {
+                _calibrationApplying = false;
             }
         }
+
 
         /* ══════════════════════════════════════════════════════
            ET 패널
@@ -988,11 +1069,28 @@
 
         async function etToggle(e) {
             e.stopPropagation();
-            if (!G.calibDone || !seeso) { showCalibOverlay(); return; }
-            if (etOn) deactivateET(); else activateET();
+
+            if (_calibrationApplying) {
+                console.warn('캘리브레이션 캐시 적용 중');
+                return;
+            }
+
+            if (!G.calibDone || !seeso) {
+                showCalibOverlay();
+                return;
+            }
+
+            if (etOn) deactivateET();
+            else activateET();
         }
 
         async function activateET() {
+            if (_calibrationApplying) {
+                console.warn('캘리브레이션 캐시 적용 중');
+                return;
+            }
+
+
             if (etOn) {
                 // 이미 활성 상태 → 세션 중이면 집중시간만 재개
                 if (window._sessionActive && window._S && !window._S.focusStart) {
@@ -1000,11 +1098,13 @@
                 }
                 return;
             }
+
             if (!G.calibDone || !seeso) {
                 // 캘리브레이션 미완료 → 먼저 캘리브레이션 진행 후 자동 활성화
                 showCalibOverlay();
                 return;
             }
+
             etOn = true;
             document.getElementById('etDot').className = 'et-dot g';
             document.getElementById('etLbl').textContent = '아이트래킹 활성화';
@@ -1383,28 +1483,29 @@
                         type: job.type,
                         status: job.status,
                         document_id: job.document_id,
-                        created_at: job.created_at,
+                        created_at: job.created_at || job.requested_at || job.updated_at,
+                        requested_at: job.requested_at,
+                        updated_at: job.updated_at,
                         documents: {
                             file_name: job.title,
                         },
                         isLocalJob: true,
                     }));
 
-                // 진행 중인 local job만 DB보다 우선 표시
+                // DB 자산을 가릴 수 있는 건 PENDING/RUNNING만
                 const activeLocalJobs = localJobs.filter(job => {
-                    return (
-                        job.status === "PENDING" ||
-                        job.status === "RUNNING" ||
-                        job.status === "ERROR"
-                    );
+                    return job.status === "PENDING" || job.status === "RUNNING";
+                });
+
+                // 실패는 표시는 하되, 기존 DB 완료 자산을 가리지는 않음
+                const errorLocalJobs = localJobs.filter(job => {
+                    return job.status === "ERROR";
                 });
 
                 const activeLocalJobKeys = new Set(
                     activeLocalJobs.map(job => `${job.document_id}:${job.type}`)
                 );
 
-                // DB 자산 중 진행 중 local job과 겹치는 것만 숨김
-                // DONE local job은 DB 자산을 가리면 안 됨
                 const visibleDbAssets = dbAssets.filter(asset => {
                     const key = `${asset.document_id}:${asset.type}`;
                     return !activeLocalJobKeys.has(key);
@@ -1412,6 +1513,7 @@
 
                 const mergedAssets = [
                     ...activeLocalJobs,
+                    ...errorLocalJobs,
                     ...visibleDbAssets,
                 ];
 
@@ -1484,10 +1586,35 @@
         window.loadDocInViewer = loadDocInViewer
         async function loadDocInViewer(id) {
             try {
+                const container = document.getElementById('pdfContainer')
+
+                if (container) {
+                    container.classList.remove(
+                        'ai-mode',
+                        'summary-mode',
+                        'mindmap-mode',
+                        'quiz-mode',
+                        'ai-loading-mode',
+                        'pdf-viewer-mode'
+                    )
+
+                    container.classList.add('paper-canvas')
+
+                    container.innerHTML = `
+                        <div class="pdf-loading">
+                            문서 로딩 중...
+                        </div>
+                    `
+                }
+
+                window._wsOnlyMode = false
+                document.body.classList.remove('ws-only-mode')
+
                 // 상태 초기화
                 window._pdfUrl = null
                 window._layoutJsonUrl = null
                 window._pdfDoc = null
+                window._pdfConversionPending = false
 
                 // 문서 조회
                 const doc = await getDocument(id)
@@ -1506,6 +1633,24 @@
                     window._layoutJsonUrl = await getLayoutSignedUrl(doc.layout_json_path)
                 }
 
+                document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
+
+                if (typeof window._resetBookmarks === 'function') {
+                    window._resetBookmarks()
+                }
+
+                window.addEventListener('pdf-rendered', function () {
+                    if (typeof window.loadBookmarks === 'function') {
+                        window.loadBookmarks()
+                    }
+                }, { once: true })
+
+                window.addEventListener('layout-rendered', function () {
+                    if (typeof window.loadBookmarks === 'function') {
+                        window.loadBookmarks()
+                    }
+                }, { once: true })
+
                 // 렌더링
                 if (window._layoutJsonUrl && window.renderLayoutViewer) {
                     await window.renderLayoutViewer(window._layoutJsonUrl, {
@@ -1513,26 +1658,35 @@
                         pdfUrl: window._pdfUrl,
                     })
                 } else if (window._pdfUrl) {
-                    window.renderPdf(window._pdfUrl)
+                    await window.renderPdf(window._pdfUrl)
                 } else {
-                    document.getElementById('pdfContainer').innerHTML =
-                        '<div class="pdf-no-content">PDF를 불러올 수 없습니다.</div>'
+                    const container = document.getElementById('pdfContainer')
+
+                    if (container) {
+                        container.classList.remove(
+                            'ai-mode',
+                            'summary-mode',
+                            'mindmap-mode',
+                            'quiz-mode',
+                            'ai-loading-mode',
+                            'pdf-viewer-mode'
+                        )
+
+                        container.classList.add('paper-canvas')
+
+                        container.innerHTML = `
+                            <div class="pdf-no-content">
+                                PDF를 불러올 수 없습니다.
+                            </div>
+                        `
+                    }
                 }
 
                 // 상태 갱신
                 docId = id
                 window._currentDocId = id
-                window._wsOnlyMode = false
-                document.body.classList.remove('ws-only-mode')
-
+                
                 if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
-
-                // 북마크 초기화 + PDF 렌더 후 복원
-                document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
-                if (typeof window._resetBookmarks === 'function') window._resetBookmarks()
-                window.addEventListener('pdf-rendered', function () {
-                    if (typeof window.loadBookmarks === 'function') window.loadBookmarks()
-                }, { once: true })
 
                 // URL 갱신
                 history.pushState({}, '', workspaceId
@@ -1560,6 +1714,27 @@
 
             } catch (e) {
                 console.warn('문서 전환 실패:', e.message)
+
+                const container = document.getElementById('pdfContainer')
+
+                if (container) {
+                    container.classList.remove(
+                        'ai-mode',
+                        'summary-mode',
+                        'mindmap-mode',
+                        'quiz-mode',
+                        'ai-loading-mode',
+                        'pdf-viewer-mode'
+                    )
+
+                    container.classList.add('paper-canvas')
+
+                    container.innerHTML = `
+                        <div class="pdf-no-content">
+                            문서 전환에 실패했습니다.
+                        </div>
+                    `
+                }
             }
         }
         // ── 새 문서 추가 버튼 ─────────────────────────────
@@ -1583,6 +1758,7 @@
             sbOverlay.style.display = 'none'
             sbFileInput.value = ''
             sbDropLabel.textContent = '파일을 선택하거나 드래그하세요'
+            sbDropzone.classList.remove('is-dragover')
         }
         document.getElementById('sbUploadClose').addEventListener('click', closeModal)
         document.getElementById('sbUploadCancel').addEventListener('click', closeModal)
@@ -1591,11 +1767,19 @@
         sbFileInput.addEventListener('change', () => {
             if (sbFileInput.files[0]) sbDropLabel.textContent = sbFileInput.files[0].name
         })
-        sbDropzone.addEventListener('dragover', (e) => { e.preventDefault(); sbDropzone.style.borderColor = '#78a3ea' })
-        sbDropzone.addEventListener('dragleave', () => { sbDropzone.style.borderColor = '#dbe4f0' })
+        sbDropzone.addEventListener('dragover', (e) => {
+            e.preventDefault()
+            sbDropzone.classList.add('is-dragover')
+        })
+
+        sbDropzone.addEventListener('dragleave', () => {
+            sbDropzone.classList.remove('is-dragover')
+        })
+
         sbDropzone.addEventListener('drop', (e) => {
             e.preventDefault()
-            sbDropzone.style.borderColor = '#dbe4f0'
+            sbDropzone.classList.remove('is-dragover')
+
             if (e.dataTransfer.files[0]) {
                 sbFileInput.files = e.dataTransfer.files
                 sbDropLabel.textContent = e.dataTransfer.files[0].name
@@ -1690,6 +1874,14 @@
         // 세션 시작 (워크스페이스 단위 — 문서 전환 시 세션 유지)
         document.getElementById('sessionStartBtn').addEventListener('click', async () => {
             if (S.sessionId) return
+
+            // 캘리브레이션이 없으면 세션을 만들지 않고 먼저 캘리브레이션 화면으로 보냄
+            if (!G.calibDone || !seeso) {
+                window._pendingSessionStart = true
+                showCalibOverlay()
+                return
+            }
+
             try {
                 const sess = await createStudySession({
                     userId: session.user.id,
@@ -1839,8 +2031,26 @@
                     await deleteDocument(id)
                     // 현재 열려 있는 문서면 빈 화면으로
                     if (id === docId) {
-                        document.getElementById('pdfContainer').innerHTML =
-                            '<div class="pdf-no-content">문서가 삭제됐습니다.</div>'
+                        const container = document.getElementById('pdfContainer')
+
+                        if (container) {
+                            container.classList.remove(
+                                'ai-mode',
+                                'summary-mode',
+                                'mindmap-mode',
+                                'quiz-mode',
+                                'ai-loading-mode',
+                                'pdf-viewer-mode'
+                            )
+
+                            container.classList.add('paper-canvas')
+
+                            container.innerHTML = `
+                                <div class="pdf-no-content">
+                                    문서가 삭제됐습니다.
+                                </div>
+                            `
+                        }
                     }
                 } else {
                     await deleteAsset(id)

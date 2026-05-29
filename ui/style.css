@@ -1719,6 +1719,35 @@ body.bookmark-mode {
     line-height: 1.65;
 }
 
+/* 캘리브레이션 선택 버튼 */
+.calib-action-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.btn-light {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 13px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    transition: transform .22s, background .22s, color .22s;
+}
+
+.btn-light:hover {
+    background: #eaf2ff;
+    color: #4f7fd6;
+    transform: translateY(-1px);
+}
+
+
 .btn-dark {
     background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
     color: #fff;
@@ -1967,6 +1996,50 @@ body.bookmark-mode {
     justify-content: center;
     margin: 0 auto 20px;
     font-size: 32px;
+}
+
+/* 캘리브레이션 필요 안내 오버레이 */
+#calibOverlay.calib-choice-mode {
+    background: rgba(15, 23, 42, 0.46);
+    backdrop-filter: blur(8px);
+}
+
+#calibOverlay.calib-choice-mode .calib-card {
+    width: min(520px, calc(100vw - 40px));
+    padding: 38px 36px;
+    border-radius: 24px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.22);
+}
+
+.calib-need-card .calib-card-title {
+    font-size: 24px;
+}
+
+.calib-choice-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.btn-light {
+    background: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 13px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: 'Pretendard', sans-serif;
+    transition: transform .22s, background .22s, color .22s;
+}
+
+.btn-light:hover {
+    background: #eaf2ff;
+    color: #4f7fd6;
+    transform: translateY(-1px);
 }
 
 
@@ -2309,13 +2382,22 @@ body.bookmark-mode {
 }
 
 .pdf-loading {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 80px 40px;
     text-align: center;
     color: #94a3b8;
-    font-size: 13px;
+    font-size: 14px;
+    font-weight: 500;
 }
 
 .pdf-no-content {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding: 60px 40px;
     text-align: center;
     color: #94a3b8;
@@ -2626,111 +2708,240 @@ body.ws-only-mode .session-btn {
     font-family: inherit;
 }
 
-/* 업로드 모달 */
-.sb-upload-overlay {
+/* ═══════════════════════════════════════════════════════
+   Viewer 새 문서 추가 모달
+   - 배경은 어둡게, 카드 내부는 mainpage 업로드 톤
+═══════════════════════════════════════════════════════ */
+
+#page-viewer .sb-upload-overlay {
     display: none;
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.35);
-    backdrop-filter: blur(6px);
     z-index: 3000;
+
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+
+    background: rgba(15, 23, 42, 0.36);
+    backdrop-filter: blur(8px);
+}
+
+#page-viewer .sb-upload-modal {
+    width: min(640px, calc(100vw - 48px));
+
+    background: linear-gradient(180deg, #eef5ff 0%, #ffffff 55%, #ffffff 100%);
+    border: 1px solid #e8edf5;
+    border-radius: 28px;
+
+    padding: 28px 28px 24px;
+
+    box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+
+    animation: sbUploadPop 0.22s ease;
+}
+
+@keyframes sbUploadPop {
+    from {
+        opacity: 0;
+        transform: scale(0.96) translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+#page-viewer .sb-upload-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    margin-bottom: 15px;
+    padding: 0 2px;
+}
+
+#page-viewer .sb-upload-title {
+    font-size: 17px;
+    font-weight: 550;
+    color: #1e2d52;
+    letter-spacing: -0.35px;
+}
+
+#page-viewer .sb-upload-close {
+    width: 34px;
+    height: 34px;
+
+    border: none;
+    border-radius: 999px;
+
+    color: #8b96ac;
+    font-size: 20px;
+    line-height: 1;
+
+    cursor: pointer;
+    transition: 0.18s ease;
+}
+
+#page-viewer .sb-upload-close:hover {
+    color: #5f6b7a;
+    transform: translateY(-1px);
+}
+
+#page-viewer .sb-upload-ws-name {
+    min-height: 18px;
+    margin: 0 2px 14px;
+
+    font-size: 13px;
+    font-weight: 450;
+    color: #3562bd;
+}
+
+#page-viewer .sb-dropzone {
+    width: 100%;
+    min-height: 225px;
+
+    border: 1.5px solid rgba(111, 163, 239, 0.16);
+    border-radius: 24px;
+
+    background: rgba(255, 255, 255, 0.46);
+    box-shadow: 0 12px 28px rgba(117, 154, 214, 0.045);
+    backdrop-filter: blur(14px);
+
+    cursor: pointer;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+
+    transition:
+        transform 0.25s ease,
+        box-shadow 0.25s ease,
+        border-color 0.25s ease,
+        background 0.25s ease;
+}
+
+#page-viewer .sb-dropzone:hover,
+#page-viewer .sb-dropzone.is-dragover {
+    transform: translateY(-1px);
+    border-color: rgba(111, 163, 239, 0.45);
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: 0 10px 22px rgba(111, 163, 239, 0.1);
+}
+
+#page-viewer .sb-upload-inner {
+    width: 100%;
+    padding: 28px 22px;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+#page-viewer .sb-upload-icon {
+    width: 42px;
+    height: 36px;
+
+    color: #6fa3ef;
+
+    display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.sb-upload-modal {
-    background: #fff;
-    border-radius: 24px;
-    padding: 36px;
-    width: 420px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+#page-viewer .sb-upload-icon svg {
+    width: 100%;
+    height: 100%;
 }
 
-.sb-upload-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+#page-viewer .sb-upload-icon svg path {
+    stroke-width: 3.4;
 }
 
-.sb-upload-title {
+#page-viewer .sb-upload-file-title {
+    max-width: 460px;
+
     font-size: 16px;
-    font-weight: 800;
-    color: #1e293b;
+    font-weight: 550;
+    color: #22345e;
+    letter-spacing: -0.25px;
+
+    word-break: break-all;
 }
 
-.sb-upload-close {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #94a3b8;
+#page-viewer .sb-upload-file-desc {
+    max-width: 460px;
+
+    font-size: 12.5px;
+    color: #8b96ac;
+    line-height: 1.6;
+    font-weight: 400;
 }
 
-.sb-upload-ws-name {
-    font-size: 13px;
-    color: #78a3ea;
-    font-weight: 600;
-}
-
-.sb-dropzone {
-    border: 2px dashed #dbe4f0;
-    border-radius: 16px;
-    padding: 32px;
-    text-align: center;
-    cursor: pointer;
-    transition: .2s;
-    display: block;
-}
-
-.sb-dropzone-icon {
-    font-size: 28px;
-    margin-bottom: 8px;
-}
-
-.sb-dropzone-label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #4b525d;
-}
-
-.sb-dropzone-desc {
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 4px;
-}
-
-.sb-file-input {
+#page-viewer .sb-file-input {
     display: none;
 }
 
-.sb-upload-actions {
+#page-viewer .sb-upload-actions {
     display: flex;
-    gap: 10px;
-    justify-content: flex-end;
+    justify-content: center;
+    gap: 8px;
+
+    margin-top: 18px;
 }
 
-.sb-upload-cancel {
-    background: #f1f5f9;
-    border: none;
-    border-radius: 12px;
-    padding: 10px 20px;
+#page-viewer .sb-upload-cancel,
+#page-viewer .sb-upload-submit {
+    height: 38px;
+    padding: 0 22px;
+
+    border-radius: 999px;
+
+    font-family: inherit;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 550;
+    letter-spacing: -0.2px;
+
     cursor: pointer;
+    transition:
+        transform 0.18s ease,
+        box-shadow 0.18s ease,
+        background 0.18s ease,
+        color 0.18s ease;
 }
 
-.sb-upload-submit {
-    background: #78a3ea;
-    color: white;
+#page-viewer .sb-upload-cancel {
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    background: rgba(255, 255, 255, 0.72);
+    color: #64748b;
+}
+
+#page-viewer .sb-upload-cancel:hover {
+    background: rgba(255, 255, 255, 0.95);
+    color: #4f7fd6;
+    transform: translateY(-1px);
+}
+
+#page-viewer .sb-upload-submit {
     border: none;
-    border-radius: 12px;
-    padding: 10px 20px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
+    background: linear-gradient(180deg, #8bb5f6 0%, #73a2f0 100%);
+    color: #ffffff;
+    box-shadow: 0 8px 15px rgba(111, 163, 239, 0.18);
+}
+
+#page-viewer .sb-upload-submit:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 18px rgba(111, 163, 239, 0.24);
+}
+
+#page-viewer .sb-upload-submit:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+    transform: none;
 }
 
 /* 사이드바 빈 상태 문구 */
@@ -2919,13 +3130,7 @@ body.ws-only-mode .session-btn {
 }
 
 
-/* 캘리브레이션 재사용 화면 */
-.calib-reuse-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-}
+
 
 #calibOverlay {
     background:
@@ -2938,72 +3143,6 @@ body.ws-only-mode .session-btn {
     background: #ffffff;
 }
 
-.calib-reuse-icon {
-    position: relative;
-    width: 76px;
-    height: 76px;
-    margin: 0 auto 18px;
-    border-radius: 50%;
-    background: #eff6ff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #78a3ea;
-    font-size: 28px;
-}
-
-.calib-reuse-icon span {
-    position: relative;
-    z-index: 2;
-}
-
-.calib-reuse-spinner {
-    position: absolute;
-    inset: -4px;
-    border-radius: 50%;
-    border: 3px solid rgba(120, 163, 234, 0.18);
-    border-top-color: #78a3ea;
-    animation: calibReuseSpin .8s linear infinite;
-}
-
-.calib-reuse-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    height: 26px;
-    padding: 0 12px;
-    margin-bottom: 14px;
-    border-radius: 999px;
-    background: #eef4ff;
-    color: #5b84d6;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.04em;
-}
-
-.calib-reuse-progress {
-    width: 220px;
-    height: 6px;
-    margin: 4px auto 14px;
-    border-radius: 999px;
-    background: #eef2f7;
-    overflow: hidden;
-}
-
-.calib-reuse-progress-bar {
-    width: 42%;
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #8bb5f6 0%, #73a2f0 100%);
-    animation: calibReuseBar 1.1s ease-in-out infinite;
-}
-
-.calib-reuse-note {
-    font-size: 11.5px;
-    color: #94a3b8;
-    line-height: 1.6;
-}
-
 .workspace-welcome-icon {
     font-size: 48px;
 }
@@ -3014,24 +3153,4 @@ body.ws-only-mode .session-btn {
     width: 42px;
     height: 42px;
     pointer-events: none;
-}
-
-@keyframes calibReuseSpin {
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@keyframes calibReuseBar {
-    0% {
-        transform: translateX(-110%);
-    }
-
-    55% {
-        transform: translateX(75%);
-    }
-
-    100% {
-        transform: translateX(240%);
-    }
 }
