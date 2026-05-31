@@ -58,15 +58,14 @@ function openPopup(block, markerEl) {
       <button class="help-popup-close" type="button" aria-label="닫기">×</button>
     </div>
     <div class="help-popup-tabs">
-      ${TABS.map(t => `
-        <button class="help-tab${done.has(t.type) ? ' done' : ''}"
-                data-type="${escapeHtml(t.type)}"
-                title="${escapeHtml(t.type)}">
-          <span class="help-tab-icon">${t.icon}</span>
-          <span class="help-tab-label">${t.label}</span>
-        </button>
-      `).join('')}
-    </div>
+  ${TABS.map(t => `
+    <button class="help-tab${done.has(t.type) ? ' done' : ''}"
+            data-type="${escapeHtml(t.type)}"
+            title="${escapeHtml(t.type)}">
+      ${escapeHtml(t.label)}
+    </button>
+  `).join('')}
+</div>
     <div class="help-popup-body">
       <div class="help-popup-intro">
         어떤 도움이 필요한가요?<br>위 탭을 눌러보세요.
@@ -93,18 +92,33 @@ function openPopup(block, markerEl) {
 }
 
 // ─── 탭 선택 ────────────────────────────────────────────────
-async function selectTab(popup, block, type) {
+async function selectTab(popup, block, type, opts = {}) {
+  // 연타 차단
+  if (popup.dataset.loading) return
+
   popup.querySelectorAll('.help-tab').forEach(t => {
     t.classList.toggle('current', t.dataset.type === type)
   })
-
   const bodyEl = popup.querySelector('.help-popup-body')
   const marker = document.querySelector(
     `.page-help-marker[data-block-id="${cssEscape(block.blockId)}"]`
   )
 
+  // 단어 탭은 항상 picker
+  if (type === '어려운 단어 풀이') {
+    const chunks = await getChunksQuiet()
+    if (!popup.isConnected) return
+    const targetChunk = findChunkByBlockId(chunks, block.blockId)
+    const result = await handleVocab({ targetChunk, contextText: '', userInput: '' })
+    if (!popup.isConnected) return
+    renderResult(bodyEl, result, block, popup)
+    return
+  }
+
+  // 나머지 탭 — 캐시 있으면 즉시
   const cached = await getHelpCacheEntry(block.blockId, type, '')
   if (cached) {
+    if (!popup.isConnected) return
     renderResult(bodyEl, cached, block, popup)
     return
   }
@@ -115,13 +129,16 @@ async function selectTab(popup, block, type) {
       <span>${escapeHtml(type)} 생성 중...</span>
     </div>
   `
-  setMarkerState(marker, 'loading')   // ← 생성 중
+  setMarkerState(marker, 'loading')
+  popup.dataset.loading = type
 
   try {
     const chunks = await getChunksQuiet()
     const targetChunk = findChunkByBlockId(chunks, block.blockId)
     if (!targetChunk) {
-      bodyEl.innerHTML = `<div class="help-error">단락을 청크에서 찾을 수 없습니다.</div>`
+      if (popup.isConnected) {
+        bodyEl.innerHTML = `<div class="help-error">단락을 청크에서 찾을 수 없습니다.</div>`
+      }
       setMarkerState(marker, 'idle')
       return
     }
@@ -134,12 +151,18 @@ async function selectTab(popup, block, type) {
       await setHelpCacheEntry(block.blockId, type, '', result)
       markTabDone(popup, block.blockId, type)
     }
+
+    if (!popup.isConnected) return
     renderResult(bodyEl, result, block, popup)
     setMarkerState(marker, result.thin ? 'idle' : 'done')
   } catch (err) {
     console.error(err)
-    bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    if (popup.isConnected) {
+      bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    }
     setMarkerState(marker, 'idle')
+  } finally {
+    delete popup.dataset.loading
   }
 }
 
@@ -189,16 +212,33 @@ function renderResult(bodyEl, result, block, popup) {
   }
 }
 
-function renderVocabPicker(bodyEl, result, block, popup) {
-  const chips = result.suggestions
+async function renderVocabPicker(bodyEl, result, block, popup) {
+  // 이 단락에서 이미 물어본 단어들 (캐시 키에서 추출)
+  const cache = await loadHelpCache()
+  const askedWords = Object.keys(cache)
+    .filter(k => k.startsWith(`${block.blockId}::어려운 단어 풀이::`))
+    .map(k => k.split('::')[2])
+    .filter(Boolean)
+
+  const suggestChips = result.suggestions
     .map(w => `<button class="help-vocab-chip" data-word="${escapeHtml(w)}">${escapeHtml(w)}</button>`)
     .join('')
+
+  const askedChips = askedWords.length
+    ? `<div class="help-vocab-prompt" style="margin-top:10px;">이미 찾아본 단어</div>
+       <div class="help-vocab-chips">
+         ${askedWords.map(w =>
+      `<button class="help-vocab-chip asked" data-word="${escapeHtml(w)}">${escapeHtml(w)}</button>`
+    ).join('')}
+       </div>`
+    : ''
 
   bodyEl.innerHTML = `
     <div class="help-vocab-picker">
       <div class="help-vocab-prompt">어떤 단어가 어려운가요?</div>
-      <div class="help-vocab-chips">${chips}</div>
+      <div class="help-vocab-chips">${suggestChips}</div>
       <input class="help-vocab-input" placeholder="직접 입력 후 Enter" />
+      ${askedChips}
     </div>
   `
 
@@ -215,25 +255,56 @@ function renderVocabPicker(bodyEl, result, block, popup) {
 }
 
 async function askVocab(bodyEl, block, popup, word) {
+  if (popup.dataset.loading) return
+
   bodyEl.innerHTML = `
     <div class="help-loading">
       <div class="help-spinner"></div>
       <span>"${escapeHtml(word)}" 설명 생성 중...</span>
     </div>
   `
+  popup.dataset.loading = 'vocab'
+
   try {
+    // 캐시 먼저 (단어별)
+    const cached = await getHelpCacheEntry(block.blockId, '어려운 단어 풀이', word)
+    if (cached) {
+      if (popup.isConnected) renderVocabResult(bodyEl, block, popup, cached)   // ← 변경
+      return
+    }
+
     const chunks = await getChunksQuiet()
     const targetChunk = findChunkByBlockId(chunks, block.blockId)
     const helpCtx = buildHelpContext(targetChunk.chunk_id, chunks)
     const contextText = formatHelpContext(helpCtx, targetChunk.chunk_id)
 
     const result = await handleVocab({ targetChunk, contextText, userInput: word })
-    await setHelpCacheEntry(block.blockId, '어려운 단어 풀이', '', result)
-    markTabDone(popup, block.blockId, '어려운 단어 풀이')
-    renderResult(bodyEl, result, block, popup)
+
+    if (!result.thin) {
+      await setHelpCacheEntry(block.blockId, '어려운 단어 풀이', word, result)
+      markTabDone(popup, block.blockId, '어려운 단어 풀이')
+    }
+    if (!popup.isConnected) return
+    renderVocabResult(bodyEl, block, popup, result)   // ← 변경
   } catch (err) {
-    bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    if (popup.isConnected) {
+      bodyEl.innerHTML = `<div class="help-error">${escapeHtml(err.message || '생성 실패')}</div>`
+    }
+  } finally {
+    delete popup.dataset.loading
   }
+}
+
+function renderVocabResult(bodyEl, block, popup, result) {
+  bodyEl.innerHTML = `
+    <div class="help-result-title">${escapeHtml(result.title)}</div>
+    <div class="help-result-body">${renderMarkdown(result.body)}</div>
+    <button class="help-vocab-again" type="button">다른 단어 물어보기</button>
+  `
+  bodyEl.querySelector('.help-vocab-again')
+    .addEventListener('click', () => {
+      selectTab(popup, block, '어려운 단어 풀이')
+    })
 }
 
 // ─── 컨텍스트 헬퍼 ──────────────────────────────────────────
@@ -302,63 +373,74 @@ async function handleVocab({ targetChunk, contextText, userInput }) {
   }
 
   const prompt = `
-"${userInput}"라는 단어/용어의 뜻을 알려주세요.
+"${userInput}"라는 단어/용어를 학생이 이해할 수 있게 간단하게 설명해줘.
 
-[참고용 문서 맥락 — 설명에 직접 옮기지 말 것]
+[참고 맥락]
 ${contextText}
 
-[작성 규칙 — 반드시 지킬 것]
-- 정확히 2문장. 그 이상 절대 금지.
-- 1문장: "쉽게 말하면 ~" 으로 시작하는 핵심 정의
-- 2문장: 이 문서 맥락에서 왜 중요한지 한 줄
-- 헤딩(#), 목록, 번호 매기기 절대 사용 금지
-- 굵게(**)는 단어 1~2개에만
-- 맥락 요약하지 말 것. 오직 이 단어 하나만 설명.
+만약 "${userInput}"이 실제 단어·용어·약어가 아니면(오타·무작위 입력 등),
+설명하지 말고 아래 문장 하나만 그대로 출력해라:
+관련된 단어를 입력해 주세요.
+
+- "쉽게 말하면 ~"으로 시작하는 핵심 정의로 문을 열고, 이 문서 맥락에서 왜 중요한지 짚어라.
+- 단어의 난이도에 맞춰 길이를 조절해라. 억지로 늘리지 마라.
+
+금지:
+- "URL 디코딩", "질문을 이해했습니다", "설명하겠습니다" 같은 서두/인사말. 곧바로 본론으로.
+- "1문장:", "2문장:", 번호, 헤딩(#), 목록 라벨. 자연스러운 문단으로.
+- "${userInput}" 외의 다른 용어를 대신 설명하는 것.
+- 굵게(**)는 핵심 용어 몇 개에만.
 `.trim()
 
-  const body = await askClaudeText(prompt)
-  return { mode: 'text', title: `"${userInput}"`, body }
+  const body = stripPreamble(await askClaudeText(prompt))
+return { mode: 'text', title: `"${userInput}"`, body }
 }
 
 async function handleSimplify({ targetChunk }) {
   if (isTooThin(targetChunk.text)) return thinResult('쉬운 말로 풀어보면')
   const prompt = `
-다음 단락을 중학생도 이해할 수 있게 쉬운 말로 다시 써주세요.
+다음 단락을, 이 분야를 처음 접하는 사람도 이해할 수 있게 쉬운 말로 간단하게 다시 써줘.
 
 [원문]
 ${targetChunk.text}
 
-[작성 지침]
-- 전문용어는 풀어쓰기 (예: "오버헤드" → "추가로 드는 부담")
-- 긴 문장은 짧게 나누기
-- 핵심 뜻은 유지
-- 3~5문장
-- 마크다운 강조는 핵심 단어에만
+- 전문용어는 풀어쓰기 (예: "오버헤드" → "추가로 드는 부담").
+- 긴 문장은 짧게 나누고, 핵심 뜻은 유지해라. 원문에 없는 내용을 더하지 마라.
+- 원문의 분량에 맞춰 길이를 조절해라. 억지로 늘리지도 줄이지도 마라.
+
+금지:
+- 서두/인사말("설명하겠습니다", "다시 써드리겠습니다" 등). 곧바로 본론.
+- 헤딩(#), 목록, 표.
+- 마크다운 강조는 핵심 단어에만.
 `.trim()
 
-  const body = await askClaudeText(prompt)
-  return { mode: 'text', title: '쉬운 말로 풀어보면', body }
+  const body = stripPreamble(await askClaudeText(prompt))
+return { mode: 'text', title: '쉬운 말로 풀어보면', body }
 }
 
 async function handleExample({ targetChunk, contextText }) {
   if (isTooThin(targetChunk.text)) return thinResult('예를 들면')
   const prompt = `
-다음 단락에서 설명한 개념을 일상적인 예시나 비유로 설명해주세요.
+다음 내용을 일상적인 예시나 비유로 간단하게 설명해줘.
 
-[원문이 속한 맥락]
+[설명할 내용]
+${targetChunk.text}
+
+[참고 맥락]
 ${contextText}
 
-[작성 지침]
-- 일상 비유 사용 (요리, 운동, 학교생활, 게임 등)
-- 구체적 예시 1~2개
-- 비유가 원래 개념과 어떻게 대응되는지 한 줄로 짚기
-- 4~6문장
-- "예를 들어 ~을 생각해보세요" 로 시작 권장
-- 추상적이지 않고 이미 구체적이라면, 비유 대신 비슷한 다른 사례
+- 일상 비유 사용 (요리, 운동, 학교생활, 게임 등). 구체적 예시 1~2개.
+- 비유를 든 다음, 그 비유가 원래 개념과 어떻게 대응되는지 짚어라.
+- 내용 복잡도에 맞춰 길이를 조절해라. 억지로 늘리지 마라.
+
+금지:
+- 서두/인사말. 곧바로 본론.
+- 'c0003' 같은 식별자나 'before/after/target' 같은 내부 용어. "앞에서는", "이 부분은" 처럼 자연스러운 한국어로.
+- 헤딩, 목록, 표, 이모지.
 `.trim()
 
-  const body = await askClaudeText(prompt)
-  return { mode: 'text', title: '예를 들면', body }
+  const body = stripPreamble(await askClaudeText(prompt))
+return { mode: 'text', title: '예를 들면', body }
 }
 
 async function handleContext({ targetChunk, contextText }) {
@@ -366,22 +448,27 @@ async function handleContext({ targetChunk, contextText }) {
   if (isTooThin(realText)) return thinResult('앞뒤 흐름')
 
   const prompt = `
-아래 단락이 문서 흐름에서 어떤 위치이고 앞뒤와 어떻게 이어지는지, 학생에게 4~6문장으로 바로 설명해라.
+학생이 문서를 읽다가 아래 단락에서 막혔어. 이 단락이 문서 흐름에서 어떤 역할인지, 앞 내용과 어떻게 이어지고 뒤로 어떻게 연결되는지 간단하게 설명해줘.
 
-[단락]
+[지금 막힌 단락]
 ${targetChunk.text}
 
-[주변 맥락]
+[주변 맥락 — 이해를 돕기 위한 자료]
 ${contextText}
 
-- 설명문만 출력. 계획·단계·표·이모지·헤딩 금지.
-- 맥락이 적으면 그 안에서 짧게 설명하고 끝낼 것. 더 달라고 하지 말 것.
+- 학생은 문서가 조각으로 나뉜 걸 모른다. 하나의 글로 읽는 사람에게 말하듯 설명해라.
+- 맥락 복잡도에 맞춰 길이를 조절해라. 억지로 늘리지 마라.
+
+금지:
+- 서두/인사말("질문을 이해했습니다", "설명하겠습니다" 등). 곧바로 본론.
+- 'c0003' 같은 식별자나 'before', 'after', 'target', 'role' 같은 내부 용어. "앞에서는", "이 부분은", "이어지는 내용에서는" 처럼 자연스러운 한국어로.
+- 헤딩, 목록, 표, 이모지, "계획·단계·작성 방향" 같은 메타.
+- 맥락이 적으면 그 안에서 짧게 설명하고 끝낼 것.
 `.trim()
 
-  const body = await askClaudeText(prompt)
-  return { mode: 'text', title: '앞뒤 흐름', body }
+  const body = stripPreamble(await askClaudeText(prompt))
+return { mode: 'text', title: '앞뒤 흐름', body }
 }
-
 // ─── 마크다운 (강조/단락만) ─────────────────────────────────
 function renderMarkdown(text) {
   return escapeHtml(text || '')
@@ -390,6 +477,30 @@ function renderMarkdown(text) {
     .split(/\n\n+/)
     .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
     .join('')
+}
+
+// Claude 응답의 메타 서두 한 줄 제거
+function stripPreamble(text) {
+  let t = String(text || '').trim()
+
+  const patterns = [
+    // "안녕하세요!" 같은 인사
+    /^안녕하세요[!.]?\s*/,
+    // 첫 줄에 메타 키워드가 있으면 그 줄 통째 삭제
+    /^[^\n]*?(디코딩|URL\s*인코딩|요청을\s*이해|요청을\s*보니|요청하신\s*내용|정리하겠습니다|설명해\s*드리겠습니다|분석해\s*드리겠습니다|설명해드리겠습니다|도와드리겠습니다|~에\s*대해\s*설명)[^\n]*\n+/,
+    // "막힌 단락에 대해 설명해드리겠습니다" 같은 짧은 도입
+    /^[^\n]{0,80}?(설명해드리겠습니다|설명하겠습니다)[.!]?\s*\n+/,
+  ]
+
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const re of patterns) {
+      const next = t.replace(re, '')
+      if (next !== t) { t = next.trim(); changed = true }
+    }
+  }
+  return t
 }
 
 // ─── 도움말 DB (document_help 테이블) ───────────────────────
