@@ -133,6 +133,23 @@
     background .15s ease;
 }
 
+/* hover — 살짝 떠오르고 배경 강조 */
+.page-help-marker:hover {
+  background: #eff6ff;
+  box-shadow: 0 4px 14px rgba(120, 163, 234, 0.35);
+  transform: translateX(0) translateY(-2px) scale(1.08);
+}
+
+.page-help-marker.has-help:hover {
+  background: #dbeafe;
+  box-shadow: 0 4px 14px rgba(120, 163, 234, 0.5);
+}
+
+/* hover 중엔 active opacity 같이 보장 */
+.page-help-marker:hover {
+  opacity: 1;
+}
+
 
 .page-help-marker.active {
   opacity: 1;
@@ -166,39 +183,6 @@
 /* has-help 마커 톤 (선택) */
 .page-help-marker.has-help {
   background: #f4f8ff;
-}
-
-.help-menu {
-  position: fixed;
-  z-index: 9999;
-
-  min-width: 180px;
-
-  padding: 8px;
-
-  border-radius: 14px;
-
-  background: white;
-  box-shadow: 0 8px 24px rgba(0,0,0,.14);
-
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.help-menu-item {
-  border: none;
-  background: transparent;
-
-  padding: 10px 12px;
-  border-radius: 10px;
-
-  text-align: left;
-  cursor: pointer;
-}
-
-.help-menu-item:hover {
-  background: #f3f4f6;
 }
 
 /* ── 도움말 팝업 카드 (마커 옆) ── */
@@ -398,3 +382,22 @@
   0%, 100% { transform: translateX(0) scale(1); }
   50%      { transform: translateX(0) scale(1.12); }
 }
+
+.help-vocab-chip.asked {
+  background: #eff6ff;
+  color: #78a3ea;
+  border-color: #bfdbfe;
+}
+.help-vocab-again {
+  margin-top: 12px;
+  width: 100%;
+  padding: 7px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fafbfc;
+  font-family: inherit;
+  font-size: 12px;
+  color: #4b525d;
+  cursor: pointer;
+}
+.help-vocab-again:hover { background: #f1f5f9; }
