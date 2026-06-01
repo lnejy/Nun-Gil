@@ -421,13 +421,12 @@ export async function askClaudeJson(prompt) {
   const text = data.content?.[0]?.text || "";
   if (!text) throw new Error("Claude 응답이 비어 있습니다.");
 
-  const cleaned = text
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```$/i, "")
-    .trim();
+  // 괄호 깊이 추적으로 첫 번째 완전한 JSON 값을 추출
+  // (lastIndexOf 방식은 JSON 내부 문자열에 }/] 있을 때 오작동)
+  const jsonStr = extractFirstJson(text);
+  if (!jsonStr) throw new Error("Claude 응답에서 JSON을 찾을 수 없습니다.");
 
-  return JSON.parse(cleaned);
+  return JSON.parse(jsonStr);
 }
 
 export async function askClaudeText(prompt) {
@@ -552,11 +551,30 @@ export function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// 괄호 깊이를 추적해서 첫 번째 완전한 JSON 값({ } 또는 [ ])만 추출
+function extractFirstJson(text) {
+  const start = text.search(/[{\[]/);
+  if (start === -1) return null;
+
+  let depth = 0, inString = false, escape = false;
+
+  for (let i = start; i < text.length; i++) {
+    const c = text[i];
+    if (escape)                   { escape = false; continue; }
+    if (c === '\\' && inString) { escape = true;  continue; }
+    if (c === '"')                { inString = !inString; continue; }
+    if (inString)                 continue;
+    if (c === '{' || c === '[')   depth++;
+    if (c === '}' || c === ']') {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 function sanitizeForJson(value) {
-  return encodeURIComponent(
-    String(value ?? "")
-      .replace(/\u0000/g, "")
-  );
+  return String(value ?? "").replace(/\u0000/g, "");
 }
 // 문서 페이지 수 기반으로 출력 항목 범위 결정
 export function decideOutputRange(pageCount = 10, _type = "summary") {
