@@ -175,7 +175,7 @@ p {
 
 .sidebar.collapsed .sb-add-btn::before {
     content: '+';
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 400;
     line-height: 1;
 }
@@ -192,9 +192,6 @@ p {
     gap: 7px;
 }
 
-.sidebar.collapsed .sb-tool-grid {
-    grid-template-columns: 1fr;
-}
 
 .sb-tool-item {
     min-height: 56px;
@@ -354,14 +351,91 @@ p {
     display: none;
 }
 
+/* ── 접힌 사이드바: add-section ── */
 .sidebar.collapsed .sb-add-section {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px 10px;
 }
 
+/* ── 접힌 버튼 공통 크기 (파란/흰 +, 도구 4개 동일) ── */
+.sidebar.collapsed .sb-add-btn,
+.sidebar.collapsed .sb-workspace-list-btn,
+.sidebar.collapsed .sb-tool-item {
+    width: 46px;
+    height: 46px;
+    min-height: 46px;
+    max-height: 46px;
+    padding: 0;
+    border-radius: 14px;
+    flex-shrink: 0;
+}
+
+/* ── 파란 + 버튼 (새 문서) ── */
 .sidebar.collapsed .sb-add-btn {
-    width: 42px;
-    height: 42px;
+    box-shadow: 0 6px 14px rgba(120, 163, 234, 0.28);
+}
+
+/* ── 흰 + 버튼 (워크스페이스) ── */
+.sidebar.collapsed .sb-workspace-list-btn {
+    margin-top: 0;
+    font-size: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    transition: all var(--tr);
+}
+
+.sidebar.collapsed .sb-workspace-list-btn::before {
+    content: '+';
+    font-size: 20px;
+    font-weight: 400;
+    color: #52627c;
+    line-height: 1;
+}
+
+.sidebar.collapsed .sb-workspace-list-btn:hover {
+    transform: translateY(-1px);
+    background: #f0f4ff;
+    border-color: #d0dbf0;
+    box-shadow: 0 6px 14px rgba(120, 163, 234, 0.18);
+}
+
+/* ── 도구 버튼 4개 ── */
+.sidebar.collapsed .sb-tool-section {
+    padding: 0 12px 16px;
+}
+
+.sidebar.collapsed .sb-tool-grid {
+    width: 100%;
+    grid-template-columns: 1fr;
+    gap: 6px;
+}
+
+.sidebar.collapsed .sb-tool-item {
+    margin: 0 auto;
+    background: #ffffff;
+    border: 1px solid #eef0f3;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    transition: all var(--tr);
+}
+
+.sidebar.collapsed .sb-tool-item:hover {
+    transform: translateY(-1px);
+    background: #f5f7fb;
+    border-color: #dde3ee;
+    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.09);
+    color: var(--p);
+}
+
+.sidebar.collapsed .sb-tool-item.active {
+    background: #eef3ff;
+    border-color: #c8d8f8;
+    box-shadow: 0 2px 8px rgba(120, 163, 234, 0.15);
+    color: var(--p);
 }
 
 .sidebar.collapsed .sb-profile {
@@ -2452,7 +2526,8 @@ body.bookmark-mode {
     padding-right: 16px !important;
 }
 
-#page-viewer .sb-add-btn {
+#page-viewer:not(:has(.sidebar.collapsed)) .sb-add-btn,
+body:not(.sidebar-collapsed) #page-viewer .sb-add-btn {
     width: 100% !important;
     margin: 0 auto !important;
 }
@@ -2494,6 +2569,23 @@ body.sidebar-collapsed #page-viewer .sidebar {
     width: 72px !important;
     display: flex !important;
     flex-direction: column !important;
+}
+
+/* 접힌 상태: 파란·흰 + 버튼, 도구 버튼 크기 통일 */
+#page-viewer:has(.sidebar.collapsed) .sb-add-btn,
+body.sidebar-collapsed #page-viewer .sb-add-btn,
+#page-viewer:has(.sidebar.collapsed) .sb-workspace-list-btn,
+body.sidebar-collapsed #page-viewer .sb-workspace-list-btn,
+#page-viewer:has(.sidebar.collapsed) .sb-tool-item,
+body.sidebar-collapsed #page-viewer .sb-tool-item {
+    width: 46px !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    padding: 0 !important;
+    border-radius: 14px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 #page-viewer:has(.sidebar.collapsed) .sidebar-scroll,
