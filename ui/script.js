@@ -252,8 +252,8 @@ async function loadBookmarks() {
 }
 
 function _renderBookmarks(items) {
-    const bmCanvas = document.querySelector('.paper-canvas');
-    if (!bmCanvas) return;
+    const bmCanvas = document.querySelector('.layout-page') || document.querySelector('.paper-canvas');
+if (!bmCanvas) return;
 
     items.forEach((item, idx) => {
         // DB에서 복원 시 고유 ID 보장
@@ -330,7 +330,7 @@ function getNextBookmarkId() {
 function createBookmarkIndexTag(topPosition, targetSpan) {
     const newId = getNextBookmarkId();
     bookmarkCount = Math.max(bookmarkCount, newId);
-    const canvas       = document.querySelector('.paper-canvas');
+    const canvas = document.querySelector('.layout-page') || document.querySelector('.paper-canvas');
     const initialColor = 'blue';
     const tagId        = `tag-id-${newId}`;
 
