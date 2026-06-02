@@ -265,7 +265,7 @@
                             <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
                                 <rect x="4" y="4" width="16" height="16" rx="2" />
                             </svg>
-                            <span>세션 종료</span>
+                            <span>학습 종료</span>
                         </button>
                         <div class="font-island toolbar-font-island">
                             <button class="zoom-btn" onclick="zoomOut()">&#8722;</button>
@@ -501,14 +501,18 @@
         /* ── 스무딩 ── */
         var SMOOTH_A = 0.2, VEL_MAX = 120, VEL_DAMP = 0.25, BLINK_Y_JUMP = 100, WARMUP_FRAMES = 5;
 
-        function smoothGaze(rx, ry, isBlink) {
+        function smoothGaze(rx, ry, isBlink, opennessKnown) {
             if (isBlink) { G.blinkFrames++; return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY }; }
             if (G.prevX === 0 && G.prevY === 0) {
                 G.prevX = rx; G.prevY = ry; G.lastValidX = rx; G.lastValidY = ry; G.warmup = 0;
                 return { x: rx, y: ry };
             }
+            // 아래쪽으로 큰 점프 = 깜빡임 가능성.
+            // 단, openness 신호가 있으면 그것으로 이미 깜빡임을 판단하므로(isBlink),
+            // 여기서는 openness를 못 받는 경우(fallback)에만 점프만으로 깜빡임 처리한다.
+            // → 화면 하단을 의도적으로 빠르게 응시하는 동작을 깜빡임으로 오인해 시선이 고정되는 문제 방지.
             var dy = ry - G.prevY;
-            if (Math.abs(dy) > BLINK_Y_JUMP && dy > 0) {
+            if (!opennessKnown && Math.abs(dy) > BLINK_Y_JUMP && dy > 0) {
                 G.blinkFrames++;
                 return { x: G.lastValidX || G.prevX, y: G.lastValidY || G.prevY };
             }
@@ -535,14 +539,17 @@
             G.gazeValid++;
 
             var lo = gazeInfo.leftOpenness, ro = gazeInfo.rightOpenness;
-            var isBlink = (lo !== -1 && ro !== -1) ? (lo < 0.3 && ro < 0.3) : false;
+            var opennessKnown = (lo !== -1 && ro !== -1);
+            // 임계값 0.3은 너무 높아 화면 하단 응시 시 눈꺼풀이 내려가면 '눈 감음'으로 오판됨.
+            // 실제 깜빡임은 openness가 0 근처까지 떨어지므로 0.15로 낮춰 오탐을 줄인다.
+            var isBlink = opennessKnown ? (lo < 0.15 && ro < 0.15) : false;
 
             var useX = x, useY = y;
             if (gazeInfo.eyemovementState === 0 && gazeInfo.fixationX && gazeInfo.fixationY) {
                 useX = gazeInfo.fixationX; useY = gazeInfo.fixationY;
             }
 
-            var raw = smoothGaze(useX, useY, isBlink);
+            var raw = smoothGaze(useX, useY, isBlink, opennessKnown);
             G.gx = raw.x; G.gy = raw.y;
 
             var isCalibrating = !G.calibDone
@@ -1342,8 +1349,14 @@
             } catch (e) { console.warn('워크스페이스 이름 로드 실패:', e) }
         }
 
-        // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
         document.querySelectorAll('.sb-tool-item').forEach(btn => {
+            const isWorkspaceOnly = !!workspaceId && !docId && !aiParam
+
+            if (isWorkspaceOnly) {
+                btn.classList.remove('active')
+                return
+            }
+
             btn.classList.toggle('active', btn.dataset.aiTool === initialTool)
         })
 
