@@ -362,23 +362,16 @@ function updateAiUrl(tool) {
 
 function restoreToolFromUrl() {
   const params = new URLSearchParams(location.search)
-  const hasDoc = !!params.get("doc_id")
-  const hasWorkspace = !!params.get("workspace_id")
-  const aiTool = params.get("ai")
+  const tool = params.get("ai")
 
-  // 워크스페이스만 들어온 경우:
-  // 처음에는 원본 버튼을 누르지 않는다.
-  if (hasWorkspace && !hasDoc && !aiTool) {
-    currentTool = null
+  if (!tool) {
+    currentTool = "original"
 
-    document.querySelectorAll(".sb-tool-item").forEach(btn => {
-      btn.classList.remove("active")
-    })
+    const btn = document.querySelector(`.sb-tool-item[data-ai-tool="original"]`)
+    if (btn) setActiveButton(btn)
 
     return
   }
-
-  const tool = aiTool || "original"
 
   const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
   if (btn) btn.click()
