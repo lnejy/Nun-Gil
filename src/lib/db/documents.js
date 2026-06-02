@@ -153,6 +153,11 @@ export async function getFavoriteDocuments() {
 export async function deleteDocument(id) {
   const doc = await getDocument(id)
 
+  // 연관 데이터 먼저 삭제 (FK cascade 없으므로 명시적 처리)
+  await sb.from('bookmarks').delete().eq('document_id', id)
+  await sb.from('learning_assets').delete().eq('document_id', id)
+  await sb.from('document_notes').delete().eq('document_id', id)
+
   // Storage 파일 삭제
   if (doc.file_url) await deleteFile(doc.file_url)
   if (doc.converted_pdf_path) await deleteFile(doc.converted_pdf_path)
