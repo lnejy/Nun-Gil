@@ -761,16 +761,29 @@ p {
     --sidebar-left: 14px;
     --sidebar-gap: 18px;
     --note-w: 0px;
-    --help-w: 0px; 
+   --help-w: 430px; 
     --page-pad: 32px;
 }
 
 
-/* 도움말 팝업 열리면 우측 공간 확보 */
-#page-viewer:has(.help-popup) {
-  --help-w: 360px;   /* 팝업 폭만큼 */
+#page-viewer .center-area {
+  min-width: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  transition: width var(--tr);
 }
 
+#page-viewer:has(.note-sb.open) .center-area {
+  width: calc(100% - var(--note-w));
+}
+body.help-open #page-viewer .center-area {
+  width: calc(100% - var(--help-w));
+}
+
+body.help-open #page-viewer:has(.note-sb.open) .center-area {
+  width: calc(100% - 360px);
+}
 #page-viewer:has(.sidebar.collapsed),
 body.sidebar-collapsed #page-viewer {
     --sidebar-w: 72px;
@@ -798,9 +811,14 @@ body.sidebar-collapsed #page-viewer {
     padding: 0 0 70px 0;
 }
 
+#page-viewer:has(.note-sb.open) .center-area {
+  width: calc(100% - var(--note-w));
+}
+
 /* center-area 기본 속성 — width는 아래 :has() 규칙들이 결정 */
 #page-viewer .center-area {
   min-width: 0;
+  width: 100%;
   display: flex;
   justify-content: center;
   transition: width var(--tr);
@@ -811,21 +829,22 @@ body.sidebar-collapsed #page-viewer {
   width: 100%;
 }
 
-/* 메모장만 열림 → note-w 만큼 */
-#page-viewer:has(.note-sb.open) .center-area {
-  width: calc(100% - var(--note-w));
+
+
+#page-viewer #pdfContainer:not(.pdf-viewer-mode) {
+  width: 850px !important;
+  max-width: 850px !important;
+  flex: 0 0 auto !important;
 }
 
-/* 도움말 팝업 열림 → help-w 만큼 (메모장 열렸든 말든 이게 우선) */
-#page-viewer:has(.help-popup) .center-area {
-  width: calc(100% - var(--help-w));
-}
-
-#page-viewer .paper-canvas,
-#page-viewer #pdfContainer {
-    width: 850px !important;
-    max-width: 850px !important;
-    flex: 0 0 auto !important;
+#page-viewer #pdfContainer.pdf-viewer-mode {
+  width: 100% !important;
+  max-width: none !important;
+  flex: 1 1 auto !important;
+  padding: 32px 0 80px !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 #page-viewer .side-area {
