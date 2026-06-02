@@ -1686,6 +1686,17 @@
                     window._layoutJsonUrl = await getLayoutSignedUrl(doc.layout_json_path)
                 }
 
+                // 상태·URL을 렌더링 전에 확정 — layout-rendered 이벤트 내 loadBookmarks가
+                // getDocId()로 올바른 doc_id를 읽을 수 있어야 함
+                docId = id
+                window._currentDocId = id
+
+                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
+
+                history.pushState({}, '', workspaceId
+                    ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
+                    : `viewer.html?doc_id=${id}`)
+
                 document.querySelectorAll('.bookmark-tag').forEach(el => el.remove())
 
                 if (typeof window._resetBookmarks === 'function') {
@@ -1709,11 +1720,6 @@
                     await window.renderLayoutViewer(window._layoutJsonUrl, {
                         containerId: 'pdfContainer',
                         pdfUrl: window._pdfUrl,
-                    })
-
-                    console.log('[AFTER renderLayoutViewer]', {
-                        containerClass: document.getElementById('pdfContainer')?.className,
-                        pageRect: document.querySelector('.layout-page')?.getBoundingClientRect(),
                     })
                 } else if (window._pdfUrl) {
                     await window.renderPdf(window._pdfUrl)
@@ -1739,17 +1745,6 @@
                         `
                     }
                 }
-
-                // 상태 갱신
-                docId = id
-                window._currentDocId = id
-
-                if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
-
-                // URL 갱신
-                history.pushState({}, '', workspaceId
-                    ? `viewer.html?doc_id=${id}&workspace_id=${workspaceId}`
-                    : `viewer.html?doc_id=${id}`)
 
                 // 메모장 갱신
                 if (typeof window.reloadMemoForDoc === 'function') window.reloadMemoForDoc()

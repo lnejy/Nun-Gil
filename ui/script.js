@@ -228,13 +228,13 @@ async function loadBookmarks() {
 
             if (rows && rows.length > 0) {
                 _renderBookmarks(rows.map(r => ({
-                    id:           bookmarkCount + 1,
-                    dbId:         r.id,
-                    top:          r.position_y,
-                    title:        r.title,
-                    content:      r.memo,
-                    color:        r.color,
-                    tagElementId: `bm-tag-${r.id}`,
+                    // id 미지정 → _renderBookmarks 내 (bookmarkCount + idx + 1)로 고유 ID 자동 할당
+                    dbId:             r.id,
+                    top:              r.position_y,
+                    title:            r.title,
+                    content:          r.memo,
+                    color:            r.color,
+                    tagElementId:     `bm-tag-${r.id}`,
                     highlighted_text: r.highlighted_text,
                 })));
                 return;
