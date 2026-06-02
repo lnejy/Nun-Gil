@@ -8,7 +8,13 @@ let pdfUrl = null
 
 export async function renderLayoutViewer(layoutUrl, options = {}) {
   container = document.getElementById(options.containerId || 'pdfContainer')
-  if (!container) return
+if (!container) return
+
+if (container.classList.contains('ai-mode')) {
+  return
+}
+
+container.className = 'paper-canvas pdf-viewer-mode'
 
   showLayoutLoading("문서 로딩 중...")
   pdfUrl = options.pdfUrl || null
@@ -262,6 +268,10 @@ function createChunks(pages) {
 }
 
 async function render() {
+  if (container.classList.contains('ai-mode')) {
+    return
+  }
+
   container.classList.add('paper-canvas', 'pdf-viewer-mode')
   container.innerHTML = ''
   container.classList.toggle('debug-layout', debug)
@@ -562,6 +572,8 @@ function resetContainerToLayoutLoadingMode() {
 
 function showLayoutLoading(message = "문서 로딩 중...") {
   resetContainerToLayoutLoadingMode()
+
+  container.classList.add('pdf-viewer-mode')
 
   container.innerHTML = `
     <div class="pdf-loading">
