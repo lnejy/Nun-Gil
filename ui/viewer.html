@@ -120,8 +120,10 @@
                         <div class="sb-upload-inner">
                             <div class="sb-upload-icon">
                                 <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M32 44V14" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
-                                    <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
+                                    <path d="M32 44V14" stroke="currentColor" stroke-linecap="round"
+                                        stroke-linejoin="round" />
+                                    <path d="M21 25L32 14L43 25" stroke="currentColor" stroke-linecap="round"
+                                        stroke-linejoin="round" />
                                     <path d="M13 39V46C13 51.5228 17.4772 56 23 56H41C46.5228 56 51 51.5228 51 46V39"
                                         stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
@@ -260,7 +262,9 @@
                             <span>학습 시작</span>
                         </button>
                         <button class="session-btn end" id="sessionEndBtn">
-                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12"><rect x="4" y="4" width="16" height="16" rx="2" /></svg>
+                            <svg viewBox="0 0 24 24" fill="currentColor" width="12" height="12">
+                                <rect x="4" y="4" width="16" height="16" rx="2" />
+                            </svg>
                             <span>세션 종료</span>
                         </button>
                         <div class="font-island toolbar-font-island">
@@ -904,7 +908,7 @@
 
         /* ── 버튼 바인딩 ── */
         document.getElementById('btnStartCalib').addEventListener('click', startCalibration);
-        
+
         document.getElementById('btnSkipCalib')?.addEventListener('click', function () {
             skipEyeTracking();
         });
@@ -932,14 +936,36 @@
         /* ── 진입점: 모듈 스크립트(하단)에서 goViewer() 호출 ── */
         // DOMContentLoaded 제거 → viewer-init 커스텀 이벤트로 대체
         window.addEventListener('viewer-init', async function (e) {
-        window._cachedCalib = e.detail.cachedCalib ?? null;
-        window._workspaceId = e.detail.workspaceId ?? null;
-        window._calibKey = e.detail.calibKey ?? null;
+            window._cachedCalib = e.detail.cachedCalib ?? null;
+            window._workspaceId = e.detail.workspaceId ?? null;
+            window._calibKey = e.detail.calibKey ?? null;
 
-        await goViewer();
+            await goViewer();
 
-        document.getElementById('pageLoadOverlay')?.remove();
-    }, { once: true });
+            const logLayout = (label) => {
+                const mw = document.querySelector('#page-viewer .main-wrapper');
+                const ca = document.querySelector('#page-viewer .center-area');
+                const pc = document.getElementById('pdfContainer');
+                const lp = document.querySelector('.layout-page');
+
+                console.log(label, {
+                    mainScrollTop: mw?.scrollTop,
+                    containerClass: pc?.className,
+                    centerRect: ca?.getBoundingClientRect(),
+                    containerRect: pc?.getBoundingClientRect(),
+                    pageRect: lp?.getBoundingClientRect(),
+                    calibActive: document.getElementById('calibOverlay')?.classList.contains('active'),
+                    pageLoadOverlay: !!document.getElementById('pageLoadOverlay'),
+                });
+            };
+
+            logLayout('[AFTER goViewer]');
+            setTimeout(() => logLayout('[AFTER 1000ms]'), 1000);
+            setTimeout(() => logLayout('[AFTER 3000ms]'), 3000);
+            setTimeout(() => logLayout('[AFTER 5000ms]'), 5000);
+
+            document.getElementById('pageLoadOverlay')?.remove();
+        }, { once: true });
 
         /* ══════════════════════════════════════════════════════
            재보정
@@ -1149,56 +1175,56 @@
        ET 패널 드래그로 숨기기 / 핸들로 다시 꺼내기
     ══════════════════════════════════════════════════════ */
         function initEtDragHide() {
-    var panel = document.getElementById('etP');
-    var handle = document.getElementById('etHandle');
-    if (!panel || !handle) {
-        console.warn('ET 드래그: etP/etHandle 없음');
-        return;
-    }
+            var panel = document.getElementById('etP');
+            var handle = document.getElementById('etHandle');
+            if (!panel || !handle) {
+                console.warn('ET 드래그: etP/etHandle 없음');
+                return;
+            }
 
-    var dragging = false, startX = 0, moved = 0;
-    var DRAG_THRESHOLD = 60;
+            var dragging = false, startX = 0, moved = 0;
+            var DRAG_THRESHOLD = 60;
 
-    panel.addEventListener('pointerdown', function (e) {
-        if (e.target.closest('button')) return;
-        dragging = true; moved = 0; startX = e.clientX;
-        panel.classList.add('dragging');
-        panel.setPointerCapture(e.pointerId);
-    });
-    panel.addEventListener('pointermove', function (e) {
-        if (!dragging) return;
-        moved = Math.max(0, e.clientX - startX);
-        panel.style.transform = 'translateX(' + moved + 'px)';
-        panel.style.opacity = String(Math.max(0, 1 - moved / 200));
-    });
-    panel.addEventListener('pointerup', function () {
-        if (!dragging) return;
-        dragging = false;
-        panel.classList.remove('dragging');
-        panel.style.transform = '';
-        panel.style.opacity = '';
-        if (moved >= DRAG_THRESHOLD) hideEtPanel();
-    });
-    panel.addEventListener('pointercancel', function () {
-        dragging = false;
-        panel.classList.remove('dragging');
-        panel.style.transform = '';
-        panel.style.opacity = '';
-    });
+            panel.addEventListener('pointerdown', function (e) {
+                if (e.target.closest('button')) return;
+                dragging = true; moved = 0; startX = e.clientX;
+                panel.classList.add('dragging');
+                panel.setPointerCapture(e.pointerId);
+            });
+            panel.addEventListener('pointermove', function (e) {
+                if (!dragging) return;
+                moved = Math.max(0, e.clientX - startX);
+                panel.style.transform = 'translateX(' + moved + 'px)';
+                panel.style.opacity = String(Math.max(0, 1 - moved / 200));
+            });
+            panel.addEventListener('pointerup', function () {
+                if (!dragging) return;
+                dragging = false;
+                panel.classList.remove('dragging');
+                panel.style.transform = '';
+                panel.style.opacity = '';
+                if (moved >= DRAG_THRESHOLD) hideEtPanel();
+            });
+            panel.addEventListener('pointercancel', function () {
+                dragging = false;
+                panel.classList.remove('dragging');
+                panel.style.transform = '';
+                panel.style.opacity = '';
+            });
 
-    function hideEtPanel() {
-        panel.classList.add('slide-hidden');
-        handle.classList.add('show');
-    }
-    function showEtPanel() {
-        panel.classList.remove('slide-hidden');
-        handle.classList.remove('show');
-    }
+            function hideEtPanel() {
+                panel.classList.add('slide-hidden');
+                handle.classList.add('show');
+            }
+            function showEtPanel() {
+                panel.classList.remove('slide-hidden');
+                handle.classList.remove('show');
+            }
 
-    // 전역 노출 — 다른 코드(메모장/도움말)에서 호출
-    window.etHidePanel = hideEtPanel;
-    window.etShowPanel = showEtPanel;
-}
+            // 전역 노출 — 다른 코드(메모장/도움말)에서 호출
+            window.etHidePanel = hideEtPanel;
+            window.etShowPanel = showEtPanel;
+        }
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', initEtDragHide);
         } else {
@@ -1239,6 +1265,14 @@
         const params = new URLSearchParams(location.search)
         let docId = params.get('doc_id')              // let: in-place 전환 시 갱신
         let workspaceId = params.get('workspace_id') ?? null
+
+        const aiParam = params.get('ai')
+        const initialTool = aiParam ? aiParam.toLowerCase() : 'original'
+
+        if (aiParam) {
+            window._aiViewMode = initialTool
+            document.body.classList.add('ai-view-mode')
+        }
 
         const sbWorkspaceButton = document.getElementById('sbWorkspaceButton')
 
@@ -1309,10 +1343,14 @@
         }
 
         // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
+        document.querySelectorAll('.sb-tool-item').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.aiTool === initialTool)
+        })
+
+        // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
         window.dispatchEvent(new CustomEvent('viewer-init', {
             detail: { cachedCalib, workspaceId, calibKey }
         }))
-
         // ── 사이드바: 프로필 + 문서 목록 (비동기, viewer-init 이후) ────
         try {
             const result = await getCurrentUser()
@@ -1542,10 +1580,9 @@
                         <span class="sb-asset-icon">${typeIcon[a.type]}</span>
                         <span class="sb-item-text sb-asset-text">${fname} ${typeLabel[a.type] ?? a.type}</span>
                         <span class="sb-asset-status ${a.status?.toLowerCase()}">${statusText}</span>
-                        ${
-                            a.isLocalJob
-                                ? ""
-                                : `<span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>`
+                        ${a.isLocalJob
+                            ? ""
+                            : `<span class="sb-item-delete" data-delete-type="asset" data-delete-id="${a.id}" data-delete-name="${label}">×</span>`
                         }
                     </button>`;
                 }).join('')
@@ -1586,6 +1623,9 @@
         window.loadDocInViewer = loadDocInViewer
         async function loadDocInViewer(id) {
             try {
+                document.body.classList.remove('help-open')
+                document.querySelectorAll('.help-popup').forEach(el => el.remove())
+
                 const container = document.getElementById('pdfContainer')
 
                 if (container) {
@@ -1657,6 +1697,11 @@
                         containerId: 'pdfContainer',
                         pdfUrl: window._pdfUrl,
                     })
+
+                    console.log('[AFTER renderLayoutViewer]', {
+                        containerClass: document.getElementById('pdfContainer')?.className,
+                        pageRect: document.querySelector('.layout-page')?.getBoundingClientRect(),
+                    })
                 } else if (window._pdfUrl) {
                     await window.renderPdf(window._pdfUrl)
                 } else {
@@ -1685,7 +1730,7 @@
                 // 상태 갱신
                 docId = id
                 window._currentDocId = id
-                
+
                 if (doc?.file_name) document.title = '눈길 — ' + doc.file_name
 
                 // URL 갱신
@@ -1915,12 +1960,12 @@
 
                 // ⓪ 0초 스냅샷 (그래프 시작점)
                 await saveSessionSnapshot({
-                    sessionId:    S.sessionId,
-                    userId:       session.user.id,
-                    elapsedMin:   0,
+                    sessionId: S.sessionId,
+                    userId: session.user.id,
+                    elapsedMin: 0,
                     focusSeconds: 0,
-                    alertCount:   0,
-                    rereadCount:  0,
+                    alertCount: 0,
+                    rereadCount: 0,
                 })
 
                 // ② 10초마다 스냅샷 저장 (elapsed_min 컬럼을 10초 틱으로 재활용)
@@ -1933,8 +1978,8 @@
                         userId: session.user.id,
                         elapsedMin: S.snapshotTick,
                         focusSeconds: Math.round(currentFocus),
-                        alertCount:   S.alertCount,
-                        rereadCount:  S.rereadCount,
+                        alertCount: S.alertCount,
+                        rereadCount: S.rereadCount,
                     })
                 }, 10_000)
             } catch (e) {
@@ -1988,13 +2033,6 @@
         document.addEventListener('visibilitychange', () => {
             if (document.hidden && S.sessionId) autosave()
         })
-
-        // ai 파라미터 감지 → 캘리브레이션 스킵 + 뷰어 UI 숨김
-        const aiParam = params.get('ai')
-        if (aiParam) {
-            window._aiViewMode = aiParam.toLowerCase()
-            document.body.classList.add('ai-view-mode')
-        }
 
         // ── 사이드바 삭제 확인 모달 ─────────────────────────────
         const deleteOverlay = document.getElementById('sbDeleteOverlay')

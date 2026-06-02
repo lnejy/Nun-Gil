@@ -34,17 +34,20 @@ window.addEventListener('doc-changed', () => {
 
 // ─── 팝업 생성/제거 ─────────────────────────────────────────
 function removePopup() {
+  document.body.classList.remove('help-open')
+
   currentPopup?.remove()
   currentPopup = null
 }
 
 function openPopup(block, markerEl) {
-  // 같은 마커 다시 클릭 → 토글로 닫기
   if (currentPopup && currentPopup.dataset.blockId === block.blockId) {
     removePopup()
     return
   }
-  removePopup()  // 다른 팝업 열려 있으면 닫기
+
+  removePopup()
+  document.body.classList.add('help-open')
 
   const popup = document.createElement('div')
   popup.className = 'help-popup'
