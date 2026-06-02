@@ -362,7 +362,16 @@ function updateAiUrl(tool) {
 
 function restoreToolFromUrl() {
   const params = new URLSearchParams(location.search)
-  const tool = params.get("ai") || "original"
+  const tool = params.get("ai")
+
+  if (!tool) {
+    currentTool = "original"
+
+    const btn = document.querySelector(`.sb-tool-item[data-ai-tool="original"]`)
+    if (btn) setActiveButton(btn)
+
+    return
+  }
 
   const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
   if (btn) btn.click()
