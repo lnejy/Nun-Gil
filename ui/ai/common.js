@@ -55,7 +55,10 @@ export function setAiCache(next) {
 }
 
 export function clearAiMode() {
-  const canvas = getCanvas();
+  document.body.classList.remove('help-open')
+  document.querySelectorAll('.help-popup').forEach(el => el.remove())
+
+  const canvas = getCanvas()
 
   canvas.classList.remove(
     "ai-mode",
@@ -63,17 +66,16 @@ export function clearAiMode() {
     "mindmap-mode",
     "quiz-mode",
     "ai-loading-mode"
-  );
+  )
 
   document.body.classList.remove(
     "quiz-inline-mode",
     "quiz-fullscreen-mode",
     "ai-view-mode"
-  );
+  )
 
-  canvas.className = "paper-canvas";
+  canvas.className = "paper-canvas pdf-viewer-mode"
 }
-
 export function setAiMode(extraClass = "") {
   const canvas = getCanvas();
   canvas.classList.add("ai-mode");
@@ -635,35 +637,33 @@ export async function getImportantChunks({
 }
 
 export function setCanvasMode(mode) {
-  const container = getCanvas();
+  document.body.classList.remove('help-open')
+  document.querySelectorAll('.help-popup').forEach(el => el.remove())
 
-  container.classList.remove(
-    "pdf-viewer-mode",
-    "ai-mode",
-    "summary-mode",
-    "mindmap-mode",
-    "quiz-mode",
-    "ai-loading-mode"
-  )
+  const container = getCanvas()
+
+  container.className = "paper-canvas"
 
   document.body.classList.remove(
     "quiz-inline-mode",
-    "quiz-fullscreen-mode"
-  );
+    "quiz-fullscreen-mode",
+    "ai-view-mode"
+  )
 
   if (mode === "original") {
-    return container;
+    container.classList.add("pdf-viewer-mode")
+    return container
   }
 
-  container.classList.add("ai-mode", `${mode}-mode`);
+  container.classList.add("ai-mode", `${mode}-mode`)
+  container.innerHTML = ""
 
   if (mode === "quiz") {
-    document.body.classList.add("quiz-inline-mode");
+    document.body.classList.add("quiz-inline-mode")
   }
 
-  return container;
+  return container
 }
-
 export function extractKeywordsHeuristic(text) {
   // 1. 한글 2~6글자 연속 또는 영문 단어 추출
   const tokens = text.match(/[가-힣]{2,6}|[A-Za-z][A-Za-z0-9]{1,}/g) || []

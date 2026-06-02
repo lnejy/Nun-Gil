@@ -29,7 +29,8 @@ window.addEventListener("viewer-init", () => {
   initialized = true;
 
   initAiState();
-  bindAiButtons();
+bindAiButtons();
+restoreToolFromUrl();
 });
 
 // 문서 in-place 전환 시 AI state 재초기화 + 원본 버튼으로 초기화
@@ -37,6 +38,7 @@ window.addEventListener("doc-changed", async (e) => {
   initAiState();
 
   currentTool = "original";
+  updateAiUrl("original");
 
   document.querySelectorAll(".sb-tool-item").forEach(btn =>
     btn.classList.remove("active")
@@ -164,6 +166,7 @@ function bindAiButtons() {
       // 사용자 의도를 즉시 기록
       currentTool = tool;
       setActiveButton(btn);
+      updateAiUrl(tool);
 
       if (tool === "original") {
         await renderOriginalDocument();
@@ -343,4 +346,24 @@ function setActiveButton(activeBtn) {
     btn.classList.remove("active");
   });
   activeBtn.classList.add("active");
+}
+
+function updateAiUrl(tool) {
+  const url = new URL(location.href)
+
+  if (tool === "original") {
+    url.searchParams.delete("ai")
+  } else {
+    url.searchParams.set("ai", tool)
+  }
+
+  history.replaceState({}, "", url)
+}
+
+function restoreToolFromUrl() {
+  const params = new URLSearchParams(location.search)
+  const tool = params.get("ai") || "original"
+
+  const btn = document.querySelector(`.sb-tool-item[data-ai-tool="${tool}"]`)
+  if (btn) btn.click()
 }
