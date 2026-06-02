@@ -1342,8 +1342,14 @@
             } catch (e) { console.warn('워크스페이스 이름 로드 실패:', e) }
         }
 
-        // ── viewer-init 이벤트 dispatch (캘리브레이션 직후, 사이드바보다 먼저) ─
         document.querySelectorAll('.sb-tool-item').forEach(btn => {
+            const isWorkspaceOnly = !!workspaceId && !docId && !aiParam
+
+            if (isWorkspaceOnly) {
+                btn.classList.remove('active')
+                return
+            }
+
             btn.classList.toggle('active', btn.dataset.aiTool === initialTool)
         })
 
