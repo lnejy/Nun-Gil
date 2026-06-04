@@ -6,6 +6,7 @@ import {
   saveBookmarkedIndexes,
   getLocalQuizBookmarks,
   setLocalQuizBookmarks,
+  deleteQuizAsset,
 } from "./quizApi.js";
 
 import {
@@ -137,6 +138,22 @@ async function renderQuizHomeScreen(container = getCanvas()) {
       removeAiAssetJob(jobId);
       if (openedPendingQuizJobId === jobId) openedPendingQuizJobId = null;
       renderQuizHomeScreen(container);
+    },
+
+    onDeleteQuiz: async (assetId) => {
+      if (!assetId) return;
+      const ok = window.confirm("이 퀴즈를 삭제할까요?\n풀이 기록도 함께 삭제되며 되돌릴 수 없습니다.");
+      if (!ok) return;
+      try {
+        await deleteQuizAsset(assetId);
+        if (typeof window.loadKnowledgeAssets === "function") {
+          window.loadKnowledgeAssets(AI_STATE.docId || window._currentDocId);
+        }
+        await renderQuizHomeScreen(container);
+      } catch (e) {
+        console.warn("퀴즈 삭제 실패:", e);
+        showAiError?.("퀴즈 삭제에 실패했습니다: " + (e.message || e));
+      }
     },
 
     onOpenSolvedQuiz: openSolvedQuiz,

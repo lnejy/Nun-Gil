@@ -172,6 +172,29 @@ export async function saveQuizAssetToDb(content) {
   return data;
 }
 
+// 저장된 퀴즈(자산)와 연결된 풀이 기록을 함께 삭제
+export async function deleteQuizAsset(assetId) {
+  if (!assetId) return;
+
+  if (QUIZ_TEST_MODE) {
+    const assets = getLocalQuizAssets();
+    setLocalQuizAssets(assets.filter((asset) => asset.id !== assetId));
+    return;
+  }
+
+  if (!sb) throw new Error("DB 연결이 없습니다.");
+
+  // FK 제약 대비: 연결된 풀이 기록 먼저 삭제
+  await sb.from("quiz_attempts").delete().eq("asset_id", assetId);
+
+  const { error } = await sb
+    .from("learning_assets")
+    .delete()
+    .eq("id", assetId);
+
+  if (error) throw error;
+}
+
 export async function loadQuizAssetsFromDb() {
   if (QUIZ_TEST_MODE) {
     return getLocalQuizAssets();

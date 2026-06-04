@@ -969,11 +969,22 @@ body.quiz-inline-mode {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
+  align-self: center;
+  flex-shrink: 0;
 }
 
 .ng-quiz-asset-delete:hover {
   background: #fde0de;
   color: #e2574c;
+}
+
+/* 저장된 퀴즈 카드의 삭제 버튼은 hover 시에만 노출 (실패 카드는 항상 표시) */
+.ng-quiz-asset-item:not(.pending) .ng-quiz-asset-delete {
+  opacity: 0;
+}
+
+.ng-quiz-asset-item:not(.pending):hover .ng-quiz-asset-delete {
+  opacity: 1;
 }
 
 .ng-quiz-soft-btn.danger {
