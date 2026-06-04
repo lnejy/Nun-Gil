@@ -947,6 +947,43 @@ body.quiz-inline-mode {
   color: #4f7fd6;
 }
 
+/* 생성 실패 카드 */
+.ng-quiz-asset-item.pending.error {
+  border-color: #f3c9c9;
+  background: #fff6f6;
+}
+
+.ng-quiz-asset-item.pending.error .ng-quiz-asset-side {
+  color: #e2574c;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.ng-quiz-asset-delete {
+  border: none;
+  background: transparent;
+  color: #c9837e;
+  font-size: 13px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.ng-quiz-asset-delete:hover {
+  background: #fde0de;
+  color: #e2574c;
+}
+
+.ng-quiz-soft-btn.danger {
+  color: #e2574c;
+}
+
+.ng-quiz-soft-btn.danger:hover {
+  background: #fde0de;
+}
+
 .ng-quiz-generating {
   min-height: var(--quiz-height);
   display: flex;

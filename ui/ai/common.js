@@ -838,6 +838,19 @@ export function getAiAssetJob(type, docId = getCurrentAiDocId()) {
   return aiJobMap.get(jobId) || null;
 }
 
+// 실패(또는 종료)한 작업을 큐에서 제거 — 진행 중(PENDING/RUNNING)인 작업은 보호
+export function removeAiAssetJob(jobId) {
+  const job = aiJobMap.get(jobId);
+  if (!job) return false;
+  if (job.status === "PENDING" || job.status === "RUNNING") {
+    console.warn(`진행 중인 작업은 삭제할 수 없습니다: ${jobId}`);
+    return false;
+  }
+  aiJobMap.delete(jobId);
+  notifyAiJobChanged();
+  return true;
+}
+
 // AI 생성 작업을 클릭한 순서대로 대기열에 추가
 export function enqueueAiTask(taskKey, taskFn, meta = {}) {
   const jobId = createAiJobId(taskKey, meta);
