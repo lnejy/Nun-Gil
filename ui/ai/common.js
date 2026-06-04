@@ -86,6 +86,9 @@ export function setAiMode(extraClass = "") {
 export function showAiLoading(label) {
   const canvas = getCanvas();
 
+  // 진행 중인 원본 문서 렌더가 로딩 화면 위로 페이지를 덧붙이는 race 방지
+  window.cancelLayoutRender?.();
+
   canvas.classList.remove(
     "summary-mode",
     "mindmap-mode",
@@ -110,6 +113,8 @@ export function showAiLoading(label) {
 export function showAiWaiting(label) {
   const canvas = getCanvas();
 
+  window.cancelLayoutRender?.();
+
   canvas.classList.remove(
     "summary-mode",
     "mindmap-mode",
@@ -133,6 +138,8 @@ export function showAiWaiting(label) {
 
 export function showAiStatusScreen({ toolLabel, status }) {
   const canvas = getCanvas();
+
+  window.cancelLayoutRender?.();
 
   canvas.classList.remove(
     "summary-mode",
