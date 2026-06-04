@@ -494,7 +494,9 @@
             const sReact   = W === 0 ? 15 : Math.max(0, 15 * (1 - (R - 1) / 9))
             const minutes  = T / 60
             const rrPerMin = minutes > 0 ? RR / minutes : 0
-            const sReread  = Math.max(0, 20 * (1 - rrPerMin / 3))
+            // 지수 감쇠: 재독이 많을수록 감점(단조감소)하되 0으로 급락하지 않고 완만하게 깔려
+            // 중간 점수가 고르게 분포하도록 함. (분당 재독 ↑ → 점수 ↓, 최대 20점)
+            const sReread  = 20 * Math.exp(-rrPerMin / 4)
             return {
                 score:   Math.round(sGaze + sWarn + sReact + sReread),
                 sGaze:   Math.round(sGaze  * 10) / 10,
