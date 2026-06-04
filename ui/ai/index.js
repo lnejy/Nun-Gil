@@ -329,6 +329,10 @@ async function renderOriginalDocument() {
     container.scrollTop = 0;
   }
 
+  // 북마크 상태 초기화 (AI 모드에서 DOM이 비워졌으므로)
+  document.querySelectorAll('.bookmark-tag').forEach(el => el.remove());
+  if (typeof window._resetBookmarks === 'function') window._resetBookmarks();
+
   if (window._layoutJsonUrl && typeof window.renderLayoutViewer === "function") {
     await window.renderLayoutViewer(window._layoutJsonUrl, {
       containerId: "pdfContainer",
@@ -338,6 +342,11 @@ async function renderOriginalDocument() {
     await window.renderPdf(window._pdfUrl);
   } else if (container) {
     container.innerHTML = `<div class="pdf-no-content">문서를 불러올 수 없습니다.</div>`;
+  }
+
+  // 렌더 완료 후 북마크 복원
+  if (typeof window.loadBookmarks === 'function') {
+    window.loadBookmarks();
   }
 }
 
