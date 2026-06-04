@@ -8,8 +8,29 @@
 [![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
 [![Claude AI](https://img.shields.io/badge/Claude_AI-D97757?style=flat-square)](https://anthropic.com)
 [![Vanilla JS](https://img.shields.io/badge/Vanilla_JS-F7DF1E?style=flat-square&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![pdf.js](https://img.shields.io/badge/pdf.js-FF4785?style=flat-square)](https://mozilla.github.io/pdf.js/)
+[![D3.js](https://img.shields.io/badge/D3.js-F9A03C?style=flat-square&logo=d3dotjs&logoColor=white)](https://d3js.org)
+
+<br/>
+
+_웹캠만 있으면 — 시선이 닿는 곳에서 집중이 시작됩니다._
 
 </div>
+
+---
+
+## 📑 목차
+
+- [🎯 프로젝트 소개](#-프로젝트-소개)
+- [✨ 주요 기능](#-주요-기능)
+- [🏗 아키텍처](#-아키텍처)
+- [🗄 데이터베이스](#-데이터베이스)
+- [🛠 기술 스택](#-기술-스택)
+- [📂 디렉토리 구조](#-디렉토리-구조)
+- [🚀 로컬 실행](#-로컬-실행)
+- [📱 화면 흐름](#-화면-흐름)
+- [⚠️ 주요 제약 사항](#️-주요-제약-사항)
+- [👨‍💻 팀](#-팀)
 
 ---
 
@@ -48,15 +69,16 @@ Claude AI가 문서를 분석 → 요약 / 마인드맵 / 퀴즈 생성
 ### 👁 아이트래킹 & 집중도 측정
 
 - **EyeDID SDK (WASM)** — 웹캠으로 실시간 시선 좌표 추적
-- 6포인트 캘리브레이션, 결과 8시간 캐시
-- 화면 이탈 5초 감지 → 경고 위젯 팝업
+- **6포인트 캘리브레이션 + 자동 오프셋 보정** — 캘리브레이션 직후 중앙 응시로 시선 오차를 측정해 자동 교정
+- **시선 안정화 파이프라인** — 깜빡임 판정 · 워밍업 · 속도 제한 · 지수이동평균 스무딩
+- 화면 이탈 5초 감지 → 경고 위젯 팝업, 반응 시간 기록
 - **집중도 점수 (100점 만점)** 자동 산출
 
 ```
-집중도 점수 = 정상 응시 비율(40점)
-            + 경고 감점(25점)
-            + 반응 속도(15점)
-            + 재독 패턴(20점)
+집중도 점수 = 정상 응시 비율 (40점)
+            + 경고 감점       (25점)
+            + 반응 속도       (15점)
+            + 재독 패턴       (20점, 지수 감쇠 — 재독이 많을수록 완만히 감점)
 ```
 
 ### 🧠 AI 지식 자산화
@@ -77,7 +99,7 @@ Claude AI가 문서를 분석 → 요약 / 마인드맵 / 퀴즈 생성
 |---|---|
 | 📝 요약 | 핵심 개념 카드 + 클릭 시 AI 심화 설명 |
 | 🗺 마인드맵 | D3.js 계층 트리, 노드 펼치기/접기, 줌/패닝 |
-| ❓ 퀴즈 | 4지선다 + 즉시 채점 + 해설 + 북마크 |
+| ❓ 퀴즈 | 객관식·O/X·단답형 + 난이도 3단계 + 즉시 채점·해설·북마크 + 퀴즈 삭제 |
 
 ### 📊 집중도 레포트
 
@@ -222,7 +244,7 @@ Nun-Gil/
 ### 1. 저장소 클론 & 의존성 설치
 
 ```bash
-git clone https://github.com/your-org/Nun-Gil.git
+git clone https://github.com/lnejy/Nun-Gil.git
 cd Nun-Gil
 npm install
 ```
