@@ -307,6 +307,10 @@ document.querySelector('.paper-canvas').addEventListener('mouseup', function (e)
         yPos = e.clientY - canvasRect.top;
     }
 
+    // CSS zoom이 적용된 경우 viewport 픽셀 → DOM 픽셀로 변환
+    const cZoom = parseFloat(document.getElementById('pdfContainer')?.style.zoom) || 1;
+    yPos = yPos / cZoom;
+
     createBookmarkIndexTag(yPos, targetSpan);
     selection.removeAllRanges();
     toggleBookmarkMode();

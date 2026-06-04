@@ -1,6 +1,6 @@
 let layout = null
 const TARGET_PAGE_WIDTH = 850
-let scale = 1
+let zoomFactor = 1   // 사용자 줌 (1.0 = 100%)
 let debug = false
 let container = null
 let pdfDoc = null
@@ -23,10 +23,9 @@ container.className = 'paper-canvas pdf-viewer-mode'
   const res = await fetch(layoutUrl)
   layout = normalizeLayout(await res.json())
 
-  const firstPage = layout.pages?.[0]
-  if (firstPage?.width) {
-    scale = TARGET_PAGE_WIDTH / firstPage.width
-  }
+  zoomFactor = 1   // 문서 전환 시 100%로 리셋
+  const zoomLabel = document.getElementById('zoomLevel')
+  if (zoomLabel) zoomLabel.textContent = '100%'
 
   if (pdfUrl && window.pdfjsLib) {
     pdfjsLib.GlobalWorkerOptions.workerSrc =
@@ -275,9 +274,8 @@ async function render() {
 
   if (aborted()) return
 
-  container.classList.add('paper-canvas', 'pdf-viewer-mode')
-  container.innerHTML = ''
-  container.classList.toggle('debug-layout', debug)
+  // ── 모든 페이지를 fragment에 먼저 빌드 (비동기 작업은 여기서) ──────────
+  const fragment = document.createDocumentFragment()
 
   for (const page of layout.pages) {
     let sx = 1
@@ -331,8 +329,17 @@ async function render() {
     }
 
     if (aborted()) return
-    container.appendChild(pageEl)
+    fragment.appendChild(pageEl)   // container 대신 fragment에 추가
   }
+
+  if (aborted()) return
+
+  // ── 동기 일괄 처리: clear → append → 스크롤 복원 (브라우저 중간 렌더 없음) ──
+  container.classList.add('paper-canvas', 'pdf-viewer-mode')
+  container.classList.toggle('debug-layout', debug)
+  container.innerHTML = ''
+  container.appendChild(fragment)
+  container.style.zoom = zoomFactor   // CSS zoom 적용 (재렌더 없이 즉시 반영)
 
   window._currentLayout = layout
   window.dispatchEvent(new CustomEvent('layout-rendered'))
@@ -595,13 +602,17 @@ function showLayoutLoading(message = "문서 로딩 중...") {
 }
 
 export function zoomLayoutIn() {
-  scale = Math.min(scale + 0.1, 3)
-  if (layout) render()
+  zoomFactor = Math.min(Math.round((zoomFactor + 0.1) * 10) / 10, 2.5)
+  if (container) container.style.zoom = zoomFactor
+  const label = document.getElementById('zoomLevel')
+  if (label) label.textContent = `${Math.round(zoomFactor * 100)}%`
 }
 
 export function zoomLayoutOut() {
-  scale = Math.max(scale - 0.1, 0.4)
-  if (layout) render()
+  zoomFactor = Math.max(Math.round((zoomFactor - 0.1) * 10) / 10, 0.4)
+  if (container) container.style.zoom = zoomFactor
+  const label = document.getElementById('zoomLevel')
+  if (label) label.textContent = `${Math.round(zoomFactor * 100)}%`
 }
 export function toggleLayoutDebug() {
   debug = !debug

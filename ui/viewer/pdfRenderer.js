@@ -39,6 +39,9 @@ export async function initPdfRenderer({
 export async function renderPdf(url) {
   if (!state.container || !url) return
 
+  // 레이아웃 모드에서 남아있을 수 있는 CSS zoom 초기화
+  state.container.style.zoom = ''
+
   showPdfLoading("문서 로딩 중...")
 
   try {
