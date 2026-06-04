@@ -11,6 +11,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
     onOpenUnsolvedQuiz,
     onOpenPendingQuiz,
     onDeletePendingQuiz,
+    onDeleteQuiz,
     pendingQuizJobs = [],
   } = handlers;
 
@@ -110,6 +111,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
     onOpenUnsolvedQuiz,
     onOpenPendingQuiz,
     onDeletePendingQuiz,
+    onDeleteQuiz,
   });
 }
 
@@ -166,8 +168,9 @@ function renderQuizAssetItem(asset, getQuizTitle, index) {
 
   const createdText = formatQuizDate(asset.created_at);
 
+  // 카드 클릭(열기)과 삭제 버튼 클릭을 구분하기 위해 div로 렌더 (버튼 중첩 회피)
   return `
-    <button class="ng-quiz-asset-item" type="button" data-asset-id="${asset.id}">
+    <div class="ng-quiz-asset-item" data-asset-id="${asset.id}">
       <div>
         <div class="ng-quiz-asset-title">
           ${escapeHtml(`${index + 1}. ${getQuizTitle?.() || "문서"} 퀴즈`)}
@@ -180,7 +183,8 @@ function renderQuizAssetItem(asset, getQuizTitle, index) {
         <span>${escapeHtml(scoreText)}</span>
         <small>${escapeHtml(createdText)}</small>
       </div>
-    </button>
+      <button class="ng-quiz-asset-delete" type="button" data-delete-asset-id="${asset.id}" title="삭제">✕</button>
+    </div>
   `;
 }
 
@@ -192,14 +196,20 @@ function bindQuizHomeEvents(quizAssets, handlers = {}) {
     onOpenUnsolvedQuiz,
     onOpenPendingQuiz,
     onDeletePendingQuiz,
+    onDeleteQuiz,
   } = handlers;
 
-  // 실패한 퀴즈 카드의 삭제 버튼 (카드 클릭 전파 차단)
+  // 퀴즈 카드의 삭제 버튼 (카드 클릭 전파 차단)
+  // - 실패한 생성 작업: data-delete-job-id
+  // - 저장된 퀴즈 자산:  data-delete-asset-id
   document.querySelectorAll(".ng-quiz-asset-delete").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
       const jobId = btn.dataset.deleteJobId;
-      if (jobId) onDeletePendingQuiz?.(jobId);
+      if (jobId) { onDeletePendingQuiz?.(jobId); return; }
+
+      const assetId = btn.dataset.deleteAssetId;
+      if (assetId) onDeleteQuiz?.(assetId);
     });
   });
 
