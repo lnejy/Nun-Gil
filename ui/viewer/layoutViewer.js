@@ -5,6 +5,7 @@ let debug = false
 let container = null
 let pdfDoc = null
 let pdfUrl = null
+let renderGen = 0   // 렌더 세대 토큰: 새 렌더/중단 시 증가시켜 진행 중인 비동기 렌더를 무효화
 
 export async function renderLayoutViewer(layoutUrl, options = {}) {
   container = document.getElementById(options.containerId || 'pdfContainer')
@@ -268,9 +269,11 @@ function createChunks(pages) {
 }
 
 async function render() {
-  if (container.classList.contains('ai-mode')) {
-    return
-  }
+  const myGen = ++renderGen   // 이 렌더의 세대 — 이후 새 렌더/중단이 일어나면 무효화됨
+  // 진행 중인 렌더가 중단됐는지(다른 렌더가 시작됐거나 AI 모드로 전환됨) 검사
+  const aborted = () => myGen !== renderGen || container.classList.contains('ai-mode')
+
+  if (aborted()) return
 
   container.classList.add('paper-canvas', 'pdf-viewer-mode')
   container.innerHTML = ''
@@ -285,6 +288,7 @@ async function render() {
 
     if (pdfDoc) {
       const pdfPage = await pdfDoc.getPage(page.page)
+      if (aborted()) return   // await 도중 AI 로딩이 화면을 가져갔으면 중단
       const viewport = pdfPage.getViewport({ scale: 1 })
 
       sx = viewport.width / page.width
@@ -309,6 +313,7 @@ async function render() {
 
     if (pdfDoc) {
       await renderPdfPageBackground(pageEl, page.page, pageScale)
+      if (aborted()) return   // await 도중 중단됐으면 페이지를 붙이지 않음
     } else {
       const bg = document.createElement('img')
       bg.className = 'layout-page-bg'
@@ -325,12 +330,19 @@ async function render() {
       if (marker) helpRail.appendChild(marker)
     }
 
+    if (aborted()) return
     container.appendChild(pageEl)
   }
 
   window._currentLayout = layout
   window.dispatchEvent(new CustomEvent('layout-rendered'))
 }
+
+// AI 로딩 등 외부에서 진행 중인 레이아웃 렌더를 즉시 중단시키기 위한 훅
+export function cancelLayoutRender() {
+  renderGen++
+}
+window.cancelLayoutRender = cancelLayoutRender
 
 async function renderPdfPageBackground(pageEl, pageNum, pageScale) {
   const pdfPage = await pdfDoc.getPage(pageNum)
