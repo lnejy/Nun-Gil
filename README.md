@@ -27,9 +27,7 @@ _웹캠만 있으면 — 시선이 닿는 곳에서 집중이 시작됩니다._
 - [🗄 데이터베이스](#-데이터베이스)
 - [🛠 기술 스택](#-기술-스택)
 - [📂 디렉토리 구조](#-디렉토리-구조)
-- [🚀 로컬 실행](#-로컬-실행)
 - [📱 화면 흐름](#-화면-흐름)
-- [⚠️ 주요 제약 사항](#️-주요-제약-사항)
 - [👨‍💻 팀](#-팀)
 
 ---
@@ -39,6 +37,17 @@ _웹캠만 있으면 — 시선이 닿는 곳에서 집중이 시작됩니다._
 > 눈길은 **웹캠 시선 추적**과 **Claude AI**를 결합한 스마트 학습 보조 서비스입니다.  
 > PDF / PPT 문서를 업로드하면, AI가 요약·마인드맵·퀴즈를 자동 생성하고  
 > 공부하는 동안 시선이 얼마나 집중됐는지를 **집중도 점수**로 분석해 보여줍니다.
+
+### 💡 핵심 — 흩어진 학습 도구를 하나의 흐름으로
+
+기존에는 **문서 뷰어 · 요약/정리 · 문제 풀이 · 집중도 관리**를 각각 다른 앱에서 따로 해야 했습니다.
+눈길은 이 모든 단계를 **하나의 서비스 안에서 끊김 없이 연결**합니다 — 문서를 읽으며 곧바로 AI 학습 자료를 만들고,
+같은 화면에서 시선으로 집중도를 측정하며, 학습이 끝나면 레포트로 돌아봅니다.
+
+```
+문서 업로드  →  읽기(시선 추적)  →  AI 요약·마인드맵·퀴즈  →  집중도 레포트
+   └─────────────── 한 화면, 끊김 없는 단일 학습 흐름 ───────────────┘
+```
 
 ```
 사용자가 PDF를 열고 공부한다
@@ -232,62 +241,6 @@ Nun-Gil/
 
 ---
 
-## 🚀 로컬 실행
-
-### 사전 준비
-
-- Node.js 18+
-- Supabase 프로젝트 (Auth, Storage, PostgreSQL 활성화)
-- Anthropic API 키
-- EyeDID (SeesoSDK) 라이선스 키
-
-### 1. 저장소 클론 & 의존성 설치
-
-```bash
-git clone https://github.com/lnejy/Nun-Gil.git
-cd Nun-Gil
-npm install
-```
-
-### 2. Supabase 환경 설정
-
-`src/lib/supabase.js` 에서 프로젝트 URL과 anon key를 설정합니다.
-
-```js
-// src/lib/supabase.js
-const SUPABASE_URL = 'https://your-project.supabase.co'
-const SUPABASE_ANON_KEY = 'your-anon-key'
-```
-
-### 3. Edge Function 배포 & Secrets 등록
-
-```bash
-# Edge Functions 배포
-npx supabase functions deploy ask-claude
-npx supabase functions deploy analyze-document
-npx supabase functions deploy convert-ppt
-npx supabase functions deploy parse-document
-```
-
-Supabase 대시보드 → **Edge Functions → Secrets** 에 등록:
-
-| Key | 설명 |
-|---|---|
-| `Claude_API_KEY` | Anthropic API 키 |
-| `CLOUDCONVERT_API_KEY` | CloudConvert API 키 |
-| `UPSTAGE_API_KEY` | Upstage Document Parse API 키 |
-
-### 4. 개발 서버 실행
-
-```bash
-node devServer.js
-# → http://localhost:3000
-```
-
-> **주의**: EyeDID SDK는 HTTPS 또는 localhost 환경에서만 카메라 접근이 허용됩니다.
-
----
-
 ## 📱 화면 흐름
 
 ```
@@ -311,23 +264,16 @@ start.html
 
 ---
 
-## ⚠️ 주요 제약 사항
-
-- **아이트래킹**: EyeDID SDK 라이선스 키 필요, HTTPS/localhost 환경 필수
-- **AI 기능**: `ask-claude` Edge Function은 Supabase JWT 인증 필수 (비로그인 차단)
-- **PPT 변환**: CloudConvert 무료 플랜 25회/일 제한
-- **캘리브레이션**: 데이터는 `localStorage` 8시간 캐시 (워크스페이스별)
-- **AI 캐시**: 생성 결과는 `sessionStorage` 캐시 + `learning_assets` 테이블 영구 저장
-
----
-
 ## 👨‍💻 팀
 
 **한성대학교 2026 캡스톤디자인**
 
-| 이름 | 역할 |
-|---|---|
-| - | - |
+| 이름 | 학번 | 전공 | 이메일 |
+|---|---|---|---|
+| 신준호 | 2171080 | 모바일소프트웨어 · 웹공학 | junho020122@hansung.ac.kr |
+| 서유진 | 2371195 | 웹공학 · 모바일소프트웨어 | sseo08267@gmail.com |
+| 원재연 | 2371263 | 빅데이터 · 웹공학 | 016420@naver.com |
+| 신영서 | 2371225 | 모바일소프트웨어 · 웹공학 | ss0125@hansung.ac.kr |
 
 ---
 
