@@ -10,6 +10,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
     onOpenSolvedQuiz,
     onOpenUnsolvedQuiz,
     onOpenPendingQuiz,
+    onDeletePendingQuiz,
     pendingQuizJobs = [],
   } = handlers;
 
@@ -108,6 +109,7 @@ export function renderQuizHome(container, quizAssets = [], handlers = {}) {
     onOpenSolvedQuiz,
     onOpenUnsolvedQuiz,
     onOpenPendingQuiz,
+    onDeletePendingQuiz,
   });
 }
 
@@ -120,17 +122,23 @@ function renderQuizAssetItem(asset, getQuizTitle, index) {
   const types = getTypeLabels(content.types || []);
 
   if (asset.__pending) {
+    const isError = asset.status === "ERROR";
     const statusText =
       asset.status === "RUNNING"
         ? "생성 중..."
-        : asset.status === "ERROR"
+        : isError
           ? "생성 실패"
           : "대기 중...";
 
+    // 실패한 작업은 삭제 버튼을 제공한다. 버튼 중첩(invalid HTML)을 피하려고
+    // 실패 카드는 div로 렌더하고, 내부 삭제 버튼은 클릭 전파를 막는다.
+    const deleteBtn = isError
+      ? `<button class="ng-quiz-asset-delete" type="button" data-delete-job-id="${escapeHtml(asset.id)}" title="삭제">✕</button>`
+      : "";
+
     return `
-      <button
-        class="ng-quiz-asset-item pending"
-        type="button"
+      <div
+        class="ng-quiz-asset-item pending${isError ? " error" : ""}"
         data-pending-job-id="${escapeHtml(asset.id)}"
       >
         <div>
@@ -144,8 +152,9 @@ function renderQuizAssetItem(asset, getQuizTitle, index) {
 
         <div class="ng-quiz-asset-side center">
           <span>${escapeHtml(statusText)}</span>
+          ${deleteBtn}
         </div>
-      </button>
+      </div>
     `;
   }
 
@@ -182,7 +191,17 @@ function bindQuizHomeEvents(quizAssets, handlers = {}) {
     onOpenSolvedQuiz,
     onOpenUnsolvedQuiz,
     onOpenPendingQuiz,
+    onDeletePendingQuiz,
   } = handlers;
+
+  // 실패한 퀴즈 카드의 삭제 버튼 (카드 클릭 전파 차단)
+  document.querySelectorAll(".ng-quiz-asset-delete").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const jobId = btn.dataset.deleteJobId;
+      if (jobId) onDeletePendingQuiz?.(jobId);
+    });
+  });
 
   document.querySelectorAll(".ng-quiz-chip-row").forEach((row) => {
     row.addEventListener("click", (e) => {

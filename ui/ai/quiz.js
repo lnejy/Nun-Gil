@@ -26,6 +26,7 @@ import {
   setCanvasMode,
   enqueueAiTask,
   getAiAssetJobs,
+  removeAiAssetJob,
 } from "./common.js";
 
 import { createQuizPrompt } from "./prompt.js";
@@ -131,6 +132,13 @@ async function renderQuizHomeScreen(container = getCanvas()) {
       renderQuizGeneratingScreen(job || pendingAsset);
     },
 
+    onDeletePendingQuiz: (jobId) => {
+      if (!jobId) return;
+      removeAiAssetJob(jobId);
+      if (openedPendingQuizJobId === jobId) openedPendingQuizJobId = null;
+      renderQuizHomeScreen(container);
+    },
+
     onOpenSolvedQuiz: openSolvedQuiz,
     onOpenUnsolvedQuiz: openUnsolvedQuiz,
   });
@@ -159,6 +167,13 @@ function renderQuizGeneratingScreen(job) {
         ? "앞선 지식 자산 생성이 끝나면 자동으로 시작됩니다."
         : "문서 내용을 바탕으로 퀴즈를 만들고 있습니다.";
 
+  const deleteBtnHtml =
+    status === "ERROR" && job?.id
+      ? `<button id="ngQuizDeleteFailedBtn" class="ng-quiz-soft-btn danger" type="button" data-delete-job-id="${escapeHtml(job.id)}">
+            실패한 퀴즈 삭제
+          </button>`
+      : "";
+
   container.innerHTML = `
     <section class="ng-quiz">
       <div class="ng-quiz-panel">
@@ -171,6 +186,7 @@ function renderQuizGeneratingScreen(job) {
           <button id="ngQuizBackHomeFromGeneratingBtn" class="ng-quiz-soft-btn" type="button">
             ← 퀴즈 홈으로 돌아가기
           </button>
+          ${deleteBtnHtml}
         </div>
       </div>
     </section>
@@ -179,6 +195,15 @@ function renderQuizGeneratingScreen(job) {
   document
     .getElementById("ngQuizBackHomeFromGeneratingBtn")
     ?.addEventListener("click", async () => {
+      openedPendingQuizJobId = null;
+      await renderQuizHomeScreen(getCanvas());
+    });
+
+  document
+    .getElementById("ngQuizDeleteFailedBtn")
+    ?.addEventListener("click", async () => {
+      const jobId = document.getElementById("ngQuizDeleteFailedBtn").dataset.deleteJobId;
+      if (jobId) removeAiAssetJob(jobId);
       openedPendingQuizJobId = null;
       await renderQuizHomeScreen(getCanvas());
     });
